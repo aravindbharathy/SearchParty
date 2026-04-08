@@ -9,6 +9,17 @@ Build the full interview lifecycle: prep packages from company intel, interactiv
 - Interview agent definition exists (from Phase 1)
 - `interview-history.yaml` schema defined (from Phase 1)
 
+### Agent Prompt Pattern (applies to all dashboard-triggered skills)
+Agents spawned via the dashboard run in -p (print) mode and CANNOT read files.
+All context data must be fetched server-side via `POST /api/agent/build-prompt`
+and embedded in the prompt before spawning. The process manager routes agent
+stdout to the target file via the `write_to` directive field.
+
+Each new skill added in this phase must have a corresponding prompt builder
+function in `lib/agent-prompts.ts` that reads the required context files
+(e.g., `intel/{company}.yaml`, `qa-master.yaml`, `interview-history.yaml`)
+and injects them into the prompt text.
+
 ## Deliverables
 
 ### D0: Transcript Format Guide
@@ -30,7 +41,7 @@ Define anchor points: score 2 = vague, no examples, no structure. Score 5 = adeq
 - Your STAR stories mapped to likely question types
 - Questions to ask them (tailored to role + company)
 
-**Dashboard integration**: "Prep for Interview" button on Interviewing page → select company/role/round → spawns Interview agent → prep package rendered.
+**Dashboard integration**: "Prep for Interview" button on Interviewing page -> select company/role/round -> spawns Interview agent -> prep package rendered. Company intel, QA master, interview history, and career plan data are injected via the build-prompt API, not read by the agent.
 
 ### D2: `/mock-interview` Skill (`.claude/skills/mock-interview/SKILL.md`)
 **Agent**: Interview
@@ -64,7 +75,7 @@ Define anchor points: score 2 = vague, no examples, no structure. Score 5 = adeq
 - Pattern analysis: compare to previous interviews — improving? Same mistakes?
 
 **Updates**: `interview-history.yaml` with new interview entry, pattern updates
-**Dashboard integration**: "Debrief Interview" button → paste transcript or select from vault → spawns Interview agent → debrief appears with scored answers.
+**Dashboard integration**: "Debrief Interview" button -> paste transcript or select from vault -> spawns Interview agent -> debrief appears with scored answers. Interview history and transcript content are injected via the build-prompt API, not read by the agent. For vault transcripts, the build-prompt API reads the file content server-side.
 
 ### D4: `/thank-you-note` Skill (`.claude/skills/thank-you-note/SKILL.md`)
 **Agent**: Interview

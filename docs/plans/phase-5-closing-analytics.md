@@ -8,6 +8,17 @@ Complete the job search lifecycle: cover letters, work products, hiring manager 
 - Full pipeline data exists (applications, interviews, contacts)
 - All agents proven working with session resume
 
+### Agent Prompt Pattern (applies to all dashboard-triggered skills)
+Agents spawned via the dashboard run in -p (print) mode and CANNOT read files.
+All context data must be fetched server-side via `POST /api/agent/build-prompt`
+and embedded in the prompt before spawning. The process manager routes agent
+stdout to the target file via the `write_to` directive field.
+
+Each new skill added in this phase must have a corresponding prompt builder
+function in `lib/agent-prompts.ts` that reads the required context files
+(e.g., `experience-library.yaml`, `career-plan.yaml`, `pipeline/offers.yaml`,
+`intel/{company}.yaml`) and injects them into the prompt text.
+
 ## Deliverables
 
 ### D1: `/cover-letter` Skill (`.claude/skills/cover-letter/SKILL.md`)

@@ -232,7 +232,10 @@ User clicks "Tailor Resume" in dashboard
   → Dashboard shows "Resume ready" + rendered output
 ```
 
+**Important: -p mode context injection.** Agents spawned via `claude -p "prompt"` are stateless text processors. They CANNOT read files from disk, write files, or use any Claude Code tools. All context data (experience library, career plan, JD text, vault file contents, etc.) must be fetched server-side and embedded directly in the prompt text before spawning. The `POST /api/agent/build-prompt` route handles this: it reads context YAML files and vault files from disk, then returns a complete prompt string with all data inline. The dashboard calls build-prompt BEFORE spawning, then passes the built prompt to the spawn API. The process manager routes agent stdout to the target file via the `write_to` directive field. See `lib/agent-prompts.ts` for the prompt builder functions.
+
 **API endpoints:**
+- `POST /api/agent/build-prompt` — Build a complete prompt with embedded context for a skill. Must be called before spawn.
 - `POST /api/agent/spawn` — Spawn an agent with a directive. Returns immediately (async).
 - `GET /api/agent/status` — Active agents, recent spawns, session registry.
 - `POST /api/agent/rotate` — Trigger session rotation for an agent (Archivist maintenance).

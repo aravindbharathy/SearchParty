@@ -8,6 +8,17 @@ Build the outreach engine. User can research companies, generate batch connectio
 - Pipeline and application tracking working
 - Agent spawn loop proven end-to-end
 
+### Agent Prompt Pattern (applies to all dashboard-triggered skills)
+Agents spawned via the dashboard run in -p (print) mode and CANNOT read files.
+All context data must be fetched server-side via `POST /api/agent/build-prompt`
+and embedded in the prompt before spawning. The process manager routes agent
+stdout to the target file via the `write_to` directive field.
+
+Each new skill added in this phase must have a corresponding prompt builder
+function in `lib/agent-prompts.ts` that reads the required context files
+(e.g., `target-companies.yaml`, `connection-tracker.yaml`) and injects
+them into the prompt text.
+
 ## Deliverables
 
 ### D1: `/company-research` Skill (`.claude/skills/company-research/SKILL.md`)
@@ -18,7 +29,7 @@ Build the outreach engine. User can research companies, generate batch connectio
 - Single company: creates/updates `search/intel/{company-slug}.yaml` with interview format, rounds, questions, comp data, culture notes. Sources: web search (Glassdoor, Blind, levels.fyi, company careers page).
 - "generate-targets": reads career plan, web-searches for matching companies, generates ranked list of ~100 with fit scores. Writes to `target-companies.yaml`.
 
-**Dashboard integration**: "Research Company" button on Finding page (single company input) + "Generate Target List" button (auto-generates from career plan).
+**Dashboard integration**: "Research Company" button on Finding page (single company input) + "Generate Target List" button (auto-generates from career plan). Context is injected via the build-prompt API (`POST /api/agent/build-prompt` with skill `company-research`), not read by the agent.
 
 ### D2: `/connection-request` Skill (`.claude/skills/connection-request/SKILL.md`)
 **Agent**: Networking
@@ -35,7 +46,7 @@ The agent web-searches each target company to discover contactable people (engin
 - Updates `connection-tracker.yaml` with new contacts and outreach records
 - Creates follow-ups (Day 3, 7, 14) in connection-tracker with `type` field (`connection-nudge`) and `outreach_ref` linking back to the originating outreach event
 
-**Dashboard integration**: "Generate Connection Batch" button on Networking page → shows generated messages for review → user copies to LinkedIn.
+**Dashboard integration**: "Generate Connection Batch" button on Networking page -> shows generated messages for review -> user copies to LinkedIn. Context (target companies, connection tracker, experience library) is injected via the build-prompt API, not read by the agent.
 
 ### D3: `/referral-request` Skill (`.claude/skills/referral-request/SKILL.md`)
 **Agent**: Networking
@@ -49,7 +60,7 @@ The agent web-searches each target company to discover contactable people (engin
 - Updates connection-tracker with outreach record + follow-up schedule
 - Follow-ups include `type` field (`referral-step-2`, `referral-step-3`) and `outreach_ref` linking back to the originating outreach event
 
-**Dashboard integration**: Click contact → "Request Referral" → generates sequence → user sends.
+**Dashboard integration**: Click contact -> "Request Referral" -> generates sequence -> user sends. Connection tracker data is injected via the build-prompt API, not read by the agent.
 
 ### D4: `/linkedin-audit` Skill (`.claude/skills/linkedin-audit/SKILL.md`)
 **Agent**: Networking
@@ -72,7 +83,7 @@ The agent web-searches each target company to discover contactable people (engin
 - Pipeline summary (apps by stage)
 - Suggested actions for today
 
-**Dashboard integration**: Command Center auto-loads daily briefing data on page load. Optional: auto-spawn Coach agent on first dashboard visit of the day.
+**Dashboard integration**: Command Center auto-loads daily briefing data on page load. Optional: auto-spawn Coach agent on first dashboard visit of the day. All pipeline/context data is injected via the build-prompt API, not read by the agent.
 
 **Testing note**: For Phase 3 testing, seed `pipeline/interviews.yaml` with 2 test interview entries manually. Full interview integration testing happens in Phase 4.
 

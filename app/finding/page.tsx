@@ -78,45 +78,29 @@ export default function FindingPage() {
     if (!jdText.trim()) return
     reset()
 
-    // Fetch context data to include in the prompt (agent in -p mode can't read files)
-    let careerPlan = ''
-    let experience = ''
+    // Build prompt server-side (agent in -p mode can't read files —
+    // the build-prompt API reads context from disk and embeds it in the prompt)
+    let builtPrompt = ''
     try {
-      const [cpRes, expRes] = await Promise.all([
-        fetch('/api/context/career-plan'),
-        fetch('/api/context/experience-library'),
-      ])
-      if (cpRes.ok) careerPlan = JSON.stringify(await cpRes.json(), null, 2)
-      if (expRes.ok) experience = JSON.stringify(await expRes.json(), null, 2)
+      const promptRes = await fetch('/api/agent/build-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skill: 'score-jd', params: { jdText: jdText.trim() } }),
+      })
+      if (promptRes.ok) {
+        const data = await promptRes.json() as { prompt: string }
+        builtPrompt = data.prompt
+      }
     } catch {}
+
+    if (!builtPrompt) {
+      // Fallback: send raw JD text if prompt building failed
+      builtPrompt = `Score this job description (context files unavailable):\n\n${jdText}`
+    }
 
     await spawnAgent('research', {
       skill: 'score-jd',
-      text: `You are a job fit scoring expert. Score this job description against the candidate's profile.
-
-CANDIDATE CAREER PLAN:
-${careerPlan || '(not set up yet)'}
-
-CANDIDATE EXPERIENCE:
-${experience || '(not set up yet)'}
-
-JOB DESCRIPTION TO SCORE:
-${jdText}
-
-Score across 5 dimensions (each 0-20, total 0-100):
-1. Level match — does the JD level match the candidate's target?
-2. Function match — do the required functions align?
-3. Industry match — is the industry a good fit?
-4. Skills overlap — how many required skills does the candidate have?
-5. Culture indicators — any alignment signals?
-
-Output format:
-- Overall Fit Score: XX/100
-- Per-dimension scores with brief notes
-- Red flags (visa, relocation, deal breakers)
-- Salary estimate if possible
-- Recommendation: Apply / Referral Only / Skip
-- Gaps: what the JD requires that the candidate lacks`,
+      text: builtPrompt,
     })
   }
 

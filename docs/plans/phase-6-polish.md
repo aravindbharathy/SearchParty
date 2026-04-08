@@ -9,6 +9,16 @@ Ship a complete, production-quality system. Playbook page, comprehensive empty s
 - All dashboard pages functional
 - Accumulated real data from testing prior phases
 
+### Agent Prompt Pattern (applies to all dashboard-triggered skills)
+Agents spawned via the dashboard run in -p (print) mode and CANNOT read files.
+All context data must be fetched server-side via `POST /api/agent/build-prompt`
+and embedded in the prompt before spawning. The process manager routes agent
+stdout to the target file via the `write_to` directive field.
+
+Archivist skills in this phase must also follow this pattern. The build-prompt
+API reads context YAML files, preferences files, and interview history
+server-side and embeds them in the prompt.
+
 ## Deliverables
 
 ### D1: Playbook Page (`app/playbook/page.tsx`)

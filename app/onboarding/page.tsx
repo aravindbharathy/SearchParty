@@ -554,6 +554,27 @@ export default function OnboardingPage() {
     setResumeProcessing(true)
     setResumeError(null)
     try {
+      // Build prompt server-side (agent in -p mode can't read files —
+      // the build-prompt API reads actual resume content from vault/resumes/)
+      let builtPrompt = ''
+      try {
+        const promptRes = await fetch('/api/agent/build-prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ skill: 'setup-experience' }),
+        })
+        if (promptRes.ok) {
+          const data = await promptRes.json() as { prompt: string }
+          builtPrompt = data.prompt
+        }
+      } catch {}
+
+      if (!builtPrompt) {
+        setResumeError('Failed to build prompt — could not read resume files from vault.')
+        setResumeProcessing(false)
+        return
+      }
+
       // Spawn agent with write_to directive — agent outputs YAML, process manager writes it
       const res = await fetch('/api/agent/spawn', {
         method: 'POST',
@@ -563,45 +584,7 @@ export default function OnboardingPage() {
           directive: {
             skill: 'setup-experience',
             write_to: 'context/experience-library.yaml',
-            text: `Read the resume files in search/vault/resumes/ and parse them into a structured experience library.
-
-Output ONLY valid YAML matching this exact schema (no explanations, no markdown, just YAML):
-
-contact:
-  name: ""
-  email: ""
-  phone: ""
-  linkedin: ""
-  location: ""
-summary: "2-3 sentence career summary"
-experiences:
-  - id: exp-001
-    company: "Company Name"
-    role: "Role Title"
-    dates: "2022-2024"
-    projects:
-      - name: "Project Name"
-        metrics: ["Specific measurable achievement"]
-        skills: [skill1, skill2]
-        star_stories:
-          - situation: ""
-            task: ""
-            action: ""
-            result: ""
-education:
-  - institution: ""
-    degree: ""
-    field: ""
-    year: ""
-certifications: []
-skills:
-  technical:
-    - name: "skill"
-      proficiency: "expert"
-      years: 5
-  leadership: []
-
-Extract REAL data from the resume. Push for specifics — include metrics, team sizes, and concrete outcomes. Output ONLY the YAML.`,
+            text: builtPrompt,
           },
         }),
       })
