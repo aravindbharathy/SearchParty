@@ -244,39 +244,73 @@ class ProcessManager {
         if (!existsSync(targetDir)) mkdirSync(targetDir, { recursive: true })
 
         // Try to extract just the YAML/content portion from agent output
-        // Agents may wrap content in markdown code blocks
         const cleanedOutput = this.extractContent(output, writeTo)
-        writeFileSync(targetPath, cleanedOutput)
-        console.log(`[process-manager] wrote output to: ${writeTo}`)
+
+        // Validate YAML before writing to context files — don't corrupt them
+        if (writeTo.endsWith('.yaml') || writeTo.endsWith('.yml')) {
+          try {
+            const parsed = YAML.parse(cleanedOutput)
+            if (!parsed || typeof parsed !== 'object') {
+              console.error(`[process-manager] extracted content is not valid YAML object, saving as entry instead`)
+              this.saveAsEntry(skill, timestamp, spawnId, output)
+              return
+            }
+            writeFileSync(targetPath, YAML.stringify(parsed))
+            console.log(`[process-manager] wrote validated YAML to: ${writeTo}`)
+          } catch (yamlErr) {
+            console.error(`[process-manager] YAML parse failed for ${writeTo}, saving raw output as entry instead:`, yamlErr)
+            this.saveAsEntry(skill, timestamp, spawnId, output)
+            return
+          }
+        } else {
+          writeFileSync(targetPath, cleanedOutput)
+          console.log(`[process-manager] wrote output to: ${writeTo}`)
+        }
       } else {
-        // Default: save as entry file
-        const entriesDir = join(this.searchDir, 'entries')
-        if (!existsSync(entriesDir)) mkdirSync(entriesDir, { recursive: true })
-        const filename = `${skill}-${timestamp}-${spawnId.slice(-6)}.md`
-        writeFileSync(join(entriesDir, filename), output)
-        console.log(`[process-manager] saved entry: ${filename}`)
+        this.saveAsEntry(skill, timestamp, spawnId, output)
       }
     } catch (err) {
       console.error('[process-manager] failed to route output:', err)
     }
   }
 
+  private saveAsEntry(skill: string, timestamp: string, spawnId: string, output: string): void {
+    try {
+      const entriesDir = join(this.searchDir, 'entries')
+      if (!existsSync(entriesDir)) mkdirSync(entriesDir, { recursive: true })
+      const filename = `${skill}-${timestamp}-${spawnId.slice(-6)}.md`
+      writeFileSync(join(entriesDir, filename), output)
+      console.log(`[process-manager] saved entry: ${filename}`)
+    } catch (err) {
+      console.error('[process-manager] failed to save entry:', err)
+    }
+  }
+
   /**
    * Extract content from agent output, handling markdown code blocks.
-   * If writing to a .yaml file, try to extract YAML from code blocks.
-   * If writing to a .md file, use output as-is.
+   * For YAML targets: extract from code blocks, or find YAML structure in output.
+   * For other targets: use output as-is.
    */
   private extractContent(output: string, targetPath: string): string {
     if (targetPath.endsWith('.yaml') || targetPath.endsWith('.yml')) {
-      // Try to extract YAML from ```yaml ... ``` blocks
-      const yamlMatch = output.match(/```(?:yaml|yml)?\s*\n([\s\S]*?)```/)
+      // Priority 1: Extract from ```yaml ... ``` code blocks
+      const yamlMatch = output.match(/```(?:yaml|yml)\s*\n([\s\S]*?)```/)
       if (yamlMatch) return yamlMatch[1].trim()
 
-      // Try to detect if the whole output is YAML (starts with a key)
-      const trimmed = output.trim()
-      if (trimmed.match(/^[a-z_]/m) && (trimmed.includes(':') || trimmed.includes('-'))) {
-        return trimmed
+      // Priority 2: Find the start of actual YAML structure
+      // Look for known top-level keys that signal the start of the schema
+      const knownKeys = ['contact:', 'summary:', 'experiences:', 'target:', 'salary_expectations:', 'companies:', 'contacts:', 'interviews:']
+      const lines = output.split('\n')
+      for (let i = 0; i < lines.length; i++) {
+        const trimmedLine = lines[i].trim()
+        if (knownKeys.some(key => trimmedLine.startsWith(key))) {
+          // Found the start of YAML — take everything from here
+          return lines.slice(i).join('\n').trim()
+        }
       }
+
+      // Priority 3: Try the whole output (last resort)
+      return output.trim()
     }
     return output
   }
