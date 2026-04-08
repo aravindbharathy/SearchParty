@@ -71,7 +71,10 @@ export const ExperienceLibrarySchema = z.object({
   certifications: z.array(z.string()).default([]),
   skills: z.object({
     technical: z.array(TechnicalSkillSchema).default([]),
-    leadership: z.array(z.string()).default([]),
+    leadership: z.array(z.union([
+      z.string(),
+      TechnicalSkillSchema,
+    ])).default([]),
   }).default({ technical: [], leadership: [] }),
 })
 
