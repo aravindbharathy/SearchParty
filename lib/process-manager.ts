@@ -147,8 +147,9 @@ class ProcessManager {
       }
       this.saveSessions(sessions)
 
-      // Cap output buffer to prevent unbounded memory growth
-      const MAX_OUTPUT = 8192
+      // Cap output buffer — 64KB for write_to targets (need full YAML), 8KB otherwise
+      const hasWriteTo = !!request.directive.write_to
+      const MAX_OUTPUT = hasWriteTo ? 65536 : 8192
       let output = ''
 
       child.stdout?.on('data', (data: Buffer) => {
@@ -293,24 +294,37 @@ class ProcessManager {
    */
   private extractContent(output: string, targetPath: string): string {
     if (targetPath.endsWith('.yaml') || targetPath.endsWith('.yml')) {
-      // Priority 1: Extract from ```yaml ... ``` code blocks
-      const yamlMatch = output.match(/```(?:yaml|yml)\s*\n([\s\S]*?)```/)
-      if (yamlMatch) return yamlMatch[1].trim()
+      // Priority 1: Extract from ```yaml ... ``` code blocks (greedy — get largest block)
+      const yamlBlocks = [...output.matchAll(/```(?:yaml|yml)?\s*\n([\s\S]*?)```/g)]
+      if (yamlBlocks.length > 0) {
+        // Use the longest block (most likely the full YAML)
+        const longest = yamlBlocks.reduce((a, b) => a[1].length > b[1].length ? a : b)
+        return longest[1].trim()
+      }
 
-      // Priority 2: Find the start of actual YAML structure
-      // Look for known top-level keys that signal the start of the schema
+      // Priority 2: Find the start of actual YAML structure and strip non-YAML lines
       const knownKeys = ['contact:', 'summary:', 'experiences:', 'target:', 'salary_expectations:', 'companies:', 'contacts:', 'interviews:']
       const lines = output.split('\n')
+      let startIdx = -1
       for (let i = 0; i < lines.length; i++) {
         const trimmedLine = lines[i].trim()
         if (knownKeys.some(key => trimmedLine.startsWith(key))) {
-          // Found the start of YAML — take everything from here
-          return lines.slice(i).join('\n').trim()
+          startIdx = i
+          break
         }
       }
 
-      // Priority 3: Try the whole output (last resort)
-      return output.trim()
+      if (startIdx >= 0) {
+        // Take from the YAML start, strip any trailing markdown fences or non-YAML
+        const yamlLines = lines.slice(startIdx).filter(line => {
+          const t = line.trim()
+          return !t.startsWith('```')  // strip code fences
+        })
+        return yamlLines.join('\n').trim()
+      }
+
+      // Priority 3: Strip all code fences and try the whole output
+      return output.replace(/```(?:yaml|yml)?\s*\n?/g, '').trim()
     }
     return output
   }
