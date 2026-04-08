@@ -253,14 +253,14 @@ class ProcessManager {
             const parsed = YAML.parse(cleanedOutput)
             if (!parsed || typeof parsed !== 'object') {
               console.error(`[process-manager] extracted content is not valid YAML object, saving as entry instead`)
-              this.saveAsEntry(skill, timestamp, spawnId, output)
+              this.saveAsEntry(skill, timestamp, spawnId, output, request.directive)
               return
             }
             writeFileSync(targetPath, YAML.stringify(parsed))
             console.log(`[process-manager] wrote validated YAML to: ${writeTo}`)
           } catch (yamlErr) {
             console.error(`[process-manager] YAML parse failed for ${writeTo}, saving raw output as entry instead:`, yamlErr)
-            this.saveAsEntry(skill, timestamp, spawnId, output)
+            this.saveAsEntry(skill, timestamp, spawnId, output, request.directive)
             return
           }
         } else {
@@ -268,19 +268,36 @@ class ProcessManager {
           console.log(`[process-manager] wrote output to: ${writeTo}`)
         }
       } else {
-        this.saveAsEntry(skill, timestamp, spawnId, output)
+        this.saveAsEntry(skill, timestamp, spawnId, output, request.directive)
       }
     } catch (err) {
       console.error('[process-manager] failed to route output:', err)
     }
   }
 
-  private saveAsEntry(skill: string, timestamp: string, spawnId: string, output: string): void {
+  private saveAsEntry(skill: string, timestamp: string, spawnId: string, output: string, directive?: Record<string, unknown>): void {
     try {
       const entriesDir = join(this.searchDir, 'entries')
       if (!existsSync(entriesDir)) mkdirSync(entriesDir, { recursive: true })
-      const filename = `${skill}-${timestamp}-${spawnId.slice(-6)}.md`
-      writeFileSync(join(entriesDir, filename), output)
+
+      // Use entry_name from directive for contextual filenames (e.g., "stripe-staff-engineer")
+      const entryName = typeof directive?.entry_name === 'string' ? directive.entry_name : ''
+      const namePart = entryName ? `-${entryName}` : ''
+      const filename = `${skill}${namePart}-${timestamp}.md`
+
+      // Prepend metadata header if available
+      const metadata = directive?.metadata as Record<string, string> | undefined
+      let header = ''
+      if (metadata) {
+        const parts: string[] = []
+        if (metadata.company) parts.push(`Company: ${metadata.company}`)
+        if (metadata.role) parts.push(`Role: ${metadata.role}`)
+        if (metadata.url) parts.push(`URL: ${metadata.url}`)
+        parts.push(`Date: ${new Date().toISOString().split('T')[0]}`)
+        header = `---\n${parts.join('\n')}\n---\n\n`
+      }
+
+      writeFileSync(join(entriesDir, filename), header + output)
       console.log(`[process-manager] saved entry: ${filename}`)
     } catch (err) {
       console.error('[process-manager] failed to save entry:', err)

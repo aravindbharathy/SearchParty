@@ -10,6 +10,8 @@ interface ScoredJD {
   score: number
   recommendation: string
   path: string
+  url: string
+  date: string
 }
 
 interface TargetCompany {
@@ -49,6 +51,9 @@ interface CompanyIntel {
 
 export default function FindingPage() {
   const [jdText, setJdText] = useState('')
+  const [jdCompany, setJdCompany] = useState('')
+  const [jdRole, setJdRole] = useState('')
+  const [jdUrl, setJdUrl] = useState('')
   const [scoredJDs, setScoredJDs] = useState<ScoredJD[]>([])
   const [companies, setCompanies] = useState<TargetCompany[]>([])
   const [vaultJDs, setVaultJDs] = useState<string[]>([])
@@ -144,6 +149,10 @@ export default function FindingPage() {
     if (!jdText.trim()) return
     reset()
 
+    // Use provided company/role or auto-detected
+    const company = jdCompany.trim() || detectedCompany?.name || ''
+    const role = jdRole.trim() || ''
+
     let builtPrompt = ''
     try {
       const promptRes = await fetch('/api/agent/build-prompt', {
@@ -161,8 +170,13 @@ export default function FindingPage() {
       builtPrompt = `Score this job description (context files unavailable):\n\n${jdText}`
     }
 
+    // Build a slug for the entry filename: company-role-date
+    const slug = [company, role].filter(Boolean).join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unknown'
+
     await spawnAgent('research', {
       skill: 'score-jd',
+      entry_name: slug,  // process manager uses this for filename
+      metadata: { company, role, url: jdUrl.trim() },
       text: builtPrompt,
     })
   }
@@ -293,7 +307,10 @@ export default function FindingPage() {
   const prefillScoreJDForCompany = (companyName: string) => {
     setSelectedIntelSlug(null)
     setIntelData(null)
-    setJdText(`[Paste JD for ${companyName} here]\n\nCompany: ${companyName}`)
+    setJdCompany(companyName)
+    setJdRole('')
+    setJdUrl('')
+    setJdText('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -333,21 +350,64 @@ export default function FindingPage() {
           {/* Score JD Action */}
           <div className="bg-surface border border-border rounded-lg p-5">
             <h2 className="font-semibold mb-3">Score a Job Description</h2>
-            <textarea
-              value={jdText}
-              onChange={(e) => setJdText(e.target.value)}
-              placeholder="Paste a job description here..."
-              className="w-full h-40 p-3 border border-border rounded-md bg-bg text-text text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent/40"
-            />
-            {/* FIX 4: Auto-detect company from JD text */}
-            {detectedCompany && (
-              <div className="mt-1 text-xs text-accent flex items-center gap-1">
+
+            {/* Company + Role row */}
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">Company name</label>
+                <input
+                  value={jdCompany}
+                  onChange={(e) => setJdCompany(e.target.value)}
+                  placeholder={detectedCompany?.name || 'e.g. Stripe'}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1">Role title</label>
+                <input
+                  value={jdRole}
+                  onChange={(e) => setJdRole(e.target.value)}
+                  placeholder="e.g. Staff Engineer"
+                  className="w-full px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+                />
+              </div>
+            </div>
+
+            {/* Job URL (optional) */}
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-text-muted mb-1">Job posting URL <span className="text-text-muted font-normal">(optional)</span></label>
+              <input
+                value={jdUrl}
+                onChange={(e) => setJdUrl(e.target.value)}
+                placeholder="https://jobs.stripe.com/..."
+                className="w-full px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+              />
+            </div>
+
+            {/* JD text */}
+            <div className="mb-1">
+              <label className="block text-xs font-medium text-text-muted mb-1">Job description</label>
+              <textarea
+                value={jdText}
+                onChange={(e) => setJdText(e.target.value)}
+                placeholder="Paste the full job description here..."
+                className="w-full h-40 p-3 border border-border rounded-md bg-bg text-text text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent/40"
+              />
+            </div>
+            {/* Auto-detect company from JD text */}
+            {!jdCompany && detectedCompany && (
+              <div className="mb-2 text-xs text-accent flex items-center gap-1">
                 <span>Detected target company:</span>
-                <span className="font-medium">{detectedCompany.name}</span>
-                <span className="text-text-muted">({detectedCompany.priority} priority, fit {detectedCompany.fit_score}/100)</span>
+                <button
+                  onClick={() => setJdCompany(detectedCompany.name)}
+                  className="font-medium underline hover:no-underline"
+                >
+                  {detectedCompany.name}
+                </button>
+                <span className="text-text-muted">— click to use</span>
               </div>
             )}
-            <div className="flex items-center gap-3 mt-3">
+            <div className="flex items-center gap-3 mt-2">
               <button
                 onClick={handleScoreJD}
                 disabled={!jdText.trim() || status === 'running'}
@@ -497,11 +557,25 @@ export default function FindingPage() {
                       className="w-full text-left"
                     >
                       <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-sm">{jd.company}</span>
-                          <span className="text-text-muted text-sm"> -- {jd.role}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-sm truncate">{jd.company}</span>
+                            {jd.url && (
+                              <a
+                                href={jd.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-accent hover:text-accent-hover flex-shrink-0"
+                                title="Open job posting"
+                              >
+                                ↗
+                              </a>
+                            )}
+                          </div>
+                          <div className="text-text-muted text-xs">{jd.role}{jd.date ? ` · ${jd.date}` : ''}</div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                             jd.score >= 75
                               ? 'bg-success/10 text-success'
