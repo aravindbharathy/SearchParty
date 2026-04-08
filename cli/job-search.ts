@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Job Search OS — CLI Launcher
+ * Search Party — CLI Launcher
  *
  * Commands:
  *   job-search start   — Starts blackboard server (:8790) and Next.js dashboard (:8791). Opens browser.
@@ -106,7 +106,7 @@ async function startServices(): Promise<void> {
     process.exit(1)
   }
 
-  console.log('Starting Job Search OS...\n')
+  console.log('Starting Search Party...\n')
 
   // 1. Start blackboard server
   console.log(`  Starting blackboard server on :${BLACKBOARD_PORT}...`)
@@ -183,7 +183,7 @@ async function startServices(): Promise<void> {
 }
 
 async function stopServices(): Promise<void> {
-  console.log('Stopping Job Search OS...\n')
+  console.log('Stopping Search Party...\n')
   let stopped = 0
 
   for (const name of ['dashboard', 'blackboard']) {
@@ -207,7 +207,7 @@ async function stopServices(): Promise<void> {
 }
 
 async function showStatus(): Promise<void> {
-  console.log('Job Search OS Status\n')
+  console.log('Search Party Status\n')
 
   const services = [
     { name: 'Blackboard Server', port: BLACKBOARD_PORT, pidName: 'blackboard' },

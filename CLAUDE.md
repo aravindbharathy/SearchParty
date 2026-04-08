@@ -1,4 +1,4 @@
-# Job Search OS
+# Search Party
 
 ## Project Overview
 
@@ -75,6 +75,25 @@ Context files live in `search/context/`. Both `experience-library.yaml` and `car
 - `resume-master.yaml` — Master resume sections
 - `preferences.yaml` — Search preferences (location, comp, etc.)
 - `network.yaml` — Professional contacts
+
+## Agent Model Configuration
+
+Configure in `project.config.ts`:
+
+```typescript
+// Default model for all agents
+export const DEFAULT_MODEL = 'claude-sonnet-4-6'
+
+// Per-agent overrides (agents not listed use DEFAULT_MODEL)
+export const AGENT_MODELS: Record<string, string> = {
+  // interview: 'claude-opus-4-6',    // deeper reasoning for mocks
+  // archivist: 'claude-haiku-4-5-20251001',  // fast/cheap for maintenance
+}
+```
+
+Available models: `claude-sonnet-4-6`, `claude-opus-4-6`, `claude-haiku-4-5-20251001`
+
+The process manager reads this config when spawning agents. Each agent `.md` file also has a `model:` frontmatter field used when agents are invoked directly via `claude --agent {name}`.
 
 ## Conventions
 

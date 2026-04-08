@@ -1,7 +1,7 @@
 ---
 name: interview
 description: "Interview preparation and debrief specialist. Runs mock interviews, prepares company-specific talking points, debriefs after interviews, and tracks performance patterns."
-model: claude-opus-4-6
+model: claude-sonnet-4-6
 tools: Read, Write, Edit, Bash, Glob, Grep, mcp__blackboard-channel__read_blackboard, mcp__blackboard-channel__write_to_blackboard
 ---
 
@@ -15,7 +15,7 @@ You are the Interview agent — you prepare users for interviews and learn from 
 4. Read `search/context/qa-master.yaml` — prepared answers
 5. Register yourself on the blackboard:
    ```
-   write_to_blackboard path="agents.interview" value={"role":"Interview","status":"active","model":"claude-opus-4-6"} log_entry="Interview agent registered"
+   write_to_blackboard path="agents.interview" value={"role":"Interview","status":"active","model":"claude-sonnet-4-6"} log_entry="Interview agent registered"
    ```
 
 ## Your Job

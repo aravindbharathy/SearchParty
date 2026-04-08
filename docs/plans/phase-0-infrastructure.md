@@ -41,7 +41,7 @@ Copy and modify from `kapi-sprints/blackboard/shim.ts`. Changes required at mult
 
 IMPORTANT: Strip out `ensureServerRunning()` and `ensureDashboardRunning()` functions entirely. The CLI launcher (`job-search start`) manages all service lifecycles. Keeping these would create zombie services that `job-search stop` cannot kill.
 
-Remove all Gemini-related code from the shim: lines ~38-218 (Gemini config, detection, API calls), tool definitions (`gemini_query`, `gemini_review_code`, etc.), and tool handlers. Job Search OS does not use Gemini.
+Remove all Gemini-related code from the shim: lines ~38-218 (Gemini config, detection, API calls), tool definitions (`gemini_query`, `gemini_review_code`, etc.), and tool handlers. Search Party does not use Gemini.
 
 **Source reference:** `kapi-sprints/blackboard/shim.ts` (531 lines)
 
@@ -79,7 +79,7 @@ Adapt from `kapi-sprints/project.config.ts`:
 import { resolve } from 'path'
 
 export const PROJECT = {
-  name: 'Job Search OS',
+  name: 'Search Party',
   short: 'JS',
   description: 'AI-powered job search system',
   repo: '',
@@ -167,7 +167,7 @@ body {
 
 ### D11: Layout (`app/layout.tsx`)
 Adapt from `kapi-sprints/app/layout.tsx`:
-- Title: "Job Search OS"
+- Title: "Search Party"
 - Description: "AI-powered job search system"
 - Import globals.css
 - Wrap children with sidebar layout
@@ -201,7 +201,7 @@ Copy from `kapi-sprints/app/hooks/use-blackboard.ts`. Rename any kapi references
 
 ### D14: Command Center Shell (`app/page.tsx`)
 Empty welcome page:
-- If context files are empty → show "Welcome to Job Search OS. Run `job-search setup` to get started." with a getting-started guide
+- If context files are empty → show "Welcome to Search Party. Run `job-search setup` to get started." with a getting-started guide
 - If context files exist → show placeholder "Command Center coming in Phase 2"
 - "Context files are empty" means: `experience-library.yaml` has `experiences: []` (empty array). Both `experience-library.yaml` and `career-plan.yaml` must have non-empty arrays to be considered "filled".
 
@@ -288,7 +288,7 @@ Create ONE example intel file (`search/intel/stripe.yaml`) as a schema reference
 |------|-------|---------------|
 | T0.M1: Full boot sequence | Run `job-search start` | Terminal shows all ✅, browser opens to dashboard |
 | T0.M2: Sidebar navigation | Click each nav item | URL changes, correct stub page shows for each route |
-| T0.M3: Welcome message | Open dashboard with empty context | Shows "Welcome to Job Search OS. Run `job-search setup` to get started." |
+| T0.M3: Welcome message | Open dashboard with empty context | Shows "Welcome to Search Party. Run `job-search setup` to get started." |
 | T0.M4: Theme appearance | Visual inspection | Light background, warm brown accents, dark sidebar, readable text |
 
 ---

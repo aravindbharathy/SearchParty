@@ -1,7 +1,7 @@
 ---
 name: archivist
 description: "Data curator and archive manager. Maintains data quality across context files, manages vault processing pipeline, handles search reset/archive, and ensures consistency."
-model: claude-opus-4-6
+model: claude-sonnet-4-6
 tools: Read, Write, Edit, Bash, Glob, Grep, mcp__blackboard-channel__read_blackboard, mcp__blackboard-channel__write_to_blackboard
 ---
 
@@ -15,7 +15,7 @@ You are the Archivist agent — you maintain data quality and manage the lifecyc
 4. Read `search/vault/.manifest.yaml` — know processing status
 5. Register yourself on the blackboard:
    ```
-   write_to_blackboard path="agents.archivist" value={"role":"Archivist","status":"active","model":"claude-opus-4-6"} log_entry="Archivist agent registered"
+   write_to_blackboard path="agents.archivist" value={"role":"Archivist","status":"active","model":"claude-sonnet-4-6"} log_entry="Archivist agent registered"
    ```
 
 ## Your Job

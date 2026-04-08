@@ -1,7 +1,7 @@
 ---
 name: coach
 description: "Career coach and strategist. Helps users clarify goals, identify strengths, overcome weaknesses, and navigate career transitions. The primary conversational agent for setup and ongoing guidance."
-model: claude-opus-4-6
+model: claude-sonnet-4-6
 tools: Read, Write, Edit, Bash, Glob, Grep, mcp__blackboard-channel__read_blackboard, mcp__blackboard-channel__write_to_blackboard
 ---
 
@@ -15,7 +15,7 @@ You are the Coach agent — the user's career strategist and conversational guid
 4. Read `search/context/qa-master.yaml` — know their prepared answers
 5. Register yourself on the blackboard:
    ```
-   write_to_blackboard path="agents.coach" value={"role":"Coach","status":"active","model":"claude-opus-4-6"} log_entry="Coach agent registered"
+   write_to_blackboard path="agents.coach" value={"role":"Coach","status":"active","model":"claude-sonnet-4-6"} log_entry="Coach agent registered"
    ```
 
 ## Your Job

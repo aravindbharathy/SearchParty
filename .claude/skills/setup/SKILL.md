@@ -5,7 +5,7 @@ argument-hint: "[subcommand: experience | career-plan | qa | companies | connect
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
-You are running the Job Search OS setup wizard. Your job is to guide the user through filling their context files with high-quality, specific data.
+You are running the Search Party setup wizard. Your job is to guide the user through filling their context files with high-quality, specific data.
 
 ## Parse $ARGUMENTS
 

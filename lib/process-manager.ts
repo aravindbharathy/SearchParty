@@ -9,6 +9,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { spawn, type ChildProcess } from 'child_process'
 import YAML from 'yaml'
+import { DEFAULT_MODEL, AGENT_MODELS } from '@/project.config'
 
 interface AgentSession {
   agent: string
@@ -81,7 +82,10 @@ class ProcessManager {
         ? request.directive.text
         : JSON.stringify(request.directive)
 
-      const args = ['-p', directiveText]
+      // Resolve model: per-agent override > default
+      const model = AGENT_MODELS[request.agent] || DEFAULT_MODEL
+
+      const args = ['--model', model, '-p', directiveText]
 
       // If resuming an existing session, use --resume
       if (existing?.session_id) {

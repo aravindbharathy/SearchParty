@@ -34,7 +34,7 @@ export function Sidebar({ connected, urgencyCount, activePage }: SidebarProps) {
       {/* Header */}
       <div className="px-4 py-5 border-b border-white/10">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold tracking-tight text-white">Job Search OS</span>
+          <span className="text-lg font-semibold tracking-tight text-white">Search Party</span>
         </div>
         <div className="flex items-center gap-2 mt-2 text-xs">
           <span

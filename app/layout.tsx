@@ -3,7 +3,7 @@ import './globals.css'
 import { LayoutShell } from './_components/layout-shell'
 
 export const metadata: Metadata = {
-  title: 'Job Search OS',
+  title: 'Search Party',
   description: 'AI-powered job search system',
 }
 

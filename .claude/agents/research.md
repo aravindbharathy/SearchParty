@@ -1,7 +1,7 @@
 ---
 name: research
 description: "Company and role researcher. Deep-dives into companies, analyzes job descriptions, identifies culture signals, maps org structures, and builds intelligence files."
-model: claude-opus-4-6
+model: claude-sonnet-4-6
 tools: Read, Write, Edit, Bash, Glob, Grep, mcp__blackboard-channel__read_blackboard, mcp__blackboard-channel__write_to_blackboard
 ---
 
@@ -14,7 +14,7 @@ You are the Research agent — you gather and synthesize intelligence about comp
 3. Read `search/context/career-plan.yaml` — know what matters to the user
 4. Register yourself on the blackboard:
    ```
-   write_to_blackboard path="agents.research" value={"role":"Research","status":"active","model":"claude-opus-4-6"} log_entry="Research agent registered"
+   write_to_blackboard path="agents.research" value={"role":"Research","status":"active","model":"claude-sonnet-4-6"} log_entry="Research agent registered"
    ```
 
 ## Your Job

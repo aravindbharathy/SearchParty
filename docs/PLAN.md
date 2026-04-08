@@ -1,8 +1,8 @@
-# Job Search OS — Implementation Plan
+# Search Party — Implementation Plan
 
 ## Context
 
-We're adapting the Kapi Sprints multi-agent coordination system (a coding workflow tool) into a **Job Search OS** — a multi-agent system that automates and systematizes the full job search lifecycle. The concept is based on the [GrowthPioneer Job Search OS](https://growthpioneer.gumroad.com/l/jobsearchos): 23 AI-powered skills, 4 AI reviewers, a context system, and a pipeline dashboard — all running in Claude Code.
+We're adapting the Kapi Sprints multi-agent coordination system (a coding workflow tool) into a **Search Party** — a multi-agent system that automates and systematizes the full job search lifecycle. The concept is based on the [GrowthPioneer Search Party](https://growthpioneer.gumroad.com/l/jobsearchos): 23 AI-powered skills, 4 AI reviewers, a context system, and a pipeline dashboard — all running in Claude Code.
 
 The Kapi Sprints architecture (blackboard server, MCP shim, agent definitions, skills, Next.js dashboard) provides the scaffolding. We rewrite the domain layer (agents, skills, dashboard pages, shared state schema) for job search.
 
@@ -50,7 +50,7 @@ The Kapi Sprints architecture (blackboard server, MCP shim, agent definitions, s
 | `.mcp.json` | root | Add `BLACKBOARD_DIR` env var pointing to `search/` |
 | MCP Shim | `blackboard/shim.ts` | One-line fix: change `const kapiDir = join(projectDir, 'kapi')` to `const kapiDir = process.env.BLACKBOARD_DIR \|\| join(projectDir, 'kapi')` so the .mcp.json env var is respected |
 | Blackboard server | `blackboard/server.ts` | Change `ensureKapiStructure()` to create `search/` dirs (vault/, context/, pipeline/, output/, intel/). Add `priority`/`due` fields to directive interface |
-| `project.config.ts` | root | `name: 'Job Search OS'`, `short: 'JS'`, `opsDir: 'search'` |
+| `project.config.ts` | root | `name: 'Search Party'`, `short: 'JS'`, `opsDir: 'search'` |
 | `/post` skill | `.claude/skills/post/SKILL.md` | Change paths from `kapi/` to `search/` |
 | Layout + globals.css | `app/layout.tsx`, `app/globals.css` | New title/metadata + warm theme CSS (light base, brown/cream/green palette) — this is a full theme rewrite, not just a title change |
 
@@ -199,7 +199,7 @@ A thin Bun/Node script that bootstraps the entire system:
 
 ```bash
 $ job-search start
-🚀 Job Search OS starting...
+🚀 Search Party starting...
   ✅ Blackboard server on :8790
   ✅ Dashboard on :8791
   ✅ Process manager singleton active (agents spawn on-demand)
@@ -284,11 +284,11 @@ Updated after every spawn. Used by process manager for `--resume` flag.
 ### How vs. GrowthPioneer's Approach
 
 GrowthPioneer = stateless skills reading static files. Same output on Day 1 and Day 30.
-Job Search OS = stateful agents with persistent session memory reading living files. Output calibrates to the user over time.
+Search Party = stateful agents with persistent session memory reading living files. Output calibrates to the user over time.
 
 Example: `/resume-tailor` on Day 30:
 - GrowthPioneer: reads YAML, produces generic-quality resume, user re-corrects same issues
-- Job Search OS: Resume agent resumes session with 29 prior interactions, knows user's style preferences, produces pre-calibrated resume with minimal edits needed
+- Search Party: Resume agent resumes session with 29 prior interactions, knows user's style preferences, produces pre-calibrated resume with minimal edits needed
 
 ### Session Rotation (handling bloat)
 
@@ -679,7 +679,7 @@ For ALL other companies, Research agent builds the profile from scratch via web 
 - Set `BLACKBOARD_DIR` in `.mcp.json` env to point at `search/`
 - Build `cli/job-search.ts` — CLI launcher with `start`, `stop`, `status`, `setup` commands
 - Build `lib/process-manager.ts` — on-demand agent spawning, session registry management, `POST /api/agent/spawn` endpoint
-- Create `project.config.ts` (`name: 'Job Search OS'`, `opsDir: 'search'`)
+- Create `project.config.ts` (`name: 'Search Party'`, `opsDir: 'search'`)
 - Create `CLAUDE.md` with job search workflow docs
 - Copy `package.json` (update name/description), install deps
 - Create `search/` directory tree with empty state files + vault subfolders + `agents/sessions.yaml`
