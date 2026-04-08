@@ -15,12 +15,21 @@ interface ScoredJD {
 }
 
 function parseScoreFromContent(content: string): { score: number; recommendation: string } {
-  // Try to extract "Overall Fit Score: XX/100"
-  const scoreMatch = content.match(/(?:Overall\s+)?Fit\s+Score:\s*(\d+)\s*\/\s*100/i)
+  // Extract "Overall Fit Score: XX/100" — handles markdown bold (**), whitespace, etc.
+  const scoreMatch = content.match(/(?:Overall\s+)?Fit\s+Score[:\s]*\*{0,2}\s*(\d+)\s*\/\s*100\s*\*{0,2}/i)
   const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0
 
-  // Try to extract recommendation
-  const recMatch = content.match(/Recommendation:\s*\*{0,2}(Apply|Referral Only|Skip)\*{0,2}/i)
+  // Fallback: look for any "XX/100" pattern near "score"
+  if (!scoreMatch) {
+    const fallback = content.match(/score[:\s]*\*{0,2}\s*(\d+)\s*\/\s*100/i)
+    if (fallback) {
+      const fbScore = parseInt(fallback[1], 10)
+      if (fbScore > 0 && fbScore <= 100) return { score: fbScore, recommendation: fbScore >= 75 ? 'Apply' : fbScore >= 60 ? 'Referral Only' : 'Skip' }
+    }
+  }
+
+  // Extract recommendation — handles markdown bold
+  const recMatch = content.match(/Recommendation[:\s]*\*{0,2}\s*(Apply|Referral Only|Skip)\s*\*{0,2}/i)
   const recommendation = recMatch ? recMatch[1] : (score >= 75 ? 'Apply' : score >= 60 ? 'Referral Only' : 'Skip')
 
   return { score, recommendation }
