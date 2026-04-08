@@ -30,7 +30,7 @@ export const PROJECT = {
  *
  * Available: 'claude-sonnet-4-6' | 'claude-opus-4-6' | 'claude-haiku-4-5-20251001'
  */
-export const DEFAULT_MODEL = 'claude-sonnet-4-6'
+export const DEFAULT_MODEL = 'claude-haiku-4-5-20251001'
 
 /**
  * Per-agent model overrides. Agents not listed here use DEFAULT_MODEL.

@@ -182,21 +182,9 @@ class ProcessManager {
           this.saveSessions(currentSessions)
         }
 
-        // Save agent output as an entry file so dashboard pages can read it
+        // Route agent output to the right file based on directive
         if (code === 0 && output.trim()) {
-          try {
-            const entriesDir = join(this.searchDir, 'entries')
-            if (!existsSync(entriesDir)) mkdirSync(entriesDir, { recursive: true })
-
-            const skill = typeof request.directive.skill === 'string' ? request.directive.skill : request.agent
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-            const filename = `${skill}-${timestamp}-${spawnId.slice(-6)}.md`
-
-            writeFileSync(join(entriesDir, filename), output.trim())
-            console.log(`[process-manager] saved entry: ${filename}`)
-          } catch (err) {
-            console.error('[process-manager] failed to save entry file:', err)
-          }
+          this.routeOutput(request, output.trim(), spawnId)
         }
       })
 
@@ -236,6 +224,61 @@ class ProcessManager {
       active: this.processes.size,
       agents,
     }
+  }
+
+  /**
+   * Route agent output to the correct file based on the directive.
+   * - If directive.write_to is set: write directly to that path (relative to search/)
+   * - Otherwise: save as an entry file in search/entries/
+   */
+  private routeOutput(request: SpawnRequest, output: string, spawnId: string): void {
+    try {
+      const writeTo = request.directive.write_to as string | undefined
+      const skill = typeof request.directive.skill === 'string' ? request.directive.skill : request.agent
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+
+      if (writeTo) {
+        // Direct file write — agent output goes to the specified path
+        const targetPath = join(this.searchDir, writeTo)
+        const targetDir = join(targetPath, '..')
+        if (!existsSync(targetDir)) mkdirSync(targetDir, { recursive: true })
+
+        // Try to extract just the YAML/content portion from agent output
+        // Agents may wrap content in markdown code blocks
+        const cleanedOutput = this.extractContent(output, writeTo)
+        writeFileSync(targetPath, cleanedOutput)
+        console.log(`[process-manager] wrote output to: ${writeTo}`)
+      } else {
+        // Default: save as entry file
+        const entriesDir = join(this.searchDir, 'entries')
+        if (!existsSync(entriesDir)) mkdirSync(entriesDir, { recursive: true })
+        const filename = `${skill}-${timestamp}-${spawnId.slice(-6)}.md`
+        writeFileSync(join(entriesDir, filename), output)
+        console.log(`[process-manager] saved entry: ${filename}`)
+      }
+    } catch (err) {
+      console.error('[process-manager] failed to route output:', err)
+    }
+  }
+
+  /**
+   * Extract content from agent output, handling markdown code blocks.
+   * If writing to a .yaml file, try to extract YAML from code blocks.
+   * If writing to a .md file, use output as-is.
+   */
+  private extractContent(output: string, targetPath: string): string {
+    if (targetPath.endsWith('.yaml') || targetPath.endsWith('.yml')) {
+      // Try to extract YAML from ```yaml ... ``` blocks
+      const yamlMatch = output.match(/```(?:yaml|yml)?\s*\n([\s\S]*?)```/)
+      if (yamlMatch) return yamlMatch[1].trim()
+
+      // Try to detect if the whole output is YAML (starts with a key)
+      const trimmed = output.trim()
+      if (trimmed.match(/^[a-z_]/m) && (trimmed.includes(':') || trimmed.includes('-'))) {
+        return trimmed
+      }
+    }
+    return output
   }
 
   async rotateSession(agent: string): Promise<{ ok: boolean; new_session_id?: string; error?: string }> {

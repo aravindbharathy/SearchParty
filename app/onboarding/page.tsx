@@ -554,18 +554,93 @@ export default function OnboardingPage() {
     setResumeProcessing(true)
     setResumeError(null)
     try {
+      // Spawn agent with write_to directive — agent outputs YAML, process manager writes it
       const res = await fetch('/api/agent/spawn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent: 'research', directive: { skill: 'setup', args: 'experience' } }),
+        body: JSON.stringify({
+          agent: 'research',
+          directive: {
+            skill: 'setup-experience',
+            write_to: 'context/experience-library.yaml',
+            text: `Read the resume files in search/vault/resumes/ and parse them into a structured experience library.
+
+Output ONLY valid YAML matching this exact schema (no explanations, no markdown, just YAML):
+
+contact:
+  name: ""
+  email: ""
+  phone: ""
+  linkedin: ""
+  location: ""
+summary: "2-3 sentence career summary"
+experiences:
+  - id: exp-001
+    company: "Company Name"
+    role: "Role Title"
+    dates: "2022-2024"
+    projects:
+      - name: "Project Name"
+        metrics: ["Specific measurable achievement"]
+        skills: [skill1, skill2]
+        star_stories:
+          - situation: ""
+            task: ""
+            action: ""
+            result: ""
+education:
+  - institution: ""
+    degree: ""
+    field: ""
+    year: ""
+certifications: []
+skills:
+  technical:
+    - name: "skill"
+      proficiency: "expert"
+      years: 5
+  leadership: []
+
+Extract REAL data from the resume. Push for specifics — include metrics, team sizes, and concrete outcomes. Output ONLY the YAML.`,
+          },
+        }),
       })
       if (!res.ok) {
         const body = await res.json()
         setResumeError(body.error || 'Processing failed')
         return
       }
-      setResumeSuccess(true)
-      fetchStatus()
+
+      // Poll for completion
+      const data = await res.json()
+      const spawnId = data.spawn_id
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/agent/spawn/${spawnId}`)
+          if (!statusRes.ok) return
+          const statusData = await statusRes.json()
+          if (statusData.status === 'completed') {
+            clearInterval(pollInterval)
+            setResumeProcessing(false)
+            setResumeSuccess(true)
+            fetchStatus()
+          } else if (statusData.status === 'failed') {
+            clearInterval(pollInterval)
+            setResumeProcessing(false)
+            setResumeError(statusData.output || 'Processing failed')
+          }
+        } catch {}
+      }, 3000)
+
+      // Safety timeout
+      setTimeout(() => {
+        clearInterval(pollInterval)
+        if (resumeProcessing) {
+          setResumeProcessing(false)
+          setResumeError('Processing timed out — try running /setup experience in terminal')
+        }
+      }, 300000)
+      return
     } catch {
       setResumeError('Network error')
     } finally {
@@ -665,16 +740,28 @@ export default function OnboardingPage() {
               {card.mode === 'cli' && !isFilled && (
                 <div className="px-5 pb-4 border-t border-border/50 pt-3">
                   {card.key === 'experience-library' ? (
-                    <div className="space-y-2">
-                      <p className="text-sm text-text-muted mb-2">
-                        For the best experience, run the interactive setup in your terminal:
-                      </p>
-                      <code className="block px-3 py-2 bg-sidebar-bg text-sidebar-text rounded text-sm font-mono">
-                        /setup experience
-                      </code>
-                      <p className="text-xs text-text-muted mt-2">
-                        This will parse your resume, push for specifics, and build your experience library conversationally.
-                        Drop your resume in <code className="px-1.5 py-0.5 bg-bg border border-border rounded text-xs font-mono">search/vault/resumes/</code> first for best results.
+                    <div className="space-y-3">
+                      {resumeDetected && !resumeSuccess ? (
+                        <>
+                          <p className="text-sm font-medium text-accent">Resume detected — click to parse it into your experience library</p>
+                          <button
+                            onClick={handleProcessResume}
+                            disabled={resumeProcessing}
+                            className="px-4 py-2 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
+                          >
+                            {resumeProcessing ? 'Parsing resume...' : 'Parse Resume'}
+                          </button>
+                          {resumeError && <p className="text-danger text-sm">{resumeError}</p>}
+                        </>
+                      ) : resumeSuccess ? (
+                        <p className="text-sm font-medium text-green-600">Experience library updated! Refresh to see status.</p>
+                      ) : (
+                        <p className="text-sm text-text-muted">
+                          Drop your resume in <code className="px-1.5 py-0.5 bg-bg border border-border rounded text-xs font-mono">search/vault/resumes/</code> and refresh this page.
+                        </p>
+                      )}
+                      <p className="text-xs text-text-muted border-t border-border/50 pt-2">
+                        Or run <code className="px-1.5 py-0.5 bg-bg border border-border rounded text-xs font-mono">/setup experience</code> in your terminal for a conversational walkthrough
                       </p>
                     </div>
                   ) : (

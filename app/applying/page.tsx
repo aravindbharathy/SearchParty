@@ -144,9 +144,28 @@ export default function ApplyingPage() {
   const handleTailorResume = async () => {
     if (!tailorJdText.trim()) return
     resetAgent()
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     await spawnAgent('resume', {
       skill: 'resume-tailor',
-      text: `Run /resume-tailor with the following job description:\n\n${tailorJdText}`,
+      write_to: `output/resumes/tailored-${timestamp}.md`,
+      text: `You are a resume tailoring expert. Read the user's experience library from search/context/experience-library.yaml and career plan from search/context/career-plan.yaml.
+
+Produce a tailored resume for this job description. Output ONLY the resume in clean Markdown format — no explanations, no preamble. Include:
+- Contact header
+- Tailored 2-line summary
+- Work experience with bullets reordered/rewritten for this specific JD
+- Education
+- Skills section with keyword coverage
+
+Use REAL data from the experience library. Never fabricate. Reorder and emphasize bullets that match the JD.
+
+After the resume, add a section "---\n## Review" with:
+- Keyword coverage score (% of JD requirements addressed)
+- Recruiter scan assessment (would a recruiter keep reading?)
+- ATS formatting check (any issues?)
+
+Job Description:
+${tailorJdText}`,
     })
     setShowTailorModal(false)
     setTailorJdText('')
