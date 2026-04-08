@@ -666,27 +666,15 @@ export default function OnboardingPage() {
                 <div className="px-5 pb-4 border-t border-border/50 pt-3">
                   {card.key === 'experience-library' ? (
                     <div className="space-y-2">
-                      {resumeDetected && !resumeSuccess ? (
-                        <>
-                          <p className="text-sm font-medium text-accent">Resume detected — click Process to parse it</p>
-                          <button
-                            onClick={handleProcessResume}
-                            disabled={resumeProcessing}
-                            className="px-4 py-2 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
-                          >
-                            {resumeProcessing ? 'Processing...' : 'Process Resume'}
-                          </button>
-                          {resumeError && <p className="text-danger text-sm">{resumeError}</p>}
-                        </>
-                      ) : resumeSuccess ? (
-                        <p className="text-sm font-medium text-green-600">Resume processed successfully! Refresh to see updated status.</p>
-                      ) : (
-                        <p className="text-sm text-text-muted">
-                          Drop your resume in <code className="px-1.5 py-0.5 bg-bg border border-border rounded text-xs font-mono">search/vault/resumes/</code> and refresh this page.
-                        </p>
-                      )}
-                      <p className="text-xs text-text-muted">
-                        Or run <code className="px-1.5 py-0.5 bg-bg border border-border rounded text-xs font-mono">/setup experience</code> in your terminal
+                      <p className="text-sm text-text-muted mb-2">
+                        For the best experience, run the interactive setup in your terminal:
+                      </p>
+                      <code className="block px-3 py-2 bg-sidebar-bg text-sidebar-text rounded text-sm font-mono">
+                        /setup experience
+                      </code>
+                      <p className="text-xs text-text-muted mt-2">
+                        This will parse your resume, push for specifics, and build your experience library conversationally.
+                        Drop your resume in <code className="px-1.5 py-0.5 bg-bg border border-border rounded text-xs font-mono">search/vault/resumes/</code> first for best results.
                       </p>
                     </div>
                   ) : (
