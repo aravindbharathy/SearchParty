@@ -73,17 +73,25 @@ export function useAgentEvents() {
         } else if (data.status === 'failed') {
           cleanup()
 
-          // Automatic retry (once)
-          if (!retriedRef.current && lastRequestRef.current) {
+          const isStale = data.output?.includes('Process lost') || data.output?.includes('dashboard was restarted')
+
+          // Automatic retry: once for real failures, always for stale session cleanup
+          if (isStale || (!retriedRef.current && lastRequestRef.current)) {
             retriedRef.current = true
-            spawnAgent(lastRequestRef.current.agent, lastRequestRef.current.directive)
+            // Small delay to let cleanup finish
+            setTimeout(() => {
+              if (lastRequestRef.current) {
+                spawnAgent(lastRequestRef.current.agent, lastRequestRef.current.directive)
+              }
+            }, 500)
             return
           }
 
           setSpawnState((prev) => ({
             ...prev,
             status: 'failed',
-            error: 'Agent process failed',
+            error: data.output || 'Agent process failed. Try again.',
+            output: null,
           }))
         }
       } catch {
