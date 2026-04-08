@@ -250,6 +250,24 @@ export default function FindingPage() {
     setIntelLoading(false)
   }
 
+  const deleteScoredJD = async (filename: string) => {
+    if (!confirm('Delete this scored JD?')) return
+    try {
+      const res = await fetch('/api/finding/scored-jds', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename }),
+      })
+      if (res.ok) {
+        setScoredJDs((prev) => prev.filter((jd) => jd.filename !== filename))
+        if (selectedJD?.filename === filename) {
+          setSelectedJD(null)
+          setJdContent('')
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
   const viewScoredJD = async (jd: ScoredJD) => {
     setSelectedJD(jd)
     try {
@@ -607,6 +625,15 @@ export default function FindingPage() {
                         className="text-xs px-2 py-1 bg-accent/10 text-accent rounded hover:bg-accent/20 transition-colors"
                       >
                         Add to Pipeline
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteScoredJD(jd.filename)
+                        }}
+                        className="text-xs px-2 py-1 bg-danger/10 text-danger rounded hover:bg-danger/20 transition-colors"
+                      >
+                        Delete
                       </button>
                     </div>
                   </div>

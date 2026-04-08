@@ -124,3 +124,34 @@ export async function GET() {
     )
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const { filename } = await req.json() as { filename: string }
+    if (!filename || !filename.startsWith('score-jd-') || !filename.endsWith('.md')) {
+      return NextResponse.json({ error: 'Invalid filename' }, { status: 400 })
+    }
+
+    const entriesDir = join(getSearchDir(), 'entries')
+    const filePath = join(entriesDir, filename)
+
+    // Prevent path traversal
+    if (!filePath.startsWith(entriesDir)) {
+      return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
+    }
+
+    if (!existsSync(filePath)) {
+      return NextResponse.json({ error: 'File not found' }, { status: 404 })
+    }
+
+    const { unlinkSync } = await import('fs')
+    unlinkSync(filePath)
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 },
+    )
+  }
+}
