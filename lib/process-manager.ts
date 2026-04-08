@@ -162,6 +162,23 @@ class ProcessManager {
           currentSessions.sessions[request.agent].output = output.slice(-2000)
           this.saveSessions(currentSessions)
         }
+
+        // Save agent output as an entry file so dashboard pages can read it
+        if (code === 0 && output.trim()) {
+          try {
+            const entriesDir = join(this.searchDir, 'entries')
+            if (!existsSync(entriesDir)) mkdirSync(entriesDir, { recursive: true })
+
+            const skill = typeof request.directive.skill === 'string' ? request.directive.skill : request.agent
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+            const filename = `${skill}-${timestamp}-${spawnId.slice(-6)}.md`
+
+            writeFileSync(join(entriesDir, filename), output.trim())
+            console.log(`[process-manager] saved entry: ${filename}`)
+          } catch (err) {
+            console.error('[process-manager] failed to save entry file:', err)
+          }
+        }
       })
 
       // Safety: kill process if it runs longer than 5 minutes

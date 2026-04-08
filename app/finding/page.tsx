@@ -27,7 +27,8 @@ export default function FindingPage() {
   const [vaultJDs, setVaultJDs] = useState<string[]>([])
   const [selectedJD, setSelectedJD] = useState<ScoredJD | null>(null)
   const [jdContent, setJdContent] = useState('')
-  const { spawnAgent, status, error, reset } = useAgentEvents()
+  const { spawnAgent, status, error, output, reset } = useAgentEvents()
+  const [latestOutput, setLatestOutput] = useState<string | null>(null)
 
   const loadScoredJDs = useCallback(async () => {
     try {
@@ -65,12 +66,13 @@ export default function FindingPage() {
     loadVaultJDs()
   }, [loadScoredJDs, loadCompanies, loadVaultJDs])
 
-  // Reload scored JDs when agent completes
+  // Show output and reload scored JDs when agent completes
   useEffect(() => {
     if (status === 'completed') {
       loadScoredJDs()
+      if (output) setLatestOutput(output)
     }
-  }, [status, loadScoredJDs])
+  }, [status, output, loadScoredJDs])
 
   const handleScoreJD = async () => {
     if (!jdText.trim()) return
@@ -126,7 +128,7 @@ export default function FindingPage() {
                 </span>
               )}
               {status === 'completed' && (
-                <span className="text-sm text-success">Score complete — check results below</span>
+                <span className="text-sm text-success">Score complete — see results below</span>
               )}
               {status === 'failed' && (
                 <span className="text-sm text-danger">{error || 'Scoring failed'}</span>
@@ -135,6 +137,22 @@ export default function FindingPage() {
                 <span className="text-sm text-danger">Scoring timed out. Try again.</span>
               )}
             </div>
+
+            {/* Inline result display */}
+            {latestOutput && status === 'completed' && (
+              <div className="mt-4 p-4 bg-bg border border-border rounded-md">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold">Score Result</h3>
+                  <button
+                    onClick={() => setLatestOutput(null)}
+                    className="text-xs text-text-muted hover:text-text"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed">{latestOutput}</pre>
+              </div>
+            )}
           </div>
 
           {/* Scored JDs List */}

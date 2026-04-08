@@ -16,6 +16,7 @@ interface SpawnState {
   spawnId: string | null
   result: AgentEvent | null
   error: string | null
+  output: string | null
 }
 
 const SPAWN_TIMEOUT_MS = 120_000
@@ -26,6 +27,7 @@ export function useAgentEvents() {
     spawnId: null,
     result: null,
     error: null,
+    output: null,
   })
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -59,6 +61,7 @@ export function useAgentEvents() {
           setSpawnState((prev) => ({
             ...prev,
             status: 'completed',
+            output: data.output || null,
             result: {
               event: 'agent_complete',
               spawn_id: spawnId,
@@ -102,6 +105,7 @@ export function useAgentEvents() {
       spawnId: null,
       result: null,
       error: null,
+      output: null,
     })
 
     try {
@@ -119,6 +123,7 @@ export function useAgentEvents() {
           spawnId: data.spawn_id,
           result: null,
           error: data.error || 'Spawn failed',
+          output: null,
         })
         return data.spawn_id
       }
@@ -148,6 +153,7 @@ export function useAgentEvents() {
         spawnId: null,
         result: null,
         error: err instanceof Error ? err.message : 'Network error',
+        output: null,
       })
       return null
     }
@@ -162,6 +168,7 @@ export function useAgentEvents() {
       spawnId: null,
       result: null,
       error: null,
+      output: null,
     })
   }, [cleanup])
 

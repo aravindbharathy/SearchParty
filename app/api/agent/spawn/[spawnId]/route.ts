@@ -9,13 +9,28 @@ export async function GET(
     const { spawnId } = await params
     const managerStatus = processManager.getStatus()
 
-    // Search all agents for the matching spawn_id
-    for (const [, agentInfo] of Object.entries(managerStatus.agents)) {
+    // Search all agents for the matching spawn_id — also check sessions.yaml for output
+    for (const [agentName, agentInfo] of Object.entries(managerStatus.agents)) {
       if (agentInfo.spawn_id === spawnId) {
+        // Read output from sessions.yaml if completed
+        let output: string | undefined
+        try {
+          const { readFileSync, existsSync } = await import('fs')
+          const { join } = await import('path')
+          const { getSearchDir } = await import('@/lib/paths')
+          const YAML = (await import('yaml')).default
+          const sessionsPath = join(getSearchDir(), 'agents', 'sessions.yaml')
+          if (existsSync(sessionsPath)) {
+            const raw = YAML.parse(readFileSync(sessionsPath, 'utf-8'))
+            output = raw?.sessions?.[agentName]?.output
+          }
+        } catch {}
+
         return NextResponse.json({
           spawn_id: spawnId,
           status: agentInfo.status,
           started_at: agentInfo.started_at,
+          output,
         })
       }
     }
