@@ -1,42 +1,36 @@
 import { NextResponse } from 'next/server'
-import { readFileSync, existsSync } from 'fs'
-import { join } from 'path'
-import YAML from 'yaml'
+import { getAllContextStatus, CONTEXT_FILES, type ContextName } from '@/lib/context'
 
-const SEARCH_DIR = join(process.cwd(), process.env.BLACKBOARD_DIR || 'search')
-
-interface ContextStatus {
-  experienceLibrary: { filled: boolean; count: number }
-  careerPlan: { filled: boolean; count: number }
-  contextReady: boolean
-}
-
-export async function GET(): Promise<NextResponse<ContextStatus>> {
-  const experiencePath = join(SEARCH_DIR, 'context', 'experience-library.yaml')
-  const careerPlanPath = join(SEARCH_DIR, 'context', 'career-plan.yaml')
-
-  let experienceCount = 0
-  let careerPlanCount = 0
-
+export async function GET() {
   try {
-    if (existsSync(experiencePath)) {
-      const raw = YAML.parse(readFileSync(experiencePath, 'utf-8'))
-      experienceCount = Array.isArray(raw?.experiences) ? raw.experiences.length : 0
-    }
-  } catch {}
+    const statuses = await getAllContextStatus()
 
-  try {
-    if (existsSync(careerPlanPath)) {
-      const raw = YAML.parse(readFileSync(careerPlanPath, 'utf-8'))
-      careerPlanCount = Array.isArray(raw?.goals) ? raw.goals.length : 0
-    }
-  } catch {}
+    // Build response with labels and descriptions
+    const result: Record<string, {
+      filled: boolean
+      lastModified: string | null
+      label: string
+      description: string
+    }> = {}
 
-  const status: ContextStatus = {
-    experienceLibrary: { filled: experienceCount > 0, count: experienceCount },
-    careerPlan: { filled: careerPlanCount > 0, count: careerPlanCount },
-    contextReady: experienceCount > 0 && careerPlanCount > 0,
+    for (const [name, status] of Object.entries(statuses)) {
+      const meta = CONTEXT_FILES[name as ContextName]
+      result[name] = {
+        filled: status.filled,
+        lastModified: status.lastModified?.toISOString() ?? null,
+        label: meta.label,
+        description: meta.description,
+      }
+    }
+
+    // Compute overall readiness
+    const contextReady = statuses['experience-library'].filled && statuses['career-plan'].filled
+
+    return NextResponse.json({ contexts: result, contextReady })
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Unknown error' },
+      { status: 500 }
+    )
   }
-
-  return NextResponse.json(status)
 }

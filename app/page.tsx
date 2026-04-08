@@ -1,27 +1,34 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useBlackboard } from './hooks/use-blackboard'
 
-interface ContextStatus {
-  experienceLibrary: { filled: boolean; count: number }
-  careerPlan: { filled: boolean; count: number }
+interface StatusResponse {
+  contexts: Record<string, { filled: boolean; lastModified: string | null; label: string; description: string }>
   contextReady: boolean
 }
 
 export default function CommandCenter() {
   const { state } = useBlackboard()
-  const [contextStatus, setContextStatus] = useState<ContextStatus | null>(null)
+  const router = useRouter()
+  const [status, setStatus] = useState<StatusResponse | null>(null)
+  const [redirecting, setRedirecting] = useState(false)
 
   useEffect(() => {
     fetch('/api/context/status')
       .then(r => r.json())
-      .then(setContextStatus)
+      .then((data: StatusResponse) => {
+        setStatus(data)
+        if (!data.contextReady) {
+          setRedirecting(true)
+          router.push('/onboarding')
+        }
+      })
       .catch(() => {})
-  }, [])
+  }, [router])
 
-  // Show loading state briefly
-  if (!contextStatus) {
+  if (!status || redirecting) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <p className="text-text-muted">Loading...</p>
@@ -29,66 +36,63 @@ export default function CommandCenter() {
     )
   }
 
-  // Empty context: show welcome
-  if (!contextStatus.contextReady) {
-    return (
-      <div className="max-w-2xl mx-auto mt-16">
-        <h1 className="text-3xl font-bold mb-4">Welcome to Job Search OS</h1>
-        <p className="text-text-muted text-lg mb-8">
-          Run <code className="px-2 py-1 bg-surface border border-border rounded text-accent font-mono text-sm">job-search setup</code> to get started.
-        </p>
+  // Context exists: show Command Center
+  const filledCount = Object.values(status.contexts).filter(c => c.filled).length
+  const totalCount = Object.keys(status.contexts).length
 
-        <div className="bg-surface border border-border rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">Getting Started</h2>
-          <ol className="space-y-3 text-text-muted">
-            <li className="flex gap-3">
-              <span className="text-accent font-bold">1.</span>
-              <span>Run <code className="px-1.5 py-0.5 bg-bg border border-border rounded text-sm font-mono">job-search setup</code> to fill in your experience and career goals</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="text-accent font-bold">2.</span>
-              <span>Add your resume and job descriptions to the vault</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="text-accent font-bold">3.</span>
-              <span>Start finding roles and tracking applications</span>
-            </li>
-          </ol>
+  return (
+    <div className="max-w-3xl mx-auto py-8 px-4">
+      <h1 className="text-3xl font-bold mb-4">Command Center</h1>
+      <p className="text-text-muted text-lg mb-8">
+        Your job search at a glance. Full command center coming in Phase 2.
+      </p>
+
+      {/* Quick Status */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="text-sm text-text-muted mb-1">Context</div>
+          <div className="text-2xl font-bold">{filledCount}/{totalCount}</div>
+          <div className="text-xs text-text-muted">files filled</div>
         </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-4">
-          <div className="bg-surface border border-border rounded-lg p-4">
-            <div className="text-sm text-text-muted mb-1">Experience Library</div>
-            <div className="text-lg font-semibold">
-              {contextStatus.experienceLibrary.filled ? (
-                <span className="text-success">{contextStatus.experienceLibrary.count} entries</span>
-              ) : (
-                <span className="text-warning">Empty</span>
-              )}
-            </div>
+        <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="text-sm text-text-muted mb-1">Agents</div>
+          <div className="text-2xl font-bold">
+            {state?.agents ? Object.keys(state.agents).length : 0}
           </div>
-          <div className="bg-surface border border-border rounded-lg p-4">
-            <div className="text-sm text-text-muted mb-1">Career Plan</div>
-            <div className="text-lg font-semibold">
-              {contextStatus.careerPlan.filled ? (
-                <span className="text-success">{contextStatus.careerPlan.count} goals</span>
-              ) : (
-                <span className="text-warning">Empty</span>
-              )}
-            </div>
+          <div className="text-xs text-text-muted">registered</div>
+        </div>
+        <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="text-sm text-text-muted mb-1">Directives</div>
+          <div className="text-2xl font-bold">
+            {state?.directives?.length ?? 0}
           </div>
+          <div className="text-xs text-text-muted">pending</div>
         </div>
       </div>
-    )
-  }
 
-  // Context exists: placeholder for Phase 2
-  return (
-    <div className="max-w-2xl mx-auto mt-16">
-      <h1 className="text-3xl font-bold mb-4">Command Center</h1>
-      <p className="text-text-muted text-lg">
-        Command Center coming in Phase 2.
-      </p>
+      {/* Context Status */}
+      <div className="bg-surface border border-border rounded-lg p-5">
+        <h2 className="font-semibold mb-3">Context Files</h2>
+        <div className="space-y-2">
+          {Object.entries(status.contexts).map(([name, ctx]) => (
+            <div key={name} className="flex items-center justify-between py-1.5">
+              <div className="flex items-center gap-2">
+                <span>{ctx.filled ? '\u2705' : '\u26AA'}</span>
+                <span className="text-sm">{ctx.label}</span>
+              </div>
+              {ctx.lastModified && (
+                <span className="text-xs text-text-muted">
+                  {new Date(ctx.lastModified).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex gap-3">
+          <a href="/context" className="text-sm text-accent hover:text-accent-hover">Edit Context</a>
+          <a href="/vault" className="text-sm text-accent hover:text-accent-hover">Manage Vault</a>
+        </div>
+      </div>
     </div>
   )
 }
