@@ -205,6 +205,8 @@ export default function FindingPage() {
     if (!researchCompany.trim()) return
     setResearchStatus('running')
 
+    const companySlug = researchCompany.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
     try {
       const promptRes = await fetch('/api/agent/build-prompt', {
         method: 'POST',
@@ -215,6 +217,9 @@ export default function FindingPage() {
         const data = await promptRes.json() as { prompt: string }
         await spawnAgent('research', {
           skill: 'company-research',
+          entry_name: companySlug,
+          metadata: { company: researchCompany.trim() },
+          write_to: `intel/${companySlug}.yaml`,
           text: data.prompt,
         })
         setResearchStatus('done')
@@ -241,6 +246,7 @@ export default function FindingPage() {
         const data = await promptRes.json() as { prompt: string }
         await spawnAgent('research', {
           skill: 'generate-targets',
+          write_to: 'context/target-companies.yaml',
           text: data.prompt,
         })
         setGenerateTargetsStatus('done')

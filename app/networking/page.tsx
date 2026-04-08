@@ -56,6 +56,7 @@ export default function NetworkingPage() {
   const [referralTarget, setReferralTarget] = useState<{ name: string; company: string } | null>(null)
   const [referralStatus, setReferralStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [latestAgentOutput, setLatestAgentOutput] = useState<string | null>(null)
+  const [linkedinAuditStatus, setLinkedinAuditStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
 
   // FIX 5: Track referral contact ID for auto-save
   const [referralContactId, setReferralContactId] = useState<string | null>(null)
@@ -149,6 +150,7 @@ export default function NetworkingPage() {
       loadStats()
       if (agentOutput) setLatestAgentOutput(agentOutput)
       if (connectionBatchStatus === 'running') setConnectionBatchStatus('done')
+      if (linkedinAuditStatus === 'running') setLinkedinAuditStatus('done')
       if (referralStatus === 'running') {
         setReferralStatus('done')
         // FIX 5: Auto-save referral messages on completion
@@ -159,14 +161,17 @@ export default function NetworkingPage() {
     }
     if (agentStatus === 'failed') {
       if (connectionBatchStatus === 'running') setConnectionBatchStatus('error')
+      if (linkedinAuditStatus === 'running') setLinkedinAuditStatus('error')
       if (referralStatus === 'running') setReferralStatus('error')
     }
-  }, [agentStatus, agentOutput, loadContacts, loadStats, connectionBatchStatus, referralStatus, referralContactId, saveReferralToContact])
+  }, [agentStatus, agentOutput, loadContacts, loadStats, connectionBatchStatus, linkedinAuditStatus, referralStatus, referralContactId, saveReferralToContact])
 
   const handleGenerateConnectionBatch = async () => {
     agentReset()
     setConnectionBatchStatus('running')
     setLatestAgentOutput(null)
+
+    const dateSlug = new Date().toISOString().split('T')[0]
 
     try {
       const promptRes = await fetch('/api/agent/build-prompt', {
@@ -178,6 +183,9 @@ export default function NetworkingPage() {
         const data = await promptRes.json() as { prompt: string }
         await spawnAgent('networking', {
           skill: 'connection-request',
+          entry_name: `batch-${dateSlug}`,
+          metadata: { company: 'multiple' },
+          write_to: `output/messages/connection-batch-${dateSlug}.md`,
           text: data.prompt,
         })
       } else {
@@ -196,6 +204,9 @@ export default function NetworkingPage() {
     setReferralSaveStatus('idle')
     setLatestAgentOutput(null)
 
+    const companySlug = contact.company.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const contactSlug = contact.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
     try {
       const promptRes = await fetch('/api/agent/build-prompt', {
         method: 'POST',
@@ -209,6 +220,9 @@ export default function NetworkingPage() {
         const data = await promptRes.json() as { prompt: string }
         await spawnAgent('networking', {
           skill: 'referral-request',
+          entry_name: `${companySlug}-${contactSlug}`,
+          metadata: { company: contact.company, role: contact.role },
+          write_to: `output/messages/referral-${companySlug}-${contactSlug}.md`,
           text: data.prompt,
         })
       } else {
@@ -216,6 +230,36 @@ export default function NetworkingPage() {
       }
     } catch {
       setReferralStatus('error')
+    }
+  }
+
+  const handleLinkedinAudit = async () => {
+    agentReset()
+    setLinkedinAuditStatus('running')
+    setLatestAgentOutput(null)
+
+    const dateSlug = new Date().toISOString().split('T')[0]
+
+    try {
+      const promptRes = await fetch('/api/agent/build-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skill: 'linkedin-audit' }),
+      })
+      if (promptRes.ok) {
+        const data = await promptRes.json() as { prompt: string }
+        await spawnAgent('networking', {
+          skill: 'linkedin-audit',
+          entry_name: `audit-${dateSlug}`,
+          metadata: {},
+          write_to: `output/messages/linkedin-audit-${dateSlug}.md`,
+          text: data.prompt,
+        })
+      } else {
+        setLinkedinAuditStatus('error')
+      }
+    } catch {
+      setLinkedinAuditStatus('error')
     }
   }
 
@@ -350,6 +394,13 @@ export default function NetworkingPage() {
           {connectionBatchStatus === 'running' ? 'Generating...' : 'Generate Connection Batch'}
         </button>
         <button
+          onClick={handleLinkedinAudit}
+          disabled={linkedinAuditStatus === 'running'}
+          className="px-4 py-2 bg-surface border border-border text-text rounded-md text-sm font-medium hover:bg-bg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {linkedinAuditStatus === 'running' ? 'Auditing...' : 'LinkedIn Audit'}
+        </button>
+        <button
           onClick={() => setShowAddForm(!showAddForm)}
           className="px-4 py-2 border border-border text-text rounded-md text-sm font-medium hover:bg-bg transition-colors"
         >
@@ -366,6 +417,18 @@ export default function NetworkingPage() {
         )}
         {connectionBatchStatus === 'error' && (
           <span className="text-sm text-danger">Batch generation failed.</span>
+        )}
+        {linkedinAuditStatus === 'running' && (
+          <span className="text-sm text-text-muted flex items-center gap-2">
+            <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            Running LinkedIn profile audit...
+          </span>
+        )}
+        {linkedinAuditStatus === 'done' && (
+          <span className="text-sm text-success">LinkedIn audit complete. Check output below.</span>
+        )}
+        {linkedinAuditStatus === 'error' && (
+          <span className="text-sm text-danger">LinkedIn audit failed.</span>
         )}
       </div>
 

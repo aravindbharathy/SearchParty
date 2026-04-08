@@ -136,6 +136,8 @@ export default function CommandCenter() {
         const data = await promptRes.json() as { prompt: string }
         await spawnAgent('coach', {
           skill: 'daily-briefing',
+          entry_name: 'briefing',
+          metadata: {},
           text: data.prompt,
         })
       } else {

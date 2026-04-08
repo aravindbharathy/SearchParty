@@ -94,28 +94,16 @@ export default function ApplyingPage() {
   useEffect(() => {
     if (agentStatus === 'completed') {
       loadApplications()
-      // FIX 9: Parse output for filename and review data
+      // Auto-update application's resume_version with the write_to path
+      if (tailorForApp && tailorOutputFile) {
+        fetch(`/api/pipeline/applications/${tailorForApp.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ field: 'resume_version', value: tailorOutputFile }),
+        }).then(() => loadApplications()).catch(() => {})
+      }
+      // Extract review results if present
       if (agentOutput) {
-        const fileMatch = agentOutput.match(/(?:saved|written|output|file)[:\s]+([^\n]*tailored[^\n]*\.md)/i)
-        if (fileMatch) {
-          const fname = fileMatch[1].trim()
-          setTailorOutputFile(fname)
-          // FIX 2: Auto-update application's resume_version
-          if (tailorForApp) {
-            fetch(`/api/pipeline/applications/${tailorForApp.id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ field: 'resume_version', value: fname }),
-            }).then(() => loadApplications()).catch(() => {})
-          }
-        } else {
-          // Use the write_to path we know
-          const ts = tailorOutputFile
-          if (!ts) {
-            setTailorOutputFile(`output/resumes/tailored-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.md`)
-          }
-        }
-        // FIX 9: Extract review results if present
         const reviewMatch = agentOutput.match(/((?:recruiter review|ats check|ats score|compatibility)[\s\S]*)/i)
         if (reviewMatch) {
           setTailorReviewData(reviewMatch[1].trim())
@@ -183,14 +171,20 @@ export default function ApplyingPage() {
     setTailorReviewData(null)
     setCopySuccess(false)
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-    const outputPath = `output/resumes/tailored-${timestamp}.md`
-    setTailorOutputFile(outputPath)
 
     // FIX 2: Resolve which application this tailor is for
+    let linkedApp: Application | null = null
     if (tailorAppDropdown) {
       const app = applications.find((a) => a.id === tailorAppDropdown)
-      setTailorForApp(app || null)
+      linkedApp = app || null
+      setTailorForApp(linkedApp)
     }
+
+    // Build contextual filename: company-role-timestamp.md
+    const companySlug = (linkedApp?.company || 'general').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const roleSlug = (linkedApp?.role || 'resume').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const outputPath = `output/resumes/${companySlug}-${roleSlug}-${timestamp}.md`
+    setTailorOutputFile(outputPath)
 
     // Build prompt server-side (agent in -p mode can't read files —
     // the build-prompt API reads experience library + career plan from disk)
@@ -213,6 +207,12 @@ export default function ApplyingPage() {
 
     await spawnAgent('resume', {
       skill: 'resume-tailor',
+      entry_name: `${companySlug}-${roleSlug}`,
+      metadata: {
+        company: linkedApp?.company || '',
+        role: linkedApp?.role || '',
+        jd_file: linkedApp?.jd_source || '',
+      },
       write_to: outputPath,
       text: builtPrompt,
     })
