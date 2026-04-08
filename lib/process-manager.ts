@@ -95,7 +95,6 @@ class ProcessManager {
       const child = spawn('claude', args, {
         cwd: process.cwd(),
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env },
       })
 
       this.processes.set(spawnId, child)
@@ -110,14 +109,18 @@ class ProcessManager {
       }
       this.saveSessions(sessions)
 
+      // Cap output buffer to prevent unbounded memory growth
+      const MAX_OUTPUT = 8192
       let output = ''
 
       child.stdout?.on('data', (data: Buffer) => {
         output += data.toString()
+        if (output.length > MAX_OUTPUT) output = output.slice(-MAX_OUTPUT)
       })
 
       child.stderr?.on('data', (data: Buffer) => {
         output += data.toString()
+        if (output.length > MAX_OUTPUT) output = output.slice(-MAX_OUTPUT)
       })
 
       child.on('close', (code: number | null) => {
@@ -129,6 +132,14 @@ class ProcessManager {
           this.saveSessions(currentSessions)
         }
       })
+
+      // Safety: kill process if it runs longer than 5 minutes
+      setTimeout(() => {
+        if (this.processes.has(spawnId)) {
+          child.kill('SIGTERM')
+          this.processes.delete(spawnId)
+        }
+      }, 5 * 60 * 1000)
 
       return { ok: true, spawn_id: spawnId }
     } catch (err) {
