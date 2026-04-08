@@ -344,6 +344,21 @@ class ProcessManager {
       // Priority 3: Strip all code fences and try the whole output
       return output.replace(/```(?:yaml|yml)?\s*\n?/g, '').trim()
     }
+
+    // For markdown targets: extract from ```markdown code blocks if present,
+    // otherwise strip any leading preamble before the first heading (#)
+    if (targetPath.endsWith('.md')) {
+      // Check for markdown code block
+      const mdBlock = output.match(/```(?:markdown|md)?\s*\n([\s\S]*?)```/)
+      if (mdBlock) return mdBlock[1].trim()
+
+      // Find first markdown heading and take everything from there
+      const headingIdx = output.indexOf('\n#')
+      if (headingIdx > 0 && headingIdx < 200) {
+        return output.slice(headingIdx + 1).trim()
+      }
+    }
+
     return output
   }
 
