@@ -99,11 +99,16 @@ class ProcessManager {
 
   async spawn(request: SpawnRequest): Promise<SpawnResult> {
     const spawnId = `spawn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-    const sessions = this.loadSessions()
 
-    // Generate a fresh session ID for each spawn.
-    // Note: claude -p (print mode) sessions are NOT resumable — they don't persist.
-    // Session resume will be implemented when we switch to interactive agent mode.
+    // Clean up any stale sessions for this agent before spawning
+    const sessions = this.loadSessions()
+    const existing = sessions.sessions[request.agent]
+    if (existing && existing.status === 'running' && !this.processes.has(existing.spawn_id)) {
+      existing.status = 'failed'
+      existing.output = 'Replaced by new spawn'
+      this.saveSessions(sessions)
+    }
+
     const sessionId = this.generateUUID()
 
     try {

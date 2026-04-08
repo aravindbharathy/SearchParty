@@ -75,9 +75,12 @@ export function useAgentEvents() {
         } else if (data.status === 'failed') {
           cleanup()
 
-          // Retry once on failure (stale session or real error) — never more than once
-          if (!retriedRef.current && lastRequestRef.current) {
-            retriedRef.current = true
+          const isStale = data.output?.includes('Process lost') || data.output?.includes('dashboard was restarted')
+
+          // Stale sessions: always retry silently (don't show error)
+          // Real failures: retry once
+          if ((isStale || !retriedRef.current) && lastRequestRef.current) {
+            if (!isStale) retriedRef.current = true  // only count real failures toward retry limit
             setTimeout(() => {
               if (lastRequestRef.current) {
                 spawnAgent(lastRequestRef.current.agent, lastRequestRef.current.directive)
@@ -86,12 +89,10 @@ export function useAgentEvents() {
             return
           }
 
-          // Show the actual error to the user
-          const isStale = data.output?.includes('Process lost') || data.output?.includes('dashboard was restarted')
           setSpawnState((prev) => ({
             ...prev,
             status: 'failed',
-            error: isStale ? 'Session expired. Please try again.' : (data.output || 'Agent process failed. Try again.'),
+            error: data.output || 'Agent process failed. Try again.',
             output: null,
           }))
         }
