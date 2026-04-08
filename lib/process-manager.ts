@@ -10,6 +10,7 @@ import { join } from 'path'
 import { spawn, type ChildProcess } from 'child_process'
 import YAML from 'yaml'
 import { DEFAULT_MODEL, AGENT_MODELS } from '@/project.config'
+import { getSearchDir } from './paths'
 
 interface AgentSession {
   agent: string
@@ -45,7 +46,7 @@ class ProcessManager {
   private searchDir: string
 
   constructor() {
-    this.searchDir = join(process.cwd(), process.env.BLACKBOARD_DIR || 'search')
+    this.searchDir = getSearchDir()
   }
 
   private get sessionsPath(): string {

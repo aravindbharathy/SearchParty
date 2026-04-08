@@ -23,7 +23,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, copyFileSync, renameSync, mkdirSync } from 'fs'
-import { join, dirname, basename } from 'path'
+import { join, basename } from 'path'
 import YAML from 'yaml'
 import type { ServerWebSocket } from 'bun'
 
@@ -249,8 +249,8 @@ async function notifyAgent(callbackPort: number, agent: { name: string; failures
       console.error(`notify ${agent.name}@${callbackPort}: HTTP ${r.status}`)
       agent.failures++
     }
-  } catch (err: any) {
-    console.error(`notify ${agent.name}@${callbackPort}: ${err.message}`)
+  } catch (err: unknown) {
+    console.error(`notify ${agent.name}@${callbackPort}: ${err instanceof Error ? err.message : String(err)}`)
     agent.failures++
   } finally {
     clearTimeout(timeout)

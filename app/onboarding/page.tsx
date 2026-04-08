@@ -2,19 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-interface ContextEntry {
-  filled: boolean
-  lastModified: string | null
-  label: string
-  description: string
-}
-
-interface StatusResponse {
-  contexts: Record<string, ContextEntry>
-  contextReady: boolean
-}
+import type { ContextStatusResponse } from '../types/context'
 
 // ─── Inline Forms ───────────────────────────────────────────────────────────
 
@@ -529,7 +517,7 @@ const CARD_ORDER: Array<{
 ]
 
 export default function OnboardingPage() {
-  const [status, setStatus] = useState<StatusResponse | null>(null)
+  const [status, setStatus] = useState<ContextStatusResponse | null>(null)
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [resumeDetected, setResumeDetected] = useState(false)

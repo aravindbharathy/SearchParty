@@ -43,6 +43,3 @@ export const AGENT_MODELS: Record<string, string> = {
 
 /** Resolved absolute path to the operations directory */
 export const OPS_DIR = resolve(process.cwd(), PROJECT.opsDir)
-
-/** Alias for the shared state directory */
-export const SEARCH_DIR = OPS_DIR

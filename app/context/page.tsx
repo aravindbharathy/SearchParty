@@ -1,18 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-
-interface ContextEntry {
-  filled: boolean
-  lastModified: string | null
-  label: string
-  description: string
-}
-
-interface StatusResponse {
-  contexts: Record<string, ContextEntry>
-  contextReady: boolean
-}
+import type { ContextStatusResponse } from '../types/context'
 
 type FreshnessLevel = 'fresh' | 'stale' | 'old'
 
@@ -256,7 +245,7 @@ const CLI_COMMANDS: Record<string, string> = {
 }
 
 export default function ContextPage() {
-  const [status, setStatus] = useState<StatusResponse | null>(null)
+  const [status, setStatus] = useState<ContextStatusResponse | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [editData, setEditData] = useState<Record<string, unknown> | null>(null)
   const [saving, setSaving] = useState(false)

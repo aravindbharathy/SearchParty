@@ -16,6 +16,7 @@ import {
 } from 'fs'
 import { join } from 'path'
 import YAML from 'yaml'
+import { getSearchDir } from './paths'
 
 // ─── Zod Schemas (D1) ──────────────────────────────────────────────────────
 
@@ -211,10 +212,6 @@ export const CONTEXT_FILES = {
 export type ContextName = keyof typeof CONTEXT_FILES
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-function getSearchDir(): string {
-  return join(process.cwd(), process.env.BLACKBOARD_DIR || 'search')
-}
 
 function contextDir(): string {
   const dir = join(getSearchDir(), 'context')

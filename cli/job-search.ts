@@ -53,7 +53,7 @@ function isProcessRunning(pid: number): boolean {
 
 async function isPortAvailable(port: number): Promise<boolean> {
   try {
-    const resp = await fetch(`http://127.0.0.1:${port}`, { signal: AbortSignal.timeout(500) })
+    await fetch(`http://127.0.0.1:${port}`, { signal: AbortSignal.timeout(500) })
     // Port is in use
     return false
   } catch {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { readFileSync, existsSync, readdirSync, statSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import YAML from 'yaml'
+import { getVaultDir } from '@/lib/paths'
 
 const SUBFOLDERS = ['resumes', 'jds', 'transcripts', 'work-products'] as const
 
@@ -15,11 +16,6 @@ interface ManifestEntry {
 
 interface Manifest {
   files: ManifestEntry[]
-}
-
-function getVaultDir(): string {
-  const searchDir = join(process.cwd(), process.env.BLACKBOARD_DIR || 'search')
-  return join(searchDir, 'vault')
 }
 
 function getManifestPath(): string {

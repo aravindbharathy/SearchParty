@@ -3,22 +3,18 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBlackboard } from './hooks/use-blackboard'
-
-interface StatusResponse {
-  contexts: Record<string, { filled: boolean; lastModified: string | null; label: string; description: string }>
-  contextReady: boolean
-}
+import type { ContextStatusResponse } from './types/context'
 
 export default function CommandCenter() {
   const { state } = useBlackboard()
   const router = useRouter()
-  const [status, setStatus] = useState<StatusResponse | null>(null)
+  const [status, setStatus] = useState<ContextStatusResponse | null>(null)
   const [redirecting, setRedirecting] = useState(false)
 
   useEffect(() => {
     fetch('/api/context/status')
       .then(r => r.json())
-      .then((data: StatusResponse) => {
+      .then((data: ContextStatusResponse) => {
         setStatus(data)
         if (!data.contextReady) {
           setRedirecting(true)

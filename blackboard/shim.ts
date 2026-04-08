@@ -110,7 +110,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ section: args.section }),
         })
-        const result = await resp.json() as { data: any; error?: string }
+        const result = await resp.json() as { data: unknown; error?: string }
         if (result.error) throw new Error(result.error)
 
         const YAML = (await import('yaml')).default
