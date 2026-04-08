@@ -610,7 +610,7 @@ export default function FindingPage() {
                                 ? 'text-warning'
                                 : 'text-danger'
                           }`}>
-                            Rec: {jd.recommendation}
+                            Recommendation: {jd.recommendation}
                           </span>
                         </div>
                       </div>
