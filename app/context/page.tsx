@@ -26,11 +26,236 @@ function FreshnessIndicator({ level, filled }: { level: FreshnessLevel; filled: 
   }
 }
 
-// CLI-required context files
-const CLI_ONLY = new Set(['experience-library', 'target-companies'])
-const AUTO_POPULATED = new Set(['interview-history'])
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 bg-bg border border-border rounded-full text-xs font-medium">
+      {children}
+    </span>
+  )
+}
 
-// Inline edit forms per context type
+// ─── Context Preview Components ────────────────────────────────────────────
+
+function ExperienceLibraryPreview({ data }: { data: Record<string, unknown> }) {
+  const contact = (data.contact || {}) as Record<string, string>
+  const experiences = (data.experiences as Array<Record<string, unknown>>) || []
+  const education = (data.education as Array<Record<string, unknown>>) || []
+  const skills = (data.skills || {}) as Record<string, unknown>
+  const technical = (skills.technical as Array<Record<string, unknown>>) || []
+  const leadership = (skills.leadership as unknown[]) || []
+
+  if (!contact.name && experiences.length === 0 && technical.length === 0) {
+    return <p className="text-sm text-text-muted italic">No data yet. Edit to add your experience.</p>
+  }
+
+  const contactParts = [contact.name, contact.email, contact.location].filter(Boolean)
+  const roleEntries = experiences.slice(0, 4).map(e => {
+    const company = e.company as string
+    const role = e.role as string
+    return `${company}${role ? ` (${role})` : ''}`
+  })
+  const topSkills = technical.slice(0, 3).map(s => {
+    const name = s.name as string
+    const prof = s.proficiency as string
+    const years = s.years as number
+    return `${name}${prof ? ` (${prof}` : ''}${years ? `, ${years}yr)` : prof ? ')' : ''}`
+  })
+
+  return (
+    <div className="space-y-1.5 text-sm text-text-muted">
+      {contactParts.length > 0 && (
+        <p><span className="font-medium text-text">{contactParts.join(' \u00B7 ')}</span></p>
+      )}
+      <p>
+        <Badge>{experiences.length} work experience{experiences.length !== 1 ? 's' : ''}</Badge>
+        {' '}
+        <Badge>{education.length} degree{education.length !== 1 ? 's' : ''}</Badge>
+        {' '}
+        <Badge>{technical.length} technical skill{technical.length !== 1 ? 's' : ''}</Badge>
+        {' '}
+        <Badge>{leadership.length} leadership skill{leadership.length !== 1 ? 's' : ''}</Badge>
+      </p>
+      {roleEntries.length > 0 && (
+        <p>Roles: <span className="font-medium text-text">{roleEntries.join(' \u00B7 ')}</span></p>
+      )}
+      {topSkills.length > 0 && (
+        <p>Top skills: <span className="font-medium text-text">{topSkills.join(' \u00B7 ')}</span></p>
+      )}
+    </div>
+  )
+}
+
+function CareerPlanPreview({ data }: { data: Record<string, unknown> }) {
+  const target = (data.target || {}) as Record<string, unknown>
+  const level = target.level as string
+  const functions = (target.functions as string[]) || []
+  const industries = (target.industries as string[]) || []
+  const locations = (target.locations as string[]) || []
+  const compFloor = target.comp_floor as number
+  const dealBreakers = (data.deal_breakers as string[]) || []
+  const resumePrefs = (data.resume_preferences || {}) as Record<string, unknown>
+  const resumeFormat = resumePrefs.format as string
+
+  if (!level && functions.length === 0 && industries.length === 0) {
+    return <p className="text-sm text-text-muted italic">No data yet. Edit to set your career plan.</p>
+  }
+
+  const targetParts = [level, ...functions, ...industries].filter(Boolean)
+
+  return (
+    <div className="space-y-1.5 text-sm text-text-muted">
+      {targetParts.length > 0 && (
+        <p>Target: <span className="font-medium text-text">{targetParts.join(' \u00B7 ')}</span></p>
+      )}
+      <p>
+        {locations.length > 0 && <>Locations: <span className="font-medium text-text">{locations.join(' \u00B7 ')}</span></>}
+        {compFloor > 0 && <>{locations.length > 0 ? ' \u00B7 ' : ''}Min comp: <span className="font-medium text-text">${compFloor.toLocaleString()}</span></>}
+      </p>
+      <p>Deal breakers: {dealBreakers.length > 0 ? <span className="font-medium text-text">{dealBreakers.join(', ')}</span> : <span className="italic">(none set)</span>}</p>
+      {resumeFormat && <p>Resume: <span className="font-medium text-text">{resumeFormat}</span></p>}
+    </div>
+  )
+}
+
+function QAMasterPreview({ data }: { data: Record<string, unknown> }) {
+  const salary = data.salary_expectations as string
+  const whyLeaving = data.why_leaving as string
+  const weakness = data.greatest_weakness as string
+  const visa = data.visa_status as string
+  const customQA = (data.custom_qa as Array<Record<string, unknown>>) || []
+
+  const allEmpty = !salary && !whyLeaving && !weakness && !visa && customQA.length === 0
+  if (allEmpty) {
+    return <p className="text-sm text-text-muted italic">No data yet. Edit to set your Q&amp;A answers.</p>
+  }
+
+  const items = [
+    { label: 'Salary expectations', set: !!salary },
+    { label: 'Why leaving', set: !!whyLeaving },
+    { label: 'Greatest weakness', set: !!weakness },
+    { label: 'Visa', set: !!visa },
+  ]
+
+  return (
+    <div className="space-y-1.5 text-sm text-text-muted">
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {items.map(item => (
+          <span key={item.label}>
+            {item.label}: {item.set
+              ? <span className="font-medium text-text">(set)</span>
+              : <span className="italic">(empty)</span>
+            }
+          </span>
+        ))}
+      </div>
+      <p>Custom Q&amp;As: <Badge>{customQA.length}</Badge></p>
+    </div>
+  )
+}
+
+function TargetCompaniesPreview({ data }: { data: Record<string, unknown> }) {
+  const companies = (data.companies as Array<Record<string, unknown>>) || []
+
+  if (companies.length === 0) {
+    return <p className="text-sm text-text-muted italic">No companies tracked yet. Edit to add target companies.</p>
+  }
+
+  const sorted = [...companies].sort((a, b) => {
+    const order: Record<string, number> = { high: 0, medium: 1, low: 2 }
+    return (order[(a.priority as string) || 'low'] || 2) - (order[(b.priority as string) || 'low'] || 2)
+  })
+  const top = sorted.slice(0, 3).map(c => `${c.name} (${c.priority})`)
+
+  return (
+    <div className="space-y-1.5 text-sm text-text-muted">
+      <p><Badge>{companies.length} compan{companies.length !== 1 ? 'ies' : 'y'} tracked</Badge></p>
+      <p>Top: <span className="font-medium text-text">{top.join(' \u00B7 ')}</span></p>
+    </div>
+  )
+}
+
+function ConnectionTrackerPreview({ data }: { data: Record<string, unknown> }) {
+  const contacts = (data.contacts as Array<Record<string, unknown>>) || []
+
+  if (contacts.length === 0) {
+    return <p className="text-sm text-text-muted italic">No contacts yet. Edit to add networking connections.</p>
+  }
+
+  const companies = new Set(contacts.map(c => c.company as string).filter(Boolean))
+  const byRelationship: Record<string, number> = {}
+  for (const c of contacts) {
+    const rel = (c.relationship as string) || 'cold'
+    byRelationship[rel] = (byRelationship[rel] || 0) + 1
+  }
+  const relOrder = ['cold', 'connected', 'warm', 'referred']
+  const relParts = relOrder
+    .filter(r => byRelationship[r])
+    .map(r => `${byRelationship[r]} ${r}`)
+
+  return (
+    <div className="space-y-1.5 text-sm text-text-muted">
+      <p>
+        <Badge>{contacts.length} contact{contacts.length !== 1 ? 's' : ''}</Badge>
+        {' '}across{' '}
+        <Badge>{companies.size} compan{companies.size !== 1 ? 'ies' : 'y'}</Badge>
+      </p>
+      {relParts.length > 0 && (
+        <p><span className="font-medium text-text">{relParts.join(' \u00B7 ')}</span></p>
+      )}
+    </div>
+  )
+}
+
+function InterviewHistoryPreview({ data }: { data: Record<string, unknown> }) {
+  const interviews = (data.interviews as Array<Record<string, unknown>>) || []
+  const patterns = (data.patterns || {}) as Record<string, unknown>
+
+  if (interviews.length === 0) {
+    return (
+      <div className="space-y-1.5 text-sm text-text-muted">
+        <p><Badge>0 interviews recorded</Badge></p>
+        <p className="italic">Patterns will emerge after 3+ debriefs</p>
+      </div>
+    )
+  }
+
+  const strongAreas = (patterns.strong_areas as string[]) || []
+  const weakAreas = (patterns.weak_areas as string[]) || []
+
+  return (
+    <div className="space-y-1.5 text-sm text-text-muted">
+      <p><Badge>{interviews.length} interview{interviews.length !== 1 ? 's' : ''} recorded</Badge></p>
+      {strongAreas.length > 0 && (
+        <p>Strong: <span className="font-medium text-text">{strongAreas.join(', ')}</span></p>
+      )}
+      {weakAreas.length > 0 && (
+        <p>Weak: <span className="font-medium text-text">{weakAreas.join(', ')}</span></p>
+      )}
+    </div>
+  )
+}
+
+function ContextPreview({ name, data }: { name: string; data: Record<string, unknown> }) {
+  switch (name) {
+    case 'experience-library':
+      return <ExperienceLibraryPreview data={data} />
+    case 'career-plan':
+      return <CareerPlanPreview data={data} />
+    case 'qa-master':
+      return <QAMasterPreview data={data} />
+    case 'target-companies':
+      return <TargetCompaniesPreview data={data} />
+    case 'connection-tracker':
+      return <ConnectionTrackerPreview data={data} />
+    case 'interview-history':
+      return <InterviewHistoryPreview data={data} />
+    default:
+      return null
+  }
+}
+
+// ─── Inline Edit Forms ─────────────────────────────────────────────────────
+
 function CareerPlanEditor({ data, onSave }: { data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void }) {
   const target = (data.target || {}) as Record<string, unknown>
   const [level, setLevel] = useState((target.level as string) || '')
@@ -237,19 +462,271 @@ function ConnectionEditor({ data, onSave }: { data: Record<string, unknown>; onS
   )
 }
 
+function ExperienceLibraryEditor({ data, onSave }: { data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void }) {
+  const contact = (data.contact || {}) as Record<string, string>
+  const [name, setName] = useState(contact.name || '')
+  const [email, setEmail] = useState(contact.email || '')
+  const [phone, setPhone] = useState(contact.phone || '')
+  const [linkedin, setLinkedin] = useState(contact.linkedin || '')
+  const [location, setLocation] = useState(contact.location || '')
+  const [summary, setSummary] = useState((data.summary as string) || '')
+
+  const existingExperiences = (data.experiences as Array<Record<string, unknown>>) || []
+  const [experiences, setExperiences] = useState(
+    existingExperiences.map(e => ({
+      id: (e.id as string) || '',
+      company: (e.company as string) || '',
+      role: (e.role as string) || '',
+      dates: (e.dates as string) || '',
+      projects: (e.projects as Array<Record<string, unknown>>) || [],
+    }))
+  )
+
+  const existingEducation = (data.education as Array<Record<string, unknown>>) || []
+  const [education, setEducation] = useState(
+    existingEducation.map(ed => ({
+      institution: (ed.institution as string) || '',
+      degree: (ed.degree as string) || '',
+      field: (ed.field as string) || '',
+      year: (ed.year as string) || '',
+    }))
+  )
+
+  const skills = (data.skills || {}) as Record<string, unknown>
+  const existingTechnical = (skills.technical as Array<Record<string, unknown>>) || []
+  const existingLeadership = (skills.leadership as unknown[]) || []
+  const [technicalSkills, setTechnicalSkills] = useState(
+    existingTechnical.map(s => ({
+      name: (s.name as string) || '',
+      proficiency: (s.proficiency as string) || 'intermediate',
+      years: (s.years as number) || 0,
+    }))
+  )
+  const [leadershipSkills, setLeadershipSkills] = useState(
+    existingLeadership.map(s => {
+      if (typeof s === 'string') return { name: s, proficiency: 'intermediate', years: 0 }
+      const sk = s as Record<string, unknown>
+      return { name: (sk.name as string) || '', proficiency: (sk.proficiency as string) || 'intermediate', years: (sk.years as number) || 0 }
+    })
+  )
+
+  const updateExperience = (i: number, field: string, value: string) => {
+    setExperiences(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: value } : e))
+  }
+
+  const updateEducation = (i: number, field: string, value: string) => {
+    setEducation(prev => prev.map((ed, idx) => idx === i ? { ...ed, [field]: value } : ed))
+  }
+
+  const updateTechnical = (i: number, field: string, value: string | number) => {
+    setTechnicalSkills(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
+  }
+
+  const updateLeadership = (i: number, field: string, value: string | number) => {
+    setLeadershipSkills(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
+  }
+
+  const handleSubmit = () => {
+    onSave({
+      ...data,
+      contact: { name, email, phone, linkedin, location },
+      summary,
+      experiences: experiences.filter(e => e.company.trim()).map((e, i) => ({
+        ...e,
+        id: e.id || `exp-${String(i + 1).padStart(3, '0')}`,
+      })),
+      education: education.filter(ed => ed.institution.trim()),
+      skills: {
+        technical: technicalSkills.filter(s => s.name.trim()),
+        leadership: leadershipSkills.filter(s => s.name.trim()),
+      },
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Contact Info */}
+      <div>
+        <h4 className="text-sm font-semibold mb-2">Contact Information</h4>
+        <div className="grid grid-cols-2 gap-2">
+          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Full Name" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+          <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+          <input type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="Location" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+        <input type="text" value={linkedin} onChange={e => setLinkedin(e.target.value)} placeholder="LinkedIn URL" className="w-full mt-2 px-3 py-2 bg-bg border border-border rounded text-sm" />
+      </div>
+
+      {/* Summary */}
+      <div>
+        <label className="block text-sm font-semibold mb-1">Summary</label>
+        <textarea value={summary} onChange={e => setSummary(e.target.value)} rows={3} placeholder="Professional summary..." className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+      </div>
+
+      {/* Experiences */}
+      <div>
+        <h4 className="text-sm font-semibold mb-2">Work Experience</h4>
+        {experiences.map((exp, i) => (
+          <div key={i} className="mb-3 p-3 border border-border/50 rounded space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <input type="text" value={exp.company} onChange={e => updateExperience(i, 'company', e.target.value)} placeholder="Company" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <input type="text" value={exp.role} onChange={e => updateExperience(i, 'role', e.target.value)} placeholder="Role" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+            </div>
+            <input type="text" value={exp.dates} onChange={e => updateExperience(i, 'dates', e.target.value)} placeholder="Dates (e.g. Jan 2020 - Dec 2022)" className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <div className="flex justify-end">
+              <button onClick={() => setExperiences(prev => prev.filter((_, idx) => idx !== i))} className="text-xs text-text-muted hover:text-danger">Remove</button>
+            </div>
+          </div>
+        ))}
+        <button onClick={() => setExperiences(prev => [...prev, { id: '', company: '', role: '', dates: '', projects: [] }])} className="text-sm text-accent hover:text-accent-hover">+ Add Experience</button>
+      </div>
+
+      {/* Education */}
+      <div>
+        <h4 className="text-sm font-semibold mb-2">Education</h4>
+        {education.map((ed, i) => (
+          <div key={i} className="mb-3 p-3 border border-border/50 rounded space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <input type="text" value={ed.institution} onChange={e => updateEducation(i, 'institution', e.target.value)} placeholder="Institution" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <input type="text" value={ed.degree} onChange={e => updateEducation(i, 'degree', e.target.value)} placeholder="Degree" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <input type="text" value={ed.field} onChange={e => updateEducation(i, 'field', e.target.value)} placeholder="Field of Study" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <input type="text" value={ed.year} onChange={e => updateEducation(i, 'year', e.target.value)} placeholder="Year" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+            </div>
+            <div className="flex justify-end">
+              <button onClick={() => setEducation(prev => prev.filter((_, idx) => idx !== i))} className="text-xs text-text-muted hover:text-danger">Remove</button>
+            </div>
+          </div>
+        ))}
+        <button onClick={() => setEducation(prev => [...prev, { institution: '', degree: '', field: '', year: '' }])} className="text-sm text-accent hover:text-accent-hover">+ Add Education</button>
+      </div>
+
+      {/* Technical Skills */}
+      <div>
+        <h4 className="text-sm font-semibold mb-2">Technical Skills</h4>
+        {technicalSkills.map((s, i) => (
+          <div key={i} className="flex gap-2 mb-2 items-center">
+            <input type="text" value={s.name} onChange={e => updateTechnical(i, 'name', e.target.value)} placeholder="Skill name" className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <select value={s.proficiency} onChange={e => updateTechnical(i, 'proficiency', e.target.value)} className="px-3 py-2 bg-bg border border-border rounded text-sm">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+              <option value="expert">Expert</option>
+            </select>
+            <input type="number" value={s.years || ''} onChange={e => updateTechnical(i, 'years', Number(e.target.value) || 0)} placeholder="Yrs" className="w-16 px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <button onClick={() => setTechnicalSkills(prev => prev.filter((_, idx) => idx !== i))} className="px-2 py-2 text-text-muted hover:text-danger text-sm">x</button>
+          </div>
+        ))}
+        <button onClick={() => setTechnicalSkills(prev => [...prev, { name: '', proficiency: 'intermediate', years: 0 }])} className="text-sm text-accent hover:text-accent-hover">+ Add Skill</button>
+      </div>
+
+      {/* Leadership Skills */}
+      <div>
+        <h4 className="text-sm font-semibold mb-2">Leadership Skills</h4>
+        {leadershipSkills.map((s, i) => (
+          <div key={i} className="flex gap-2 mb-2 items-center">
+            <input type="text" value={s.name} onChange={e => updateLeadership(i, 'name', e.target.value)} placeholder="Skill name" className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <select value={s.proficiency} onChange={e => updateLeadership(i, 'proficiency', e.target.value)} className="px-3 py-2 bg-bg border border-border rounded text-sm">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+              <option value="expert">Expert</option>
+            </select>
+            <input type="number" value={s.years || ''} onChange={e => updateLeadership(i, 'years', Number(e.target.value) || 0)} placeholder="Yrs" className="w-16 px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <button onClick={() => setLeadershipSkills(prev => prev.filter((_, idx) => idx !== i))} className="px-2 py-2 text-text-muted hover:text-danger text-sm">x</button>
+          </div>
+        ))}
+        <button onClick={() => setLeadershipSkills(prev => [...prev, { name: '', proficiency: 'intermediate', years: 0 }])} className="text-sm text-accent hover:text-accent-hover">+ Add Skill</button>
+      </div>
+
+      <button onClick={handleSubmit} className="px-4 py-2 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover">Save</button>
+    </div>
+  )
+}
+
+function TargetCompaniesEditor({ data, onSave }: { data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void }) {
+  const existingCompanies = (data.companies as Array<Record<string, unknown>>) || []
+  const [companies, setCompanies] = useState(
+    existingCompanies.length > 0
+      ? existingCompanies.map(c => ({
+          name: (c.name as string) || '',
+          slug: (c.slug as string) || '',
+          fit_score: (c.fit_score as number) || 0,
+          status: (c.status as string) || 'researching',
+          priority: (c.priority as string) || 'medium',
+          notes: (c.notes as string) || '',
+        }))
+      : [{ name: '', slug: '', fit_score: 0, status: 'researching', priority: 'medium', notes: '' }]
+  )
+
+  const updateCompany = (i: number, field: string, value: string | number) => {
+    setCompanies(prev => prev.map((c, idx) => idx === i ? { ...c, [field]: value } : c))
+  }
+
+  const handleSubmit = () => {
+    const validCompanies = companies.filter(c => c.name.trim())
+    onSave({
+      ...data,
+      companies: validCompanies.map(c => ({
+        ...c,
+        slug: c.slug || c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      })),
+    })
+  }
+
+  return (
+    <div className="space-y-3">
+      {companies.map((company, i) => (
+        <div key={i} className="p-3 border border-border/50 rounded space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <input type="text" value={company.name} onChange={e => updateCompany(i, 'name', e.target.value)} placeholder="Company Name" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <select value={company.priority} onChange={e => updateCompany(i, 'priority', e.target.value)} className="px-3 py-2 bg-bg border border-border rounded text-sm">
+              <option value="high">High Priority</option>
+              <option value="medium">Medium Priority</option>
+              <option value="low">Low Priority</option>
+            </select>
+            <select value={company.status} onChange={e => updateCompany(i, 'status', e.target.value)} className="px-3 py-2 bg-bg border border-border rounded text-sm">
+              <option value="researching">Researching</option>
+              <option value="targeting">Targeting</option>
+              <option value="applied">Applied</option>
+              <option value="archived">Archived</option>
+            </select>
+            <input type="number" value={company.fit_score || ''} onChange={e => updateCompany(i, 'fit_score', Number(e.target.value) || 0)} placeholder="Fit Score (0-100)" min={0} max={100} className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+          </div>
+          <textarea value={company.notes} onChange={e => updateCompany(i, 'notes', e.target.value)} placeholder="Notes" rows={2} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+          <div className="flex justify-end">
+            <button onClick={() => setCompanies(prev => prev.filter((_, idx) => idx !== i))} className="text-xs text-text-muted hover:text-danger">Remove</button>
+          </div>
+        </div>
+      ))}
+      <button onClick={() => setCompanies(prev => [...prev, { name: '', slug: '', fit_score: 0, status: 'researching', priority: 'medium', notes: '' }])} className="text-sm text-accent hover:text-accent-hover">+ Add Company</button>
+      <div>
+        <button onClick={handleSubmit} className="px-4 py-2 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover">Save</button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
-const CLI_COMMANDS: Record<string, string> = {
-  'experience-library': '/setup experience',
-  'target-companies': '/setup companies',
-}
+const AUTO_POPULATED = new Set(['interview-history'])
 
 export default function ContextPage() {
   const [status, setStatus] = useState<ContextStatusResponse | null>(null)
+  const [contextData, setContextData] = useState<Record<string, Record<string, unknown>>>({})
   const [editing, setEditing] = useState<string | null>(null)
   const [editData, setEditData] = useState<Record<string, unknown> | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [loadingPreviews, setLoadingPreviews] = useState(true)
+
+  const contextNames = [
+    'experience-library',
+    'career-plan',
+    'qa-master',
+    'target-companies',
+    'connection-tracker',
+    'interview-history',
+  ]
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -258,9 +735,44 @@ export default function ContextPage() {
     } catch { /* ignore */ }
   }, [])
 
-  useEffect(() => { fetchStatus() }, [fetchStatus])
+  const fetchAllContextData = useCallback(async () => {
+    setLoadingPreviews(true)
+    try {
+      const results = await Promise.all(
+        contextNames.map(async (name) => {
+          try {
+            const res = await fetch(`/api/context/${name}`)
+            if (!res.ok) return [name, {}] as const
+            const data = await res.json()
+            return [name, data] as const
+          } catch {
+            return [name, {}] as const
+          }
+        })
+      )
+      const dataMap: Record<string, Record<string, unknown>> = {}
+      for (const [name, data] of results) {
+        dataMap[name] = data as Record<string, unknown>
+      }
+      setContextData(dataMap)
+    } catch { /* ignore */ }
+    setLoadingPreviews(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    fetchStatus()
+    fetchAllContextData()
+  }, [fetchStatus, fetchAllContextData])
 
   const startEditing = async (name: string) => {
+    // Use already-fetched data if available
+    if (contextData[name]) {
+      setEditData(contextData[name])
+      setEditing(name)
+      setSaveError(null)
+      return
+    }
     try {
       const res = await fetch(`/api/context/${name}`)
       const data = await res.json()
@@ -288,7 +800,9 @@ export default function ContextPage() {
       }
       setEditing(null)
       setEditData(null)
+      // Refresh both status and data
       fetchStatus()
+      fetchAllContextData()
     } catch {
       setSaveError('Network error')
     } finally {
@@ -317,11 +831,12 @@ export default function ContextPage() {
         {Object.entries(contexts).map(([name, ctx]) => {
           const freshness = getFreshness(ctx.lastModified)
           const isEditing = editing === name
-          const isCli = CLI_ONLY.has(name)
           const isAuto = AUTO_POPULATED.has(name)
+          const hasPreviewData = !!contextData[name]
 
           return (
             <div key={name} className="border border-border bg-surface rounded-lg overflow-hidden">
+              {/* Header */}
               <div className="flex items-center justify-between px-5 py-4">
                 <div className="flex items-center gap-3">
                   <FreshnessIndicator level={freshness} filled={ctx.filled} />
@@ -330,7 +845,7 @@ export default function ContextPage() {
                     <p className="text-sm text-text-muted">{ctx.description}</p>
                     {isAuto && (
                       <p className="text-xs text-text-muted mt-1">
-                        Auto-populated by /interview-debrief — no manual setup needed
+                        Auto-populated by /interview-debrief -- no manual setup needed
                       </p>
                     )}
                     {ctx.lastModified && (
@@ -341,13 +856,7 @@ export default function ContextPage() {
                   </div>
                 </div>
                 <div>
-                  {(isCli || isAuto) ? (
-                    isCli ? (
-                      <span className="text-xs text-text-muted bg-bg px-2 py-1 rounded border border-border font-mono">
-                        {CLI_COMMANDS[name]}
-                      </span>
-                    ) : null
-                  ) : (
+                  {isAuto ? null : (
                     <button
                       onClick={() => isEditing ? setEditing(null) : startEditing(name)}
                       className="px-3 py-1.5 text-sm border border-border rounded hover:bg-bg transition-colors"
@@ -358,15 +867,34 @@ export default function ContextPage() {
                 </div>
               </div>
 
+              {/* Content Preview */}
+              {hasPreviewData && !loadingPreviews && (
+                <div className="px-5 pb-4 border-t border-border/30 pt-3">
+                  <ContextPreview name={name} data={contextData[name]} />
+                </div>
+              )}
+              {loadingPreviews && (
+                <div className="px-5 pb-4 border-t border-border/30 pt-3">
+                  <p className="text-sm text-text-muted">Loading preview...</p>
+                </div>
+              )}
+
+              {/* Edit Form */}
               {isEditing && editData && (
                 <div className="px-5 pb-5 border-t border-border/50 pt-4">
                   {saveError && <p className="text-danger text-sm mb-3">{saveError}</p>}
                   {saving && <p className="text-text-muted text-sm mb-3">Saving...</p>}
+                  {name === 'experience-library' && (
+                    <ExperienceLibraryEditor data={editData} onSave={d => handleSave(name, d)} />
+                  )}
                   {name === 'career-plan' && (
                     <CareerPlanEditor data={editData} onSave={d => handleSave(name, d)} />
                   )}
                   {name === 'qa-master' && (
                     <QAMasterEditor data={editData} onSave={d => handleSave(name, d)} />
+                  )}
+                  {name === 'target-companies' && (
+                    <TargetCompaniesEditor data={editData} onSave={d => handleSave(name, d)} />
                   )}
                   {name === 'connection-tracker' && (
                     <ConnectionEditor data={editData} onSave={d => handleSave(name, d)} />
