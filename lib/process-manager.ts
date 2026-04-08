@@ -47,6 +47,25 @@ class ProcessManager {
 
   constructor() {
     this.searchDir = getSearchDir()
+    // On startup, mark any stale "running" sessions as failed
+    // (they were orphaned by a previous dashboard restart)
+    this.cleanupStaleSessions()
+  }
+
+  private cleanupStaleSessions(): void {
+    try {
+      const sessions = this.loadSessions()
+      let changed = false
+      for (const [name, session] of Object.entries(sessions.sessions)) {
+        if (session.status === 'running' && !this.processes.has(session.spawn_id)) {
+          console.log(`[process-manager] marking stale session as failed: ${name} (${session.spawn_id})`)
+          session.status = 'failed'
+          session.output = 'Process lost — dashboard was restarted while agent was running'
+          changed = true
+        }
+      }
+      if (changed) this.saveSessions(sessions)
+    } catch {}
   }
 
   private get sessionsPath(): string {

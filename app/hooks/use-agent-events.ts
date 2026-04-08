@@ -19,7 +19,7 @@ interface SpawnState {
   output: string | null
 }
 
-const SPAWN_TIMEOUT_MS = 120_000
+const SPAWN_TIMEOUT_MS = 300_000 // 5 minutes — Claude can take 2-4 min on complex JDs
 
 export function useAgentEvents() {
   const [spawnState, setSpawnState] = useState<SpawnState>({
@@ -142,7 +142,7 @@ export function useAgentEvents() {
         setSpawnState((prev) => ({
           ...prev,
           status: 'timeout',
-          error: 'Agent timed out after 120 seconds',
+          error: 'Agent timed out after 5 minutes',
         }))
       }, SPAWN_TIMEOUT_MS)
 
