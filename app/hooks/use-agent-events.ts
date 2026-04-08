@@ -32,6 +32,7 @@ export function useAgentEvents() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const retriedRef = useRef(false)
+  const spawnInProgressRef = useRef(false)
   const lastRequestRef = useRef<{ agent: string; directive: Record<string, unknown> } | null>(null)
 
   const cleanup = useCallback(() => {
@@ -43,6 +44,7 @@ export function useAgentEvents() {
       clearTimeout(timeoutRef.current)
       timeoutRef.current = null
     }
+    spawnInProgressRef.current = false
   }, [])
 
   useEffect(() => {
@@ -73,12 +75,9 @@ export function useAgentEvents() {
         } else if (data.status === 'failed') {
           cleanup()
 
-          const isStale = data.output?.includes('Process lost') || data.output?.includes('dashboard was restarted')
-
-          // Automatic retry: once for real failures, always for stale session cleanup
-          if (isStale || (!retriedRef.current && lastRequestRef.current)) {
+          // Retry once on failure (stale session or real error) — never more than once
+          if (!retriedRef.current && lastRequestRef.current) {
             retriedRef.current = true
-            // Small delay to let cleanup finish
             setTimeout(() => {
               if (lastRequestRef.current) {
                 spawnAgent(lastRequestRef.current.agent, lastRequestRef.current.directive)
@@ -87,10 +86,12 @@ export function useAgentEvents() {
             return
           }
 
+          // Show the actual error to the user
+          const isStale = data.output?.includes('Process lost') || data.output?.includes('dashboard was restarted')
           setSpawnState((prev) => ({
             ...prev,
             status: 'failed',
-            error: data.output || 'Agent process failed. Try again.',
+            error: isStale ? 'Session expired. Please try again.' : (data.output || 'Agent process failed. Try again.'),
             output: null,
           }))
         }
@@ -105,6 +106,10 @@ export function useAgentEvents() {
     agent: string,
     directive: Record<string, unknown>,
   ) => {
+    // Guard against concurrent spawns
+    if (spawnInProgressRef.current) return null
+    spawnInProgressRef.current = true
+
     cleanup()
     lastRequestRef.current = { agent, directive }
 
