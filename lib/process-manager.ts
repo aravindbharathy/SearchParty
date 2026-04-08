@@ -82,10 +82,10 @@ class ProcessManager {
     const spawnId = `spawn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     const sessions = this.loadSessions()
 
-    // Check for existing session to resume — session IDs must be UUIDs
-    const existing = sessions.sessions[request.agent]
-    const isValidUUID = existing?.session_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(existing.session_id)
-    const sessionId = isValidUUID ? existing!.session_id : this.generateUUID()
+    // Generate a fresh session ID for each spawn.
+    // Note: claude -p (print mode) sessions are NOT resumable — they don't persist.
+    // Session resume will be implemented when we switch to interactive agent mode.
+    const sessionId = this.generateUUID()
 
     try {
       // Build prompt from directive
@@ -97,13 +97,8 @@ class ProcessManager {
       const model = AGENT_MODELS[request.agent] || DEFAULT_MODEL
 
       // Build args: claude -p "prompt" --model <model>
-      // Note: -p takes the prompt as the next arg, not via stdin
+      // Each spawn is a fresh session — no --resume for -p mode
       const args = ['-p', directiveText, '--model', model]
-
-      // If resuming an existing valid session, use --resume
-      if (isValidUUID) {
-        args.push('--resume', existing!.session_id)
-      }
 
       // Resolve claude binary path — Next.js server may not have full user PATH
       const claudePath = process.env.CLAUDE_PATH || 'claude'
