@@ -640,10 +640,10 @@ Extract REAL data from the resume. Push for specifics — include metrics, team 
           setResumeError('Processing timed out — try running /setup experience in terminal')
         }
       }, 300000)
+      // Don't reset processing here — the poll interval handles it
       return
     } catch {
       setResumeError('Network error')
-    } finally {
       setResumeProcessing(false)
     }
   }
