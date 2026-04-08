@@ -293,6 +293,7 @@ class ProcessManager {
         if (metadata.company) parts.push(`Company: ${metadata.company}`)
         if (metadata.role) parts.push(`Role: ${metadata.role}`)
         if (metadata.url) parts.push(`URL: ${metadata.url}`)
+        if (metadata.jd_file) parts.push(`JD File: ${metadata.jd_file}`)
         parts.push(`Date: ${new Date().toISOString().split('T')[0]}`)
         header = `---\n${parts.join('\n')}\n---\n\n`
       }

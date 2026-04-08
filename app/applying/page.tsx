@@ -220,12 +220,23 @@ export default function ApplyingPage() {
     setTailorJdText('')
   }
 
-  // FIX 2: Tailor resume from detail panel
-  const handleTailorFromDetail = (app: Application) => {
+  // FIX 2: Tailor resume from detail panel — auto-loads JD from vault file
+  const handleTailorFromDetail = async (app: Application) => {
     setTailorForApp(app)
     setTailorAppDropdown(app.id)
-    setTailorJdText(app.jd_source && app.jd_source !== 'pasted' && app.jd_source !== 'scored' ? app.jd_source : '')
+    setTailorJdText('') // Clear first
     setShowTailorModal(true)
+
+    // Try to load JD text from vault file
+    if (app.jd_source && app.jd_source.startsWith('vault/')) {
+      try {
+        const res = await fetch(`/api/vault/read-jd?path=${encodeURIComponent(app.jd_source)}`)
+        if (res.ok) {
+          const data = await res.json() as { text: string }
+          setTailorJdText(data.text)
+        }
+      } catch { /* ignore — user can still paste manually */ }
+    }
   }
 
   // Inline edit save handler for detail panel fields

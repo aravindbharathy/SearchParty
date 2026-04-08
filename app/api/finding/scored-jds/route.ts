@@ -12,6 +12,7 @@ interface ScoredJD {
   path: string
   url: string
   date: string
+  jd_file: string
 }
 
 function parseScoreFromContent(content: string): { score: number; recommendation: string } {
@@ -40,6 +41,7 @@ interface EntryMetadata {
   role: string
   url: string
   date: string
+  jd_file: string
 }
 
 function parseMetadataHeader(content: string): { metadata: EntryMetadata | null; body: string } {
@@ -49,7 +51,7 @@ function parseMetadataHeader(content: string): { metadata: EntryMetadata | null;
 
   const header = match[1]
   const body = match[2]
-  const metadata: EntryMetadata = { company: '', role: '', url: '', date: '' }
+  const metadata: EntryMetadata = { company: '', role: '', url: '', date: '', jd_file: '' }
 
   for (const line of header.split('\n')) {
     const [key, ...rest] = line.split(': ')
@@ -58,6 +60,7 @@ function parseMetadataHeader(content: string): { metadata: EntryMetadata | null;
     if (key === 'Role') metadata.role = value
     if (key === 'URL') metadata.url = value
     if (key === 'Date') metadata.date = value
+    if (key === 'JD File') metadata.jd_file = value
   }
 
   return { metadata, body }
@@ -119,6 +122,7 @@ export async function GET() {
         path: filePath,
         url: metadata?.url || '',
         date: dateStr,
+        jd_file: metadata?.jd_file || '',
       })
     }
 

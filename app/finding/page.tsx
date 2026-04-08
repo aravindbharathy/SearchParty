@@ -12,6 +12,7 @@ interface ScoredJD {
   path: string
   url: string
   date: string
+  jd_file: string
 }
 
 interface TargetCompany {
@@ -173,10 +174,29 @@ export default function FindingPage() {
     // Build a slug for the entry filename: company-role-date
     const slug = [company, role].filter(Boolean).join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unknown'
 
+    // Save the raw JD to vault/job-descriptions/ so it can be reused (tailor resume, etc.)
+    let jdPath = ''
+    try {
+      const saveRes = await fetch('/api/vault/save-jd', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company: company || 'unknown',
+          role: role || 'unknown',
+          url: jdUrl.trim(),
+          text: jdText.trim(),
+        }),
+      })
+      if (saveRes.ok) {
+        const saveData = await saveRes.json() as { path: string }
+        jdPath = saveData.path
+      }
+    } catch { /* ignore — scoring still works without saving JD */ }
+
     await spawnAgent('research', {
       skill: 'score-jd',
-      entry_name: slug,  // process manager uses this for filename
-      metadata: { company, role, url: jdUrl.trim() },
+      entry_name: slug,
+      metadata: { company, role, url: jdUrl.trim(), jd_file: jdPath },
       text: builtPrompt,
     })
   }
@@ -282,7 +302,7 @@ export default function FindingPage() {
   }
 
   // FIX 1: Add scored JD to pipeline
-  const addToPipeline = async (company: string, role: string, fitScore: number) => {
+  const addToPipeline = async (company: string, role: string, fitScore: number, jdFile?: string) => {
     setPipelineMsg(null)
     try {
       const res = await fetch('/api/pipeline/applications', {
@@ -293,7 +313,7 @@ export default function FindingPage() {
           role,
           status: 'researching',
           fit_score: fitScore,
-          jd_source: 'scored',
+          jd_source: jdFile || 'scored',
         }),
       })
       if (res.ok) {
@@ -620,7 +640,7 @@ export default function FindingPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          addToPipeline(jd.company, jd.role, jd.score)
+                          addToPipeline(jd.company, jd.role, jd.score, jd.jd_file)
                         }}
                         className="text-xs px-2 py-1 bg-accent/10 text-accent rounded hover:bg-accent/20 transition-colors"
                       >
@@ -652,7 +672,7 @@ export default function FindingPage() {
                 <div className="flex items-center gap-2">
                   {/* FIX 1: Add to Pipeline from detail view */}
                   <button
-                    onClick={() => addToPipeline(selectedJD.company, selectedJD.role, selectedJD.score)}
+                    onClick={() => addToPipeline(selectedJD.company, selectedJD.role, selectedJD.score, selectedJD.jd_file)}
                     className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover transition-colors"
                   >
                     Add to Pipeline
