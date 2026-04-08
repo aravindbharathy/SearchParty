@@ -61,6 +61,9 @@ export default function NetworkingPage() {
   const [referralContactId, setReferralContactId] = useState<string | null>(null)
   const [referralSaveStatus, setReferralSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
+  // Inline edit saved indicator
+  const [savedContactField, setSavedContactField] = useState<string | null>(null)
+
   // Add contact form
   const [showAddForm, setShowAddForm] = useState(false)
   const [newName, setNewName] = useState('')
@@ -270,6 +273,21 @@ export default function NetworkingPage() {
       loadContacts()
       loadStats()
     } catch { /* ignore */ }
+  }
+
+  // Inline edit handler for contact fields
+  const handleContactFieldUpdate = async (contactId: string, field: string, value: string) => {
+    try {
+      await fetch('/api/networking/contacts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: contactId, field, value }),
+      })
+      loadContacts()
+      loadStats()
+      setSavedContactField(`${contactId}-${field}`)
+      setTimeout(() => setSavedContactField(null), 1500)
+    } catch {}
   }
 
   // Group contacts by company
@@ -516,10 +534,75 @@ export default function NetworkingPage() {
                       </button>
 
                       {isExpanded && (
-                        <div className="border-t border-border p-3 bg-bg/50">
+                        <div className="border-t border-border p-3 bg-bg/50 space-y-3">
+                          {/* Editable Fields */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">Name {savedContactField === `${contact.id}-name` && <span className="text-success">- Saved</span>}</div>
+                              <input
+                                defaultValue={contact.name}
+                                onBlur={(e) => { if (e.target.value !== contact.name) handleContactFieldUpdate(contact.id, 'name', e.target.value) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">Company {savedContactField === `${contact.id}-company` && <span className="text-success">- Saved</span>}</div>
+                              <input
+                                defaultValue={contact.company}
+                                onBlur={(e) => { if (e.target.value !== contact.company) handleContactFieldUpdate(contact.id, 'company', e.target.value) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">Role {savedContactField === `${contact.id}-role` && <span className="text-success">- Saved</span>}</div>
+                              <input
+                                defaultValue={contact.role}
+                                onBlur={(e) => { if (e.target.value !== contact.role) handleContactFieldUpdate(contact.id, 'role', e.target.value) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                placeholder="Role"
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">Relationship {savedContactField === `${contact.id}-relationship` && <span className="text-success">- Saved</span>}</div>
+                              <select
+                                defaultValue={contact.relationship}
+                                onChange={(e) => handleContactFieldUpdate(contact.id, 'relationship', e.target.value)}
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              >
+                                <option value="cold">Cold</option>
+                                <option value="connected">Connected</option>
+                                <option value="warm">Warm</option>
+                                <option value="referred">Referred</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-text-muted mb-0.5">LinkedIn URL {savedContactField === `${contact.id}-linkedin_url` && <span className="text-success">- Saved</span>}</div>
+                            <input
+                              defaultValue={contact.linkedin_url}
+                              onBlur={(e) => { if (e.target.value !== contact.linkedin_url) handleContactFieldUpdate(contact.id, 'linkedin_url', e.target.value) }}
+                              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                              placeholder="https://linkedin.com/in/..."
+                              className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <div className="text-xs text-text-muted mb-0.5">Notes {savedContactField === `${contact.id}-notes` && <span className="text-success">- Saved</span>}</div>
+                            <textarea
+                              defaultValue={contact.notes}
+                              onBlur={(e) => { if (e.target.value !== contact.notes) handleContactFieldUpdate(contact.id, 'notes', e.target.value) }}
+                              placeholder="Add notes..."
+                              rows={2}
+                              className="text-sm bg-transparent border border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors resize-y"
+                            />
+                          </div>
+
                           {/* Outreach Timeline */}
                           {contact.outreach.length > 0 && (
-                            <div className="mb-3">
+                            <div>
                               <h4 className="text-xs font-semibold text-text-muted mb-2">Outreach Timeline</h4>
                               <div className="space-y-1">
                                 {contact.outreach.map((o, i) => (
@@ -540,7 +623,7 @@ export default function NetworkingPage() {
 
                           {/* Follow-ups */}
                           {contact.follow_ups.filter((fu) => fu.status === 'pending').length > 0 && (
-                            <div className="mb-3">
+                            <div>
                               <h4 className="text-xs font-semibold text-text-muted mb-2">Pending Follow-ups</h4>
                               <div className="space-y-1">
                                 {contact.follow_ups.map((fu, i) => {
@@ -593,11 +676,6 @@ export default function NetworkingPage() {
                               </a>
                             )}
                           </div>
-
-                          {/* Notes */}
-                          {contact.notes && (
-                            <p className="text-xs text-text-muted mt-2">{contact.notes}</p>
-                          )}
                         </div>
                       )}
                     </div>

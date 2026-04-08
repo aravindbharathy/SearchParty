@@ -66,6 +66,7 @@ export default function ApplyingPage() {
   const [formJdSource, setFormJdSource] = useState('')
   const [tailorJdText, setTailorJdText] = useState('')
   const [showTailorModal, setShowTailorModal] = useState(false)
+  const [savedField, setSavedField] = useState<string | null>(null)
   // FIX 2: Track which application a tailor is for
   const [tailorForApp, setTailorForApp] = useState<Application | null>(null)
   const [tailorAppDropdown, setTailorAppDropdown] = useState('')
@@ -225,6 +226,22 @@ export default function ApplyingPage() {
     setTailorAppDropdown(app.id)
     setTailorJdText(app.jd_source && app.jd_source !== 'pasted' && app.jd_source !== 'scored' ? app.jd_source : '')
     setShowTailorModal(true)
+  }
+
+  // Inline edit save handler for detail panel fields
+  const handleFieldUpdate = async (field: string, value: string | number) => {
+    if (!selectedApp) return
+    try {
+      await fetch(`/api/pipeline/applications/${selectedApp.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ field, value }),
+      })
+      setSelectedApp((prev) => prev ? { ...prev, [field]: value } : null)
+      loadApplications()
+      setSavedField(field)
+      setTimeout(() => setSavedField(null), 1500)
+    } catch {}
   }
 
   // FIX 9: Copy resume content to clipboard
@@ -502,19 +519,32 @@ export default function ApplyingPage() {
         <div className="fixed inset-y-0 right-0 w-96 bg-surface border-l border-border shadow-lg z-40 overflow-y-auto">
           <div className="p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-lg">{selectedApp.company}</h3>
-              <button
-                onClick={() => setSelectedApp(null)}
-                className="text-text-muted hover:text-text text-sm"
-              >
-                Close
-              </button>
+              <input
+                defaultValue={selectedApp.company}
+                onBlur={(e) => { if (e.target.value !== selectedApp.company) handleFieldUpdate('company', e.target.value) }}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                className="font-semibold text-lg bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full mr-2 px-1 py-0.5 rounded transition-colors"
+              />
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {savedField === 'company' && <span className="text-xs text-success">Saved</span>}
+                <button
+                  onClick={() => setSelectedApp(null)}
+                  className="text-text-muted hover:text-text text-sm"
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Role</div>
-                <div className="text-sm">{selectedApp.role}</div>
+                <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Role {savedField === 'role' && <span className="text-success normal-case">- Saved</span>}</div>
+                <input
+                  defaultValue={selectedApp.role}
+                  onBlur={(e) => { if (e.target.value !== selectedApp.role) handleFieldUpdate('role', e.target.value) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                  className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                />
               </div>
 
               <div>
@@ -532,12 +562,29 @@ export default function ApplyingPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Applied</div>
-                  <div className="text-sm">{selectedApp.applied_date || 'N/A'}</div>
+                  <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Applied {savedField === 'applied_date' && <span className="text-success normal-case">- Saved</span>}</div>
+                  <input
+                    type="date"
+                    defaultValue={selectedApp.applied_date || ''}
+                    onBlur={(e) => { if (e.target.value !== (selectedApp.applied_date || '')) handleFieldUpdate('applied_date', e.target.value) }}
+                    className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                  />
                 </div>
                 <div>
-                  <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Fit Score</div>
-                  <div className="text-sm">{selectedApp.fit_score > 0 ? `${selectedApp.fit_score}/100` : 'Not scored'}</div>
+                  <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Fit Score {savedField === 'fit_score' && <span className="text-success normal-case">- Saved</span>}</div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm">{selectedApp.fit_score > 0 ? `${selectedApp.fit_score}/100` : 'Not scored'}</span>
+                    <button
+                      onClick={() => {
+                        const val = prompt('Override fit score (0-100):', String(selectedApp.fit_score || ''))
+                        if (val !== null && !isNaN(Number(val))) handleFieldUpdate('fit_score', Number(val))
+                      }}
+                      className="text-xs text-text-muted hover:text-accent ml-1"
+                      title="Override fit score"
+                    >
+                      edit
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -566,8 +613,14 @@ export default function ApplyingPage() {
               </div>
 
               <div>
-                <div className="text-xs text-text-muted uppercase tracking-wide mb-1">JD Source</div>
-                <div className="text-sm">{selectedApp.jd_source || 'N/A'}</div>
+                <div className="text-xs text-text-muted uppercase tracking-wide mb-1">JD Source {savedField === 'jd_source' && <span className="text-success normal-case">- Saved</span>}</div>
+                <input
+                  defaultValue={selectedApp.jd_source || ''}
+                  onBlur={(e) => { if (e.target.value !== (selectedApp.jd_source || '')) handleFieldUpdate('jd_source', e.target.value) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                  placeholder="URL or description"
+                  className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                />
               </div>
 
               {/* Follow-ups */}
@@ -633,12 +686,16 @@ export default function ApplyingPage() {
                 )}
               </div>
 
-              {selectedApp.notes && (
-                <div>
-                  <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Notes</div>
-                  <div className="text-sm whitespace-pre-wrap">{selectedApp.notes}</div>
-                </div>
-              )}
+              <div>
+                <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Notes {savedField === 'notes' && <span className="text-success normal-case">- Saved</span>}</div>
+                <textarea
+                  defaultValue={selectedApp.notes || ''}
+                  onBlur={(e) => { if (e.target.value !== (selectedApp.notes || '')) handleFieldUpdate('notes', e.target.value) }}
+                  placeholder="Add notes..."
+                  rows={3}
+                  className="text-sm bg-transparent border border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-1 rounded transition-colors resize-y"
+                />
+              </div>
             </div>
           </div>
         </div>
