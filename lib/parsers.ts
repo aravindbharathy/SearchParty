@@ -11,6 +11,7 @@ import {
   writeFileSync,
   existsSync,
   mkdirSync,
+  unlinkSync,
 } from 'fs'
 import { join } from 'path'
 import YAML from 'yaml'
@@ -293,6 +294,32 @@ export async function updateApplication(
   apps[idx] = ApplicationSchema.parse(app)
   await writeApplications(apps)
   return apps[idx]
+}
+
+export async function deleteApplication(id: string): Promise<{ deleted: Application; files: string[] }> {
+  const apps = await parseApplications()
+  const idx = apps.findIndex((a) => a.id === id)
+  if (idx === -1) throw new Error(`Application not found: ${id}`)
+
+  const app = apps[idx]
+  const removedFiles: string[] = []
+
+  // Remove attached JD file from vault
+  if (app.jd_source && app.jd_source.startsWith('vault/')) {
+    try {
+      const fp = join(getSearchDir(), app.jd_source)
+      if (existsSync(fp)) {
+        unlinkSync(fp)
+        removedFiles.push(app.jd_source)
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Remove from array and save
+  apps.splice(idx, 1)
+  await writeApplications(apps)
+
+  return { deleted: app, files: removedFiles }
 }
 
 // ─── Stats & Urgency ────────────────────────────────────────────────────────

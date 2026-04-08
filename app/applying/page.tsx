@@ -240,6 +240,40 @@ export default function ApplyingPage() {
   }
 
   // Inline edit save handler for detail panel fields
+  const handleDeleteApplication = async (app: Application) => {
+    // Step 1: confirm deletion
+    const hasResume = !!app.resume_version
+    let message = `Delete application for ${app.company} — ${app.role}?\n\nThis will remove the application and its attached JD.`
+    if (hasResume) {
+      message += `\n\nThe tailored resume (${app.resume_version}) will NOT be deleted automatically. You can remove it from search/output/resumes/ manually if needed.`
+    }
+    if (!confirm(message)) return
+
+    // Step 2: ask about resume deletion if one exists
+    if (hasResume) {
+      const deleteResume = confirm(`Also delete the tailored resume?\n\n${app.resume_version}\n\nClick OK to delete it, or Cancel to keep it.`)
+      if (deleteResume && app.resume_version) {
+        try {
+          // Delete resume file via a generic file delete
+          await fetch('/api/vault/delete-file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: app.resume_version }),
+          })
+        } catch { /* ignore — resume deletion is best-effort */ }
+      }
+    }
+
+    // Step 3: delete the application (also removes attached JD)
+    try {
+      const res = await fetch(`/api/pipeline/applications/${app.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setSelectedApp(null)
+        loadApplications()
+      }
+    } catch { /* ignore */ }
+  }
+
   const handleFieldUpdate = async (field: string, value: string | number) => {
     if (!selectedApp) return
     try {
@@ -536,8 +570,14 @@ export default function ApplyingPage() {
                 onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                 className="font-semibold text-lg bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full mr-2 px-1 py-0.5 rounded transition-colors"
               />
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {savedField === 'company' && <span className="text-xs text-success">Saved</span>}
+                <button
+                  onClick={() => handleDeleteApplication(selectedApp)}
+                  className="text-danger hover:text-danger/80 text-sm"
+                >
+                  Delete
+                </button>
                 <button
                   onClick={() => setSelectedApp(null)}
                   className="text-text-muted hover:text-text text-sm"
