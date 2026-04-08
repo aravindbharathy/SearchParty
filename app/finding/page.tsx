@@ -77,9 +77,46 @@ export default function FindingPage() {
   const handleScoreJD = async () => {
     if (!jdText.trim()) return
     reset()
+
+    // Fetch context data to include in the prompt (agent in -p mode can't read files)
+    let careerPlan = ''
+    let experience = ''
+    try {
+      const [cpRes, expRes] = await Promise.all([
+        fetch('/api/context/career-plan'),
+        fetch('/api/context/experience-library'),
+      ])
+      if (cpRes.ok) careerPlan = JSON.stringify(await cpRes.json(), null, 2)
+      if (expRes.ok) experience = JSON.stringify(await expRes.json(), null, 2)
+    } catch {}
+
     await spawnAgent('research', {
       skill: 'score-jd',
-      text: `Run /score-jd with the following job description:\n\n${jdText}`,
+      text: `You are a job fit scoring expert. Score this job description against the candidate's profile.
+
+CANDIDATE CAREER PLAN:
+${careerPlan || '(not set up yet)'}
+
+CANDIDATE EXPERIENCE:
+${experience || '(not set up yet)'}
+
+JOB DESCRIPTION TO SCORE:
+${jdText}
+
+Score across 5 dimensions (each 0-20, total 0-100):
+1. Level match — does the JD level match the candidate's target?
+2. Function match — do the required functions align?
+3. Industry match — is the industry a good fit?
+4. Skills overlap — how many required skills does the candidate have?
+5. Culture indicators — any alignment signals?
+
+Output format:
+- Overall Fit Score: XX/100
+- Per-dimension scores with brief notes
+- Red flags (visa, relocation, deal breakers)
+- Salary estimate if possible
+- Recommendation: Apply / Referral Only / Skip
+- Gaps: what the JD requires that the candidate lacks`,
     })
   }
 
