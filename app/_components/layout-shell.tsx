@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './sidebar'
 import { useBlackboard } from '../hooks/use-blackboard'
@@ -11,7 +11,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
   const [urgencyCount, setUrgencyCount] = useState(0)
   const [networkingCount, setNetworkingCount] = useState(0)
 
-  useEffect(() => {
+  const fetchCounts = useCallback(() => {
     // Fetch pipeline urgency (includes networking follow-ups now)
     fetch('/api/pipeline/urgency')
       .then((r) => r.json())
@@ -29,7 +29,18 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
         setNetworkingCount(data.pendingFollowUps ?? 0)
       })
       .catch(() => {})
-  }, [pathname])
+  }, [])
+
+  // Fetch on navigation
+  useEffect(() => {
+    fetchCounts()
+  }, [pathname, fetchCounts])
+
+  // FIX 6: 60-second polling interval for sidebar badge
+  useEffect(() => {
+    const interval = setInterval(fetchCounts, 60_000)
+    return () => clearInterval(interval)
+  }, [fetchCounts])
 
   return (
     <div className="flex min-h-screen">

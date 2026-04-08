@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useAgentEvents } from '../hooks/use-agent-events'
 
 interface ScoredJD {
@@ -69,6 +69,20 @@ export default function FindingPage() {
 
   // Track which companies have intel
   const [intelSlugs, setIntelSlugs] = useState<Set<string>>(new Set())
+
+  // FIX 1: Add-to-pipeline state
+  const [pipelineMsg, setPipelineMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // FIX 7: Scored JDs filter/sort state
+  const [jdSearch, setJdSearch] = useState('')
+  const [jdSort, setJdSort] = useState<'score' | 'date'>('score')
+
+  // FIX 4: Auto-detect company from JD text
+  const detectedCompany = useMemo(() => {
+    if (!jdText.trim()) return null
+    const lower = jdText.toLowerCase()
+    return companies.find((c) => lower.includes(c.name.toLowerCase())) || null
+  }, [jdText, companies])
 
   const loadScoredJDs = useCallback(async () => {
     try {
@@ -235,6 +249,72 @@ export default function FindingPage() {
     }
   }
 
+  // FIX 1: Add scored JD to pipeline
+  const addToPipeline = async (company: string, role: string, fitScore: number) => {
+    setPipelineMsg(null)
+    try {
+      const res = await fetch('/api/pipeline/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company,
+          role,
+          status: 'researching',
+          fit_score: fitScore,
+          jd_source: 'scored',
+        }),
+      })
+      if (res.ok) {
+        setPipelineMsg({ type: 'success', text: `Added ${company} - ${role} to pipeline` })
+        setTimeout(() => setPipelineMsg(null), 4000)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setPipelineMsg({ type: 'error', text: (data as { error?: string }).error || 'Failed to add to pipeline' })
+      }
+    } catch {
+      setPipelineMsg({ type: 'error', text: 'Failed to add to pipeline' })
+    }
+  }
+
+  // FIX 1: Parse company/role from latest output
+  const parseScoreResult = (text: string): { company: string; role: string; score: number } | null => {
+    const companyMatch = text.match(/(?:company|employer|organization)[:\s]+([^\n]+)/i)
+    const roleMatch = text.match(/(?:role|position|title)[:\s]+([^\n]+)/i)
+    const scoreMatch = text.match(/(?:overall|fit|total)\s*(?:score|rating)?[:\s]+(\d+)/i)
+    if (!companyMatch && !roleMatch) return null
+    return {
+      company: companyMatch?.[1]?.trim() || 'Unknown',
+      role: roleMatch?.[1]?.trim() || 'Unknown',
+      score: scoreMatch ? parseInt(scoreMatch[1], 10) : 0,
+    }
+  }
+
+  // FIX 4: Pre-fill JD textarea for a company
+  const prefillScoreJDForCompany = (companyName: string) => {
+    setSelectedIntelSlug(null)
+    setIntelData(null)
+    setJdText(`[Paste JD for ${companyName} here]\n\nCompany: ${companyName}`)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // FIX 7: Filtered & sorted scored JDs
+  const filteredScoredJDs = useMemo(() => {
+    let list = [...scoredJDs]
+    if (jdSearch.trim()) {
+      const q = jdSearch.toLowerCase()
+      list = list.filter(
+        (jd) => jd.company.toLowerCase().includes(q) || jd.role.toLowerCase().includes(q),
+      )
+    }
+    if (jdSort === 'score') {
+      list.sort((a, b) => b.score - a.score)
+    } else {
+      // By date: filenames typically have timestamps; reverse alphabetical ~ newest first
+      list.sort((a, b) => b.filename.localeCompare(a.filename))
+    }
+    return list
+  }, [scoredJDs, jdSearch, jdSort])
+
   const getIntelStatus = (company: TargetCompany): { label: string; color: string } => {
     if (intelSlugs.has(company.slug)) {
       return { label: 'Researched', color: 'bg-success/10 text-success' }
@@ -259,6 +339,14 @@ export default function FindingPage() {
               placeholder="Paste a job description here..."
               className="w-full h-40 p-3 border border-border rounded-md bg-bg text-text text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent/40"
             />
+            {/* FIX 4: Auto-detect company from JD text */}
+            {detectedCompany && (
+              <div className="mt-1 text-xs text-accent flex items-center gap-1">
+                <span>Detected target company:</span>
+                <span className="font-medium">{detectedCompany.name}</span>
+                <span className="text-text-muted">({detectedCompany.priority} priority, fit {detectedCompany.fit_score}/100)</span>
+              </div>
+            )}
             <div className="flex items-center gap-3 mt-3">
               <button
                 onClick={handleScoreJD}
@@ -284,20 +372,39 @@ export default function FindingPage() {
               )}
             </div>
 
-            {latestOutput && status === 'completed' && (
-              <div className="mt-4 p-4 bg-bg border border-border rounded-md">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold">Score Result</h3>
+            {latestOutput && status === 'completed' && (() => {
+              const parsed = parseScoreResult(latestOutput)
+              return (
+                <div className="mt-4 p-4 bg-bg border border-border rounded-md">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold">Score Result</h3>
+                    <button
+                      onClick={() => setLatestOutput(null)}
+                      className="text-xs text-text-muted hover:text-text"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                  <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed">{latestOutput}</pre>
+                  {/* FIX 1: Add to Pipeline button on inline result */}
                   <button
-                    onClick={() => setLatestOutput(null)}
-                    className="text-xs text-text-muted hover:text-text"
+                    onClick={() => {
+                      if (parsed) {
+                        addToPipeline(parsed.company, parsed.role, parsed.score)
+                      }
+                    }}
+                    className="mt-3 px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover transition-colors"
                   >
-                    Dismiss
+                    Add to Pipeline{parsed ? ` (${parsed.company})` : ''}
                   </button>
+                  {pipelineMsg && (
+                    <span className={`ml-3 text-sm ${pipelineMsg.type === 'success' ? 'text-success' : 'text-danger'}`}>
+                      {pipelineMsg.text}
+                    </span>
+                  )}
                 </div>
-                <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed">{latestOutput}</pre>
-              </div>
-            )}
+              )
+            })()}
           </div>
 
           {/* Research Company Action */}
@@ -336,48 +443,99 @@ export default function FindingPage() {
 
           {/* Scored JDs List */}
           <div className="bg-surface border border-border rounded-lg p-5">
-            <h2 className="font-semibold mb-3">Scored JDs</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold">Scored JDs</h2>
+              {scoredJDs.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setJdSort('score')}
+                    className={`text-xs px-2 py-1 rounded ${jdSort === 'score' ? 'bg-accent/10 text-accent font-medium' : 'text-text-muted hover:text-text'}`}
+                  >
+                    By Score
+                  </button>
+                  <button
+                    onClick={() => setJdSort('date')}
+                    className={`text-xs px-2 py-1 rounded ${jdSort === 'date' ? 'bg-accent/10 text-accent font-medium' : 'text-text-muted hover:text-text'}`}
+                  >
+                    By Date
+                  </button>
+                </div>
+              )}
+            </div>
+            {/* FIX 7: Search input */}
+            {scoredJDs.length > 0 && (
+              <input
+                value={jdSearch}
+                onChange={(e) => setJdSearch(e.target.value)}
+                placeholder="Filter by company or role..."
+                className="w-full px-3 py-2 mb-3 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+              />
+            )}
+            {/* FIX 1: Pipeline message */}
+            {pipelineMsg && (
+              <div className={`mb-3 text-sm ${pipelineMsg.type === 'success' ? 'text-success' : 'text-danger'}`}>
+                {pipelineMsg.text}
+              </div>
+            )}
             {scoredJDs.length === 0 ? (
               <p className="text-text-muted text-sm">No scored JDs yet. Paste a job description above to get started.</p>
+            ) : filteredScoredJDs.length === 0 ? (
+              <p className="text-text-muted text-sm">No scored JDs match your filter.</p>
             ) : (
               <div className="space-y-2">
-                {scoredJDs.map((jd) => (
-                  <button
+                {filteredScoredJDs.map((jd) => (
+                  <div
                     key={jd.filename}
-                    onClick={() => viewScoredJD(jd)}
-                    className={`w-full text-left p-3 rounded-md border transition-colors ${
+                    className={`p-3 rounded-md border transition-colors ${
                       selectedJD?.filename === jd.filename
                         ? 'border-accent bg-accent/5'
                         : 'border-border hover:bg-bg'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-medium text-sm">{jd.company}</span>
-                        <span className="text-text-muted text-sm"> -- {jd.role}</span>
+                    <button
+                      onClick={() => viewScoredJD(jd)}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-medium text-sm">{jd.company}</span>
+                          <span className="text-text-muted text-sm"> -- {jd.role}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            jd.score >= 75
+                              ? 'bg-success/10 text-success'
+                              : jd.score >= 60
+                                ? 'bg-warning/10 text-warning'
+                                : 'bg-danger/10 text-danger'
+                          }`}>
+                            {jd.score}/100
+                          </span>
+                          <span className={`text-xs ${
+                            jd.recommendation === 'Apply'
+                              ? 'text-success'
+                              : jd.recommendation === 'Referral Only'
+                                ? 'text-warning'
+                                : 'text-danger'
+                          }`}>
+                            {jd.recommendation}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          jd.score >= 75
-                            ? 'bg-success/10 text-success'
-                            : jd.score >= 60
-                              ? 'bg-warning/10 text-warning'
-                              : 'bg-danger/10 text-danger'
-                        }`}>
-                          {jd.score}/100
-                        </span>
-                        <span className={`text-xs ${
-                          jd.recommendation === 'Apply'
-                            ? 'text-success'
-                            : jd.recommendation === 'Referral Only'
-                              ? 'text-warning'
-                              : 'text-danger'
-                        }`}>
-                          {jd.recommendation}
-                        </span>
-                      </div>
+                    </button>
+                    {/* FIX 1: Add to Pipeline per scored JD card */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          addToPipeline(jd.company, jd.role, jd.score)
+                        }}
+                        className="text-xs px-2 py-1 bg-accent/10 text-accent rounded hover:bg-accent/20 transition-colors"
+                      >
+                        Add to Pipeline
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -390,12 +548,21 @@ export default function FindingPage() {
                 <h2 className="font-semibold">
                   {selectedJD.company} -- {selectedJD.role}
                 </h2>
-                <button
-                  onClick={() => { setSelectedJD(null); setJdContent('') }}
-                  className="text-text-muted text-sm hover:text-text"
-                >
-                  Close
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* FIX 1: Add to Pipeline from detail view */}
+                  <button
+                    onClick={() => addToPipeline(selectedJD.company, selectedJD.role, selectedJD.score)}
+                    className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover transition-colors"
+                  >
+                    Add to Pipeline
+                  </button>
+                  <button
+                    onClick={() => { setSelectedJD(null); setJdContent('') }}
+                    className="text-text-muted text-sm hover:text-text"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
               <div className="prose prose-sm max-w-none text-text">
                 <pre className="whitespace-pre-wrap text-sm bg-bg p-4 rounded-md border border-border overflow-auto max-h-96">
@@ -487,6 +654,18 @@ export default function FindingPage() {
                       {company.notes && (
                         <p className="text-xs text-text-muted mt-1">{company.notes}</p>
                       )}
+                      {/* FIX 4: Score JD link per company */}
+                      <div
+                        className="mt-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => prefillScoreJDForCompany(company.name)}
+                          className="text-xs text-accent hover:text-accent-hover hover:underline"
+                        >
+                          Score JD
+                        </button>
+                      </div>
                     </button>
                   )
                 })}
@@ -573,6 +752,16 @@ export default function FindingPage() {
                   {intelData.comp?.notes && (
                     <p className="text-xs text-text-muted mt-2">{intelData.comp.notes}</p>
                   )}
+                </div>
+
+                {/* FIX 4: Score a JD for this company */}
+                <div className="pt-3 border-t border-border">
+                  <button
+                    onClick={() => prefillScoreJDForCompany(intelData.company)}
+                    className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover transition-colors"
+                  >
+                    Score a JD for {intelData.company}
+                  </button>
                 </div>
               </>
             ) : (

@@ -66,8 +66,15 @@ export default function ApplyingPage() {
   const [formJdSource, setFormJdSource] = useState('')
   const [tailorJdText, setTailorJdText] = useState('')
   const [showTailorModal, setShowTailorModal] = useState(false)
+  // FIX 2: Track which application a tailor is for
+  const [tailorForApp, setTailorForApp] = useState<Application | null>(null)
+  const [tailorAppDropdown, setTailorAppDropdown] = useState('')
+  // FIX 9: Track output filename and content
+  const [tailorOutputFile, setTailorOutputFile] = useState<string | null>(null)
+  const [tailorReviewData, setTailorReviewData] = useState<string | null>(null)
+  const [copySuccess, setCopySuccess] = useState(false)
 
-  const { spawnAgent, status: agentStatus, error: agentError, reset: resetAgent } = useAgentEvents()
+  const { spawnAgent, status: agentStatus, error: agentError, output: agentOutput, reset: resetAgent } = useAgentEvents()
 
   const loadApplications = useCallback(async () => {
     try {
@@ -86,8 +93,35 @@ export default function ApplyingPage() {
   useEffect(() => {
     if (agentStatus === 'completed') {
       loadApplications()
+      // FIX 9: Parse output for filename and review data
+      if (agentOutput) {
+        const fileMatch = agentOutput.match(/(?:saved|written|output|file)[:\s]+([^\n]*tailored[^\n]*\.md)/i)
+        if (fileMatch) {
+          const fname = fileMatch[1].trim()
+          setTailorOutputFile(fname)
+          // FIX 2: Auto-update application's resume_version
+          if (tailorForApp) {
+            fetch(`/api/pipeline/applications/${tailorForApp.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ field: 'resume_version', value: fname }),
+            }).then(() => loadApplications()).catch(() => {})
+          }
+        } else {
+          // Use the write_to path we know
+          const ts = tailorOutputFile
+          if (!ts) {
+            setTailorOutputFile(`output/resumes/tailored-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.md`)
+          }
+        }
+        // FIX 9: Extract review results if present
+        const reviewMatch = agentOutput.match(/((?:recruiter review|ats check|ats score|compatibility)[\s\S]*)/i)
+        if (reviewMatch) {
+          setTailorReviewData(reviewMatch[1].trim())
+        }
+      }
     }
-  }, [agentStatus, loadApplications])
+  }, [agentStatus, agentOutput, loadApplications, tailorForApp, tailorOutputFile])
 
   const handleAddApplication = async () => {
     if (!formCompany.trim() || !formRole.trim()) return
@@ -144,7 +178,18 @@ export default function ApplyingPage() {
   const handleTailorResume = async () => {
     if (!tailorJdText.trim()) return
     resetAgent()
+    setTailorOutputFile(null)
+    setTailorReviewData(null)
+    setCopySuccess(false)
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const outputPath = `output/resumes/tailored-${timestamp}.md`
+    setTailorOutputFile(outputPath)
+
+    // FIX 2: Resolve which application this tailor is for
+    if (tailorAppDropdown) {
+      const app = applications.find((a) => a.id === tailorAppDropdown)
+      setTailorForApp(app || null)
+    }
 
     // Build prompt server-side (agent in -p mode can't read files —
     // the build-prompt API reads experience library + career plan from disk)
@@ -167,11 +212,30 @@ export default function ApplyingPage() {
 
     await spawnAgent('resume', {
       skill: 'resume-tailor',
-      write_to: `output/resumes/tailored-${timestamp}.md`,
+      write_to: outputPath,
       text: builtPrompt,
     })
     setShowTailorModal(false)
     setTailorJdText('')
+  }
+
+  // FIX 2: Tailor resume from detail panel
+  const handleTailorFromDetail = (app: Application) => {
+    setTailorForApp(app)
+    setTailorAppDropdown(app.id)
+    setTailorJdText(app.jd_source && app.jd_source !== 'pasted' && app.jd_source !== 'scored' ? app.jd_source : '')
+    setShowTailorModal(true)
+  }
+
+  // FIX 9: Copy resume content to clipboard
+  const handleCopyResume = async () => {
+    if (agentOutput) {
+      try {
+        await navigator.clipboard.writeText(agentOutput)
+        setCopySuccess(true)
+        setTimeout(() => setCopySuccess(false), 2000)
+      } catch { /* ignore */ }
+    }
   }
 
   const appsByStatus = (statusKey: string) =>
@@ -208,8 +272,32 @@ export default function ApplyingPage() {
         </div>
       )}
       {agentStatus === 'completed' && (
-        <div className="mb-4 p-3 bg-success/5 border border-success/20 rounded-lg text-sm text-success">
-          Resume generated! Check search/output/resumes/ for the file.
+        <div className="mb-4 p-3 bg-success/5 border border-success/20 rounded-lg text-sm">
+          <div className="text-success mb-1">Resume generated!</div>
+          {/* FIX 9: Show output filename */}
+          {tailorOutputFile && (
+            <div className="text-text-muted text-xs mb-2">
+              Saved to: <span className="font-mono text-text">{tailorOutputFile}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            {/* FIX 9: Copy to clipboard */}
+            {agentOutput && (
+              <button
+                onClick={handleCopyResume}
+                className="text-xs px-2 py-1 bg-bg border border-border rounded hover:bg-surface transition-colors"
+              >
+                {copySuccess ? 'Copied!' : 'Copy to Clipboard'}
+              </button>
+            )}
+          </div>
+          {/* FIX 9: Review results */}
+          {tailorReviewData && (
+            <div className="mt-3 p-3 bg-bg border border-border rounded-md">
+              <h4 className="text-xs font-semibold text-text-muted mb-1">Review Results</h4>
+              <pre className="text-xs text-text whitespace-pre-wrap font-sans">{tailorReviewData}</pre>
+            </div>
+          )}
         </div>
       )}
       {agentStatus === 'failed' && (
@@ -266,6 +354,10 @@ export default function ApplyingPage() {
               Cancel
             </button>
           </div>
+          {/* FIX 8: Auto-follow-up notice */}
+          <p className="text-xs text-text-muted mt-3">
+            Follow-ups will be auto-scheduled at days 7, 14, and 21 after applying.
+          </p>
         </div>
       )}
 
@@ -275,6 +367,22 @@ export default function ApplyingPage() {
           <div className="bg-surface border border-border rounded-lg p-6 w-full max-w-lg">
             <h3 className="font-semibold mb-3">Tailor Resume</h3>
             <p className="text-text-muted text-sm mb-3">Paste the job description to generate a tailored resume.</p>
+            {/* FIX 2: Application selector dropdown */}
+            <div className="mb-3">
+              <label className="text-xs text-text-muted block mb-1">Link to application (optional)</label>
+              <select
+                value={tailorAppDropdown}
+                onChange={(e) => setTailorAppDropdown(e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+              >
+                <option value="">-- None --</option>
+                {applications.map((app) => (
+                  <option key={app.id} value={app.id}>
+                    {app.company} - {app.role}
+                  </option>
+                ))}
+              </select>
+            </div>
             <textarea
               value={tailorJdText}
               onChange={(e) => setTailorJdText(e.target.value)}
@@ -290,7 +398,7 @@ export default function ApplyingPage() {
                 Generate Resume
               </button>
               <button
-                onClick={() => { setShowTailorModal(false); setTailorJdText('') }}
+                onClick={() => { setShowTailorModal(false); setTailorJdText(''); setTailorAppDropdown(''); setTailorForApp(null) }}
                 className="px-4 py-2 bg-bg border border-border text-text-muted rounded-md text-sm hover:text-text transition-colors"
               >
                 Cancel
@@ -433,12 +541,29 @@ export default function ApplyingPage() {
                 </div>
               </div>
 
-              {selectedApp.resume_version && (
-                <div>
-                  <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Resume</div>
-                  <div className="text-sm text-accent">{selectedApp.resume_version}</div>
-                </div>
-              )}
+              {/* FIX 2: Resume section with Tailor + View */}
+              <div>
+                <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Resume</div>
+                {selectedApp.resume_version ? (
+                  <div>
+                    <div className="text-sm text-accent mb-1">{selectedApp.resume_version}</div>
+                    <a
+                      href={`/vault?file=${encodeURIComponent(selectedApp.resume_version)}`}
+                      className="text-xs text-accent hover:text-accent-hover hover:underline"
+                    >
+                      View Resume
+                    </a>
+                  </div>
+                ) : (
+                  <div className="text-sm text-text-muted">Not yet tailored</div>
+                )}
+                <button
+                  onClick={() => handleTailorFromDetail(selectedApp)}
+                  className="mt-2 px-3 py-1.5 bg-accent text-white rounded text-xs font-medium hover:bg-accent-hover transition-colors"
+                >
+                  {selectedApp.resume_version ? 'Re-tailor Resume' : 'Tailor Resume'}
+                </button>
+              </div>
 
               <div>
                 <div className="text-xs text-text-muted uppercase tracking-wide mb-1">JD Source</div>

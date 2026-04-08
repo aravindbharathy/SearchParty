@@ -57,6 +57,10 @@ export default function NetworkingPage() {
   const [referralStatus, setReferralStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [latestAgentOutput, setLatestAgentOutput] = useState<string | null>(null)
 
+  // FIX 5: Track referral contact ID for auto-save
+  const [referralContactId, setReferralContactId] = useState<string | null>(null)
+  const [referralSaveStatus, setReferralSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
   // Add contact form
   const [showAddForm, setShowAddForm] = useState(false)
   const [newName, setNewName] = useState('')
@@ -88,19 +92,73 @@ export default function NetworkingPage() {
     loadStats()
   }, [loadContacts, loadStats])
 
+  // FIX 5: Auto-save referral messages to contact
+  const saveReferralToContact = useCallback(async (contactId: string, output: string) => {
+    setReferralSaveStatus('saving')
+    try {
+      const contact = contacts.find((c) => c.id === contactId)
+      if (!contact) { setReferralSaveStatus('error'); return }
+
+      const todayStr = new Date().toISOString().split('T')[0]
+      const day3 = new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0]
+      const day7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
+
+      // Build new outreach entries
+      const newOutreach = [
+        ...contact.outreach,
+        { date: todayStr, type: 'referral-request', status: 'sent', message_summary: output.slice(0, 120) },
+        { date: day3, type: 'referral-step-2', status: 'pending', message_summary: 'Follow-up on referral request' },
+        { date: day7, type: 'referral-step-3', status: 'pending', message_summary: 'Final referral follow-up' },
+      ]
+
+      // Build new follow-up entries
+      const newFollowUps = [
+        ...contact.follow_ups,
+        { due: day3, type: 'referral-step-2', outreach_ref: 'referral-request', status: 'pending' },
+        { due: day7, type: 'referral-step-3', outreach_ref: 'referral-request', status: 'pending' },
+      ]
+
+      // Save outreach
+      await fetch('/api/networking/contacts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: contactId, field: 'outreach', value: newOutreach }),
+      })
+
+      // Save follow-ups
+      await fetch('/api/networking/contacts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: contactId, field: 'follow_ups', value: newFollowUps }),
+      })
+
+      setReferralSaveStatus('saved')
+      loadContacts()
+      loadStats()
+    } catch {
+      setReferralSaveStatus('error')
+    }
+  }, [contacts, loadContacts, loadStats])
+
   useEffect(() => {
     if (agentStatus === 'completed') {
       loadContacts()
       loadStats()
       if (agentOutput) setLatestAgentOutput(agentOutput)
       if (connectionBatchStatus === 'running') setConnectionBatchStatus('done')
-      if (referralStatus === 'running') setReferralStatus('done')
+      if (referralStatus === 'running') {
+        setReferralStatus('done')
+        // FIX 5: Auto-save referral messages on completion
+        if (referralContactId && agentOutput) {
+          saveReferralToContact(referralContactId, agentOutput)
+        }
+      }
     }
     if (agentStatus === 'failed') {
       if (connectionBatchStatus === 'running') setConnectionBatchStatus('error')
       if (referralStatus === 'running') setReferralStatus('error')
     }
-  }, [agentStatus, agentOutput, loadContacts, loadStats, connectionBatchStatus, referralStatus])
+  }, [agentStatus, agentOutput, loadContacts, loadStats, connectionBatchStatus, referralStatus, referralContactId, saveReferralToContact])
 
   const handleGenerateConnectionBatch = async () => {
     agentReset()
@@ -130,7 +188,9 @@ export default function NetworkingPage() {
   const handleRequestReferral = async (contact: Contact) => {
     agentReset()
     setReferralTarget({ name: contact.name, company: contact.company })
+    setReferralContactId(contact.id)
     setReferralStatus('running')
+    setReferralSaveStatus('idle')
     setLatestAgentOutput(null)
 
     try {
@@ -377,6 +437,23 @@ export default function NetworkingPage() {
       {referralStatus === 'done' && referralTarget && (
         <div className="bg-surface border border-success/20 rounded-lg p-4 mb-6">
           <p className="text-sm text-success">Referral sequence generated for {referralTarget.name} at {referralTarget.company}.</p>
+          {/* FIX 5: Show what was saved */}
+          {referralSaveStatus === 'saving' && (
+            <p className="text-xs text-text-muted mt-1 flex items-center gap-1">
+              <span className="inline-block w-2 h-2 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+              Saving outreach &amp; follow-ups to contact...
+            </p>
+          )}
+          {referralSaveStatus === 'saved' && (
+            <div className="text-xs text-success mt-2 space-y-0.5">
+              <p>Saved to {referralTarget.name}:</p>
+              <p>- 3 outreach entries (referral-request, step-2, step-3)</p>
+              <p>- 2 follow-ups scheduled (day 3 and day 7)</p>
+            </div>
+          )}
+          {referralSaveStatus === 'error' && (
+            <p className="text-xs text-danger mt-1">Failed to auto-save to contact. You can manually save below.</p>
+          )}
         </div>
       )}
 

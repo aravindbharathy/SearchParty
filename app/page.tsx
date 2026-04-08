@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBlackboard } from './hooks/use-blackboard'
 import { useAgentEvents } from './hooks/use-agent-events'
@@ -72,24 +72,44 @@ export default function CommandCenter() {
       .catch(() => {})
   }, [router])
 
+  const fetchDashboardData = useCallback(() => {
+    fetch('/api/pipeline/urgency')
+      .then((r) => r.json())
+      .then((data: UrgencyData) => setUrgency(data))
+      .catch(() => {})
+
+    fetch('/api/pipeline/stats')
+      .then((r) => r.json())
+      .then((data: PipelineStats) => setStats(data))
+      .catch(() => {})
+
+    fetch('/api/networking/stats')
+      .then((r) => r.json())
+      .then((data: NetworkingStats) => setNetStats(data))
+      .catch(() => {})
+  }, [])
+
   useEffect(() => {
     if (contextStatus?.contextReady) {
-      fetch('/api/pipeline/urgency')
-        .then((r) => r.json())
-        .then((data: UrgencyData) => setUrgency(data))
-        .catch(() => {})
-
-      fetch('/api/pipeline/stats')
-        .then((r) => r.json())
-        .then((data: PipelineStats) => setStats(data))
-        .catch(() => {})
-
-      fetch('/api/networking/stats')
-        .then((r) => r.json())
-        .then((data: NetworkingStats) => setNetStats(data))
-        .catch(() => {})
+      fetchDashboardData()
     }
-  }, [contextStatus])
+  }, [contextStatus, fetchDashboardData])
+
+  // FIX 6: Re-fetch on window focus
+  useEffect(() => {
+    const handleFocus = () => {
+      if (contextStatus?.contextReady) fetchDashboardData()
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [contextStatus, fetchDashboardData])
+
+  // FIX 6: Re-fetch after agent spawn completes
+  useEffect(() => {
+    if (agentStatus === 'completed' || agentStatus === 'failed') {
+      fetchDashboardData()
+    }
+  }, [agentStatus, fetchDashboardData])
 
   useEffect(() => {
     if (agentStatus === 'completed' && agentOutput) {
@@ -173,7 +193,21 @@ export default function CommandCenter() {
           </div>
         )}
         {briefingContent && (
-          <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed max-h-96 overflow-y-auto mt-2">{briefingContent}</pre>
+          <>
+            <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed max-h-96 overflow-y-auto mt-2">{briefingContent}</pre>
+            {/* FIX 10: Quick-link buttons below briefing output */}
+            <div className="flex items-center gap-3 mt-4 pt-3 border-t border-border">
+              <a href="/applying" className="text-xs text-accent hover:text-accent-hover font-medium">
+                Go to Applications &rarr;
+              </a>
+              <a href="/networking" className="text-xs text-accent hover:text-accent-hover font-medium">
+                Go to Networking &rarr;
+              </a>
+              <a href="/interviewing" className="text-xs text-accent hover:text-accent-hover font-medium">
+                Go to Interviews &rarr;
+              </a>
+            </div>
+          </>
         )}
         {!briefingLoading && !briefingContent && (
           <p className="text-sm text-text-muted">Click &quot;Run Briefing&quot; to generate today&apos;s action items, follow-ups, and pipeline summary.</p>
@@ -195,13 +229,24 @@ export default function CommandCenter() {
             <p className="text-xs text-text-muted">Nothing overdue</p>
           ) : (
             <div className="space-y-2">
-              {urgency.overdue.slice(0, 5).map((item, i) => (
-                <div key={`${item.id}-${i}`} className="text-sm">
-                  <div className="font-medium">{item.company}</div>
-                  <div className="text-xs text-text-muted">{item.role} - Due {item.due}</div>
-                  <div className="text-xs text-text-muted capitalize">{item.followUpType.replace(/-/g, ' ')}</div>
-                </div>
-              ))}
+              {urgency.overdue.slice(0, 5).map((item, i) => {
+                const isNetworking = ['connection-nudge', 'referral-step-2', 'referral-step-3'].includes(item.followUpType)
+                const href = isNetworking ? '/networking' : `/applying?app=${item.id}`
+                return (
+                  <a
+                    key={`${item.id}-${i}`}
+                    href={href}
+                    className="block text-sm p-2 rounded-md hover:bg-bg cursor-pointer transition-colors group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{item.company}</div>
+                      <span className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">&rarr;</span>
+                    </div>
+                    <div className="text-xs text-text-muted">{item.role} - Due {item.due}</div>
+                    <div className="text-xs text-text-muted capitalize">{item.followUpType.replace(/-/g, ' ')}</div>
+                  </a>
+                )
+              })}
             </div>
           )}
         </div>
@@ -219,13 +264,24 @@ export default function CommandCenter() {
             <p className="text-xs text-text-muted">Nothing due today</p>
           ) : (
             <div className="space-y-2">
-              {urgency.today.slice(0, 5).map((item, i) => (
-                <div key={`${item.id}-${i}`} className="text-sm">
-                  <div className="font-medium">{item.company}</div>
-                  <div className="text-xs text-text-muted">{item.role}</div>
-                  <div className="text-xs text-text-muted capitalize">{item.followUpType.replace(/-/g, ' ')}</div>
-                </div>
-              ))}
+              {urgency.today.slice(0, 5).map((item, i) => {
+                const isNetworking = ['connection-nudge', 'referral-step-2', 'referral-step-3'].includes(item.followUpType)
+                const href = isNetworking ? '/networking' : `/applying?app=${item.id}`
+                return (
+                  <a
+                    key={`${item.id}-${i}`}
+                    href={href}
+                    className="block text-sm p-2 rounded-md hover:bg-bg cursor-pointer transition-colors group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{item.company}</div>
+                      <span className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">&rarr;</span>
+                    </div>
+                    <div className="text-xs text-text-muted">{item.role}</div>
+                    <div className="text-xs text-text-muted capitalize">{item.followUpType.replace(/-/g, ' ')}</div>
+                  </a>
+                )
+              })}
             </div>
           )}
         </div>
@@ -243,13 +299,24 @@ export default function CommandCenter() {
             <p className="text-xs text-text-muted">Nothing upcoming</p>
           ) : (
             <div className="space-y-2">
-              {urgency.upcoming.slice(0, 5).map((item, i) => (
-                <div key={`${item.id}-${i}`} className="text-sm">
-                  <div className="font-medium">{item.company}</div>
-                  <div className="text-xs text-text-muted">{item.role} - {item.due}</div>
-                  <div className="text-xs text-text-muted capitalize">{item.followUpType.replace(/-/g, ' ')}</div>
-                </div>
-              ))}
+              {urgency.upcoming.slice(0, 5).map((item, i) => {
+                const isNetworking = ['connection-nudge', 'referral-step-2', 'referral-step-3'].includes(item.followUpType)
+                const href = isNetworking ? '/networking' : `/applying?app=${item.id}`
+                return (
+                  <a
+                    key={`${item.id}-${i}`}
+                    href={href}
+                    className="block text-sm p-2 rounded-md hover:bg-bg cursor-pointer transition-colors group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{item.company}</div>
+                      <span className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">&rarr;</span>
+                    </div>
+                    <div className="text-xs text-text-muted">{item.role} - {item.due}</div>
+                    <div className="text-xs text-text-muted capitalize">{item.followUpType.replace(/-/g, ' ')}</div>
+                  </a>
+                )
+              })}
             </div>
           )}
         </div>
