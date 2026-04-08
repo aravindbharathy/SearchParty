@@ -3,6 +3,7 @@
 interface SidebarProps {
   connected: boolean
   urgencyCount: number
+  networkingCount?: number
   activePage: string
 }
 
@@ -28,7 +29,7 @@ const NAV_ITEMS: (NavItem | { separator: string })[] = [
   { label: 'Context', href: '/context' },
 ]
 
-export function Sidebar({ connected, urgencyCount, activePage }: SidebarProps) {
+export function Sidebar({ connected, urgencyCount, networkingCount = 0, activePage }: SidebarProps) {
   return (
     <aside className="flex flex-col w-56 min-h-screen bg-sidebar-bg text-sidebar-text shrink-0">
       {/* Header */}
@@ -74,6 +75,11 @@ export function Sidebar({ connected, urgencyCount, activePage }: SidebarProps) {
               {item.href === '/' && urgencyCount > 0 && (
                 <span className="ml-auto inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold bg-[#C44A4A] text-white rounded-full">
                   {urgencyCount}
+                </span>
+              )}
+              {item.href === '/networking' && networkingCount > 0 && (
+                <span className="ml-auto inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold bg-[#D4A843] text-white rounded-full">
+                  {networkingCount}
                 </span>
               )}
             </a>

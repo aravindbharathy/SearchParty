@@ -15,6 +15,7 @@ import {
 import { join } from 'path'
 import YAML from 'yaml'
 import { getSearchDir } from './paths'
+import { readContext, ConnectionTrackerSchema } from './context'
 
 // ─── Zod Schemas (D0) ──────────────────────────────────────────────────────
 
@@ -323,6 +324,56 @@ export async function getPipelineStats(): Promise<PipelineStats> {
   }
 }
 
+/**
+ * Get networking follow-ups from connection-tracker.yaml.
+ * Returns UrgencyItem[] for follow-ups due or overdue.
+ */
+export async function getNetworkingFollowUps(): Promise<UrgencyItem[]> {
+  try {
+    const tracker = (await readContext('connection-tracker')) as z.infer<typeof ConnectionTrackerSchema>
+    const contacts = tracker?.contacts ?? []
+    const items: UrgencyItem[] = []
+
+    const now = new Date()
+    const todayStr = now.toISOString().split('T')[0]
+    const weekFromNow = new Date(now)
+    weekFromNow.setDate(weekFromNow.getDate() + 7)
+    const weekStr = weekFromNow.toISOString().split('T')[0]
+
+    for (const contact of contacts) {
+      if (!contact.follow_ups) continue
+
+      for (const fu of contact.follow_ups) {
+        if (fu.status !== 'pending') continue
+        if (!fu.due) continue
+
+        let urgencyType: 'overdue' | 'today' | 'upcoming' = 'upcoming'
+        if (fu.due < todayStr) {
+          urgencyType = 'overdue'
+        } else if (fu.due === todayStr) {
+          urgencyType = 'today'
+        } else if (fu.due > weekStr) {
+          continue // Skip items beyond a week
+        }
+
+        items.push({
+          id: contact.id,
+          company: contact.company,
+          role: `${contact.name} (${contact.role})`,
+          type: urgencyType,
+          due: fu.due,
+          followUpType: fu.type,
+          status: contact.relationship,
+        })
+      }
+    }
+
+    return items
+  } catch {
+    return []
+  }
+}
+
 export async function getUrgencyItems(): Promise<UrgencyItems> {
   const apps = await parseApplications()
   const now = new Date()
@@ -361,6 +412,18 @@ export async function getUrgencyItems(): Promise<UrgencyItems> {
         item.type = 'upcoming'
         result.upcoming.push(item)
       }
+    }
+  }
+
+  // Integrate networking follow-ups
+  const networkingItems = await getNetworkingFollowUps()
+  for (const item of networkingItems) {
+    if (item.type === 'overdue') {
+      result.overdue.push(item)
+    } else if (item.type === 'today') {
+      result.today.push(item)
+    } else {
+      result.upcoming.push(item)
     }
   }
 

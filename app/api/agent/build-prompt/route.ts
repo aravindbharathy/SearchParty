@@ -5,7 +5,7 @@
  * Reads context files from disk and embeds them into the prompt text
  * so the stateless agent receives all needed data inline.
  *
- * Body: { skill: "score-jd" | "resume-tailor" | "setup-experience", params: { jdText?: string } }
+ * Body: { skill: string, params: { jdText?, companyName?, contactName?, company?, batchSize? } }
  * Returns: { prompt: string }
  */
 
@@ -16,6 +16,10 @@ interface BuildPromptRequest {
   skill?: string
   params?: {
     jdText?: string
+    companyName?: string
+    contactName?: string
+    company?: string
+    batchSize?: number
   }
 }
 
@@ -33,6 +37,10 @@ export async function POST(req: Request) {
     const prompt = await buildPrompt({
       skill: body.skill as SkillName,
       jdText: body.params?.jdText,
+      companyName: body.params?.companyName,
+      contactName: body.params?.contactName,
+      company: body.params?.company,
+      batchSize: body.params?.batchSize,
     })
 
     return NextResponse.json({ prompt })

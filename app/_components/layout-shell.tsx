@@ -9,14 +9,24 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { connected } = useBlackboard()
   const [urgencyCount, setUrgencyCount] = useState(0)
+  const [networkingCount, setNetworkingCount] = useState(0)
 
   useEffect(() => {
+    // Fetch pipeline urgency (includes networking follow-ups now)
     fetch('/api/pipeline/urgency')
       .then((r) => r.json())
       .then((data: { overdue?: unknown[]; today?: unknown[] }) => {
         const overdue = Array.isArray(data.overdue) ? data.overdue.length : 0
         const today = Array.isArray(data.today) ? data.today.length : 0
         setUrgencyCount(overdue + today)
+      })
+      .catch(() => {})
+
+    // Fetch networking stats for badge
+    fetch('/api/networking/stats')
+      .then((r) => r.json())
+      .then((data: { pendingFollowUps?: number }) => {
+        setNetworkingCount(data.pendingFollowUps ?? 0)
       })
       .catch(() => {})
   }, [pathname])
@@ -26,6 +36,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
       <Sidebar
         connected={connected}
         urgencyCount={urgencyCount}
+        networkingCount={networkingCount}
         activePage={pathname}
       />
       <main className="flex-1 p-6 overflow-y-auto">

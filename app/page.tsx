@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBlackboard } from './hooks/use-blackboard'
+import { useAgentEvents } from './hooks/use-agent-events'
 import type { ContextStatusResponse } from './types/context'
 
 interface UrgencyItem {
@@ -28,6 +29,14 @@ interface PipelineStats {
   averageFitScore: number
 }
 
+interface NetworkingStats {
+  totalContacts: number
+  totalOutreach: number
+  replyRate: number
+  referrals: number
+  pendingFollowUps: number
+}
+
 const FUNNEL_STAGES = [
   { key: 'researching', label: 'Researching', color: 'bg-text-muted' },
   { key: 'applied', label: 'Applied', color: 'bg-accent' },
@@ -45,6 +54,10 @@ export default function CommandCenter() {
   const [redirecting, setRedirecting] = useState(false)
   const [urgency, setUrgency] = useState<UrgencyData | null>(null)
   const [stats, setStats] = useState<PipelineStats | null>(null)
+  const [netStats, setNetStats] = useState<NetworkingStats | null>(null)
+  const [briefingContent, setBriefingContent] = useState<string | null>(null)
+  const [briefingLoading, setBriefingLoading] = useState(false)
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents()
 
   useEffect(() => {
     fetch('/api/context/status')
@@ -70,8 +83,48 @@ export default function CommandCenter() {
         .then((r) => r.json())
         .then((data: PipelineStats) => setStats(data))
         .catch(() => {})
+
+      fetch('/api/networking/stats')
+        .then((r) => r.json())
+        .then((data: NetworkingStats) => setNetStats(data))
+        .catch(() => {})
     }
   }, [contextStatus])
+
+  useEffect(() => {
+    if (agentStatus === 'completed' && agentOutput) {
+      setBriefingContent(agentOutput)
+      setBriefingLoading(false)
+    }
+    if (agentStatus === 'failed') {
+      setBriefingLoading(false)
+    }
+  }, [agentStatus, agentOutput])
+
+  const handleRunBriefing = async () => {
+    agentReset()
+    setBriefingLoading(true)
+    setBriefingContent(null)
+
+    try {
+      const promptRes = await fetch('/api/agent/build-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skill: 'daily-briefing' }),
+      })
+      if (promptRes.ok) {
+        const data = await promptRes.json() as { prompt: string }
+        await spawnAgent('coach', {
+          skill: 'daily-briefing',
+          text: data.prompt,
+        })
+      } else {
+        setBriefingLoading(false)
+      }
+    } catch {
+      setBriefingLoading(false)
+    }
+  }
 
   if (!contextStatus || redirecting) {
     return (
@@ -87,14 +140,45 @@ export default function CommandCenter() {
   // Recent activity from blackboard log
   const recentLog = state?.log?.slice(-5).reverse() ?? []
 
-  // Momentum: weekly apps count (applications created in the last 7 days)
-  // We approximate from stats — in a full version we'd check applied_date
+  // Momentum: weekly apps count
   const weeklyApps = stats?.byStatus['applied'] ?? 0
+
+  // Separate networking follow-ups from application follow-ups for display
+  const networkingUrgency = {
+    overdue: (urgency?.overdue ?? []).filter((i) => ['connection-nudge', 'referral-step-2', 'referral-step-3'].includes(i.followUpType)),
+    today: (urgency?.today ?? []).filter((i) => ['connection-nudge', 'referral-step-2', 'referral-step-3'].includes(i.followUpType)),
+  }
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
       <h1 className="text-3xl font-bold mb-2">Command Center</h1>
       <p className="text-text-muted mb-8">Your job search at a glance.</p>
+
+      {/* Daily Briefing Section */}
+      <div className="bg-surface border border-border rounded-lg p-5 mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold">Daily Briefing</h2>
+          <button
+            onClick={handleRunBriefing}
+            disabled={briefingLoading}
+            className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {briefingLoading ? 'Generating...' : 'Run Briefing'}
+          </button>
+        </div>
+        {briefingLoading && (
+          <div className="flex items-center gap-2 text-sm text-text-muted">
+            <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            Coach agent generating daily briefing...
+          </div>
+        )}
+        {briefingContent && (
+          <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed max-h-96 overflow-y-auto mt-2">{briefingContent}</pre>
+        )}
+        {!briefingLoading && !briefingContent && (
+          <p className="text-sm text-text-muted">Click &quot;Run Briefing&quot; to generate today&apos;s action items, follow-ups, and pipeline summary.</p>
+        )}
+      </div>
 
       {/* Urgency Sections */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -115,6 +199,7 @@ export default function CommandCenter() {
                 <div key={`${item.id}-${i}`} className="text-sm">
                   <div className="font-medium">{item.company}</div>
                   <div className="text-xs text-text-muted">{item.role} - Due {item.due}</div>
+                  <div className="text-xs text-text-muted capitalize">{item.followUpType.replace(/-/g, ' ')}</div>
                 </div>
               ))}
             </div>
@@ -138,6 +223,7 @@ export default function CommandCenter() {
                 <div key={`${item.id}-${i}`} className="text-sm">
                   <div className="font-medium">{item.company}</div>
                   <div className="text-xs text-text-muted">{item.role}</div>
+                  <div className="text-xs text-text-muted capitalize">{item.followUpType.replace(/-/g, ' ')}</div>
                 </div>
               ))}
             </div>
@@ -161,6 +247,7 @@ export default function CommandCenter() {
                 <div key={`${item.id}-${i}`} className="text-sm">
                   <div className="font-medium">{item.company}</div>
                   <div className="text-xs text-text-muted">{item.role} - {item.due}</div>
+                  <div className="text-xs text-text-muted capitalize">{item.followUpType.replace(/-/g, ' ')}</div>
                 </div>
               ))}
             </div>
@@ -188,6 +275,53 @@ export default function CommandCenter() {
           <div className="text-xs text-text-muted">applications</div>
         </div>
       </div>
+
+      {/* Networking Pulse (from networking stats) */}
+      {netStats && netStats.totalContacts > 0 && (
+        <div className="bg-surface border border-border rounded-lg p-5 mb-8">
+          <h2 className="font-semibold mb-3">Networking Pulse</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <div className="text-sm text-text-muted">Contacts</div>
+              <div className="text-xl font-bold">{netStats.totalContacts}</div>
+            </div>
+            <div>
+              <div className="text-sm text-text-muted">Reply Rate</div>
+              <div className="text-xl font-bold">{netStats.replyRate}%</div>
+            </div>
+            <div>
+              <div className="text-sm text-text-muted">Referrals</div>
+              <div className="text-xl font-bold">{netStats.referrals}</div>
+            </div>
+            <div>
+              <div className="text-sm text-text-muted">Pending F/Us</div>
+              <div className="text-xl font-bold">{netStats.pendingFollowUps}</div>
+            </div>
+          </div>
+          {/* Networking follow-ups due */}
+          {(networkingUrgency.overdue.length > 0 || networkingUrgency.today.length > 0) && (
+            <div className="mt-4 pt-3 border-t border-border">
+              <h3 className="text-sm font-medium text-warning mb-2">Networking Follow-ups Due</h3>
+              <div className="space-y-1">
+                {[...networkingUrgency.overdue, ...networkingUrgency.today].slice(0, 5).map((item, i) => (
+                  <div key={`net-${item.id}-${i}`} className="flex items-center justify-between text-sm">
+                    <div>
+                      <span className="font-medium">{item.role}</span>
+                      <span className="text-text-muted"> at {item.company}</span>
+                    </div>
+                    <span className={`text-xs ${item.type === 'overdue' ? 'text-danger' : 'text-warning'}`}>
+                      {item.due}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <a href="/networking" className="text-xs text-accent hover:text-accent-hover mt-2 inline-block">
+                View all in Networking
+              </a>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pipeline Funnel */}
       <div className="bg-surface border border-border rounded-lg p-5 mb-8">
@@ -239,6 +373,16 @@ export default function CommandCenter() {
               <div>
                 <div className="text-sm font-medium">Tailor Resume</div>
                 <div className="text-xs text-text-muted">Generate a targeted resume from a JD</div>
+              </div>
+            </a>
+            <a
+              href="/networking"
+              className="flex items-center gap-3 p-3 rounded-md border border-border hover:bg-bg transition-colors"
+            >
+              <span className="text-lg">&#x1F91D;</span>
+              <div>
+                <div className="text-sm font-medium">Generate Connection Batch</div>
+                <div className="text-xs text-text-muted">Create personalized LinkedIn outreach</div>
               </div>
             </a>
             <a
