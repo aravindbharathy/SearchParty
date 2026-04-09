@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useBlackboard } from '../hooks/use-blackboard'
 import { useAgentEvents } from '../hooks/use-agent-events'
 import { MarkdownView } from '../_components/markdown-view'
@@ -75,10 +75,12 @@ export default function CommandCenterPage() {
     }
   }, [])
 
-  // Fetch sessions on mount
-  useState(() => {
+  // Fetch sessions on mount and poll every 10 seconds
+  useEffect(() => {
     fetchSessions()
-  })
+    const interval = setInterval(fetchSessions, 10000)
+    return () => clearInterval(interval)
+  }, [fetchSessions])
 
   const handleStartAgent = async (agentName: string) => {
     setSpawningAgent(agentName)
@@ -89,10 +91,16 @@ export default function CommandCenterPage() {
       })
     } finally {
       setSpawningAgent(null)
-      // Refresh sessions after spawn
-      setTimeout(fetchSessions, 2000)
+      fetchSessions()
     }
   }
+
+  // Refresh sessions when any spawn status changes
+  useEffect(() => {
+    if (spawnStatus === 'completed' || spawnStatus === 'failed') {
+      fetchSessions()
+    }
+  }, [spawnStatus, fetchSessions])
 
   const handleResetSession = async (agentName: string) => {
     try {
@@ -187,17 +195,26 @@ export default function CommandCenterPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {ALL_AGENTS.map((def) => {
             const bbAgent = agents[def.name]
-            const isActive = bbAgent?.status === 'active' || bbAgent?.status === 'running'
-            const statusDot = isActive ? 'bg-green-500' : 'bg-text-muted/40'
-            const statusLabel = isActive ? 'active' : bbAgent?.status ?? 'idle'
+            const pmAgent = sessions?.agents?.[def.name]
+
+            // Truth comes from process manager (is a process actually running?)
+            // Blackboard is for context (what was the agent's last task/finding?)
+            const isProcessRunning = pmAgent?.status === 'running'
+            const isSpawning = spawningAgent === def.name && spawnStatus === 'running'
+            const isActive = isProcessRunning || isSpawning
+
+            const statusDot = isActive ? 'bg-green-500 animate-pulse' : pmAgent ? 'bg-text-muted/60' : 'bg-text-muted/20'
+            const statusLabel = isActive ? 'running' : pmAgent?.status === 'completed' ? 'ready' : pmAgent?.status === 'failed' ? 'error' : 'not started'
+
+            // Task info: prefer blackboard (richer) but fall back to process manager
             const taskText =
               (isActive && typeof bbAgent?.current_task === 'string' && bbAgent.current_task) ||
               (typeof bbAgent?.last_task === 'string' && bbAgent.last_task) ||
               (typeof bbAgent?.result_summary === 'string' && bbAgent.result_summary) ||
-              null
-            const interactions =
-              typeof bbAgent?.interactions === 'number' ? bbAgent.interactions : null
-            const isSpawning = spawningAgent === def.name && spawnStatus === 'running'
+              (pmAgent?.status === 'completed' ? 'Last run completed' : null)
+
+            // Interaction count from process manager (more accurate than blackboard)
+            const interactions = pmAgent?.interactions ?? 0
 
             return (
               <div
@@ -207,9 +224,9 @@ export default function CommandCenterPage() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusDot}`} />
                   <span className="font-medium text-sm capitalize">{def.name}</span>
-                  <span className="text-xs opacity-70">{statusLabel}</span>
-                  {interactions != null && (
-                    <span className="text-xs opacity-50 ml-auto">{interactions} runs</span>
+                  <span className={`text-xs ${isActive ? 'text-green-500' : 'opacity-70'}`}>{statusLabel}</span>
+                  {interactions > 0 && (
+                    <span className="text-xs opacity-50 ml-auto">{interactions} {interactions === 1 ? 'run' : 'runs'}</span>
                   )}
                 </div>
                 <div className="text-xs opacity-60 mb-2">{def.role}</div>
@@ -219,13 +236,22 @@ export default function CommandCenterPage() {
                   </p>
                 )}
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleStartAgent(def.name)}
-                    disabled={isSpawning}
-                    className="px-3 py-1 text-xs bg-accent/20 text-accent border border-accent/30 rounded hover:bg-accent/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isSpawning ? 'Starting...' : 'Start'}
-                  </button>
+                  {isActive ? (
+                    <span className="px-3 py-1 text-xs text-green-500 border border-green-500/30 rounded bg-green-500/10 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                      Running...
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleStartAgent(def.name)}
+                      className="px-3 py-1 text-xs bg-accent/20 text-accent border border-accent/30 rounded hover:bg-accent/30 transition-colors"
+                    >
+                      Start
+                    </button>
+                  )}
+                  {pmAgent && !isActive && pmAgent.status === 'failed' && (
+                    <span className="text-xs text-danger">Last run failed</span>
+                  )}
                 </div>
               </div>
             )
