@@ -1344,7 +1344,31 @@ export default function CoachPage() {
   const handleSectionClick = (section: SectionKey) => {
     if (isProcessing) return
     const label = SECTION_META[section]?.label || section
-    sendMessage(`Let's work on ${label} now.`)
+    const data = contextData[section]
+    const isFilled = contextStatus?.contexts?.[section]?.filled
+
+    if (isFilled) {
+      // Build a specific message about what might need updating
+      let gaps = ''
+      if (section === 'experience-library' && data) {
+        const missing: string[] = []
+        if (!data.experiences || (data.experiences as unknown[]).length === 0) missing.push('work experiences')
+        if (!data.education || (data.education as unknown[]).length === 0) missing.push('education/degrees')
+        const skills = data.skills as Record<string, unknown[]> | undefined
+        if (!skills?.technical || skills.technical.length === 0) missing.push('technical skills')
+        if (missing.length > 0) gaps = ` I notice these are still empty: ${missing.join(', ')}.`
+      }
+      if (section === 'qa-master' && data) {
+        const missing: string[] = []
+        if (!data.salary_expectations) missing.push('salary expectations')
+        if (!data.why_leaving) missing.push('why leaving')
+        if (!data.greatest_weakness) missing.push('greatest weakness')
+        if (missing.length > 0) gaps = ` These are still empty: ${missing.join(', ')}.`
+      }
+      sendMessage(`Let's review my ${label} section.${gaps} What's in there, and what should I update?`)
+    } else {
+      sendMessage(`Let's work on ${label} now.`)
+    }
     setCurrentSection(section)
   }
 
