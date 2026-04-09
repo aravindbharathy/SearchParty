@@ -30,11 +30,21 @@ export interface BlackboardLogEntry {
   entry: string
 }
 
+export interface BlackboardFinding {
+  type?: string
+  from?: string
+  text?: string
+  for?: string
+  timestamp?: string
+  [key: string]: unknown
+}
+
 export interface BlackboardState {
   blackboard?: { project?: string; description?: string }
   agents?: Record<string, BlackboardAgent>
   directives?: BlackboardDirective[]
   log?: BlackboardLogEntry[]
+  findings?: Record<string, BlackboardFinding>
 }
 
 interface UseBlackboardOptions {
