@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { MarkdownView } from '../_components/markdown-view'
 import { useAgentEvents } from '../hooks/use-agent-events'
-import type { ContextStatusResponse } from '../types/context'
+import type { ProfileStatusResponse, ProfileSectionStatus } from '../types/context'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -889,6 +889,46 @@ function InterviewHistoryViewer({ data, onCancel }: { data: Record<string, unkno
   )
 }
 
+// ─── Field Progress Bar ───────────────────────────────────────────────────
+
+function FieldProgressBar({ section }: { section: ProfileSectionStatus }) {
+  if (section.filled) return null
+  if (section.required_total === 0) return null
+
+  const pct = Math.round((section.required_filled / section.required_total) * 100)
+  const filledBlocks = Math.round((section.required_filled / section.required_total) * 6)
+
+  return (
+    <div className="flex items-center gap-2 mt-1.5">
+      <span className="text-[10px] text-text-muted whitespace-nowrap">
+        {section.required_filled}/{section.required_total} required
+      </span>
+      <div className="flex gap-px flex-1 max-w-[60px]">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className={`h-1.5 flex-1 rounded-sm ${i < filledBlocks ? 'bg-green-500' : 'bg-border'}`}
+          />
+        ))}
+      </div>
+      <span className="text-[10px] text-text-muted">{pct}%</span>
+    </div>
+  )
+}
+
+function MissingFieldsList({ section }: { section: ProfileSectionStatus }) {
+  const missing = Object.values(section.fields)
+    .filter(f => f.required && !f.filled)
+    .map(f => f.label)
+  if (missing.length === 0) return null
+
+  return (
+    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+      Missing: {missing.join(', ')}
+    </p>
+  )
+}
+
 // ─── Profile Panel (Right Panel) ───────────────────────────────────────────
 
 function ProfilePanel({
@@ -898,7 +938,7 @@ function ProfilePanel({
   onSectionClick,
   onEditSection,
 }: {
-  status: ContextStatusResponse | null
+  status: ProfileStatusResponse | null
   currentSection: SectionKey | null
   contextData: Record<string, Record<string, unknown>>
   onSectionClick: (section: SectionKey) => void
@@ -906,9 +946,9 @@ function ProfilePanel({
 }) {
   if (!status) return null
 
-  const contexts = status.contexts
-  const setupSections = SECTION_ORDER.filter((k) => k in contexts)
-  const filledCount = setupSections.filter((k) => contexts[k]?.filled).length
+  const sections = status.sections
+  const setupSections = SECTION_ORDER.filter((k) => k in sections)
+  const filledCount = setupSections.filter((k) => sections[k]?.filled).length
 
   return (
     <div className="flex flex-col h-full">
@@ -921,11 +961,11 @@ function ProfilePanel({
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {SECTION_ORDER.map((key) => {
-          const ctx = contexts[key]
-          if (!ctx) return null
-          const meta = SECTION_META[key]
+          const sect = sections[key]
+          if (!sect) return null
+          const meta = { icon: sect.icon || SECTION_META[key]?.icon || '', label: sect.label || SECTION_META[key]?.label || key, description: sect.description || SECTION_META[key]?.description || '' }
           const isCurrent = currentSection === key
-          const isFilled = ctx.filled
+          const isFilled = sect.filled
 
           return (
             <div
@@ -980,9 +1020,12 @@ function ProfilePanel({
                       <ContextPreviewCompact name={key} data={contextData[key]} />
                     </div>
                   )}
-                  {isFilled && ctx.lastModified && (
+                  {/* Field-level progress (only for incomplete sections) */}
+                  {!isFilled && <FieldProgressBar section={sect} />}
+                  {!isFilled && <MissingFieldsList section={sect} />}
+                  {isFilled && sect.lastModified && (
                     <p className="text-xs text-text-muted mt-1">
-                      Updated {new Date(ctx.lastModified).toLocaleDateString()}
+                      Updated {new Date(sect.lastModified).toLocaleDateString()}
                     </p>
                   )}
                 </div>
@@ -1001,20 +1044,20 @@ function ProfilePanel({
         })}
 
         {/* Interview Journal */}
-        {contexts['interview-history'] && (
+        {sections['interview-history'] && (
           <div
             className="rounded-lg border border-border/60 bg-bg p-3.5 cursor-pointer hover:border-accent/40"
             onClick={() => onEditSection('interview-history')}
           >
             <div className="flex items-start gap-2.5">
               <span className="text-base mt-0.5">
-                {contexts['interview-history'].filled ? '\u2705' : '\u26AA'}
+                {sections['interview-history'].filled ? '\u2705' : '\u26AA'}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">{SECTION_META['interview-history'].icon}</span>
+                  <span className="text-sm">{sections['interview-history'].icon || SECTION_META['interview-history']?.icon}</span>
                   <span className="text-sm font-medium text-text">
-                    {SECTION_META['interview-history'].label}
+                    {sections['interview-history'].label || SECTION_META['interview-history']?.label}
                   </span>
                   <span className="ml-auto text-xs text-accent hover:text-accent-hover font-medium">View</span>
                 </div>
@@ -1175,7 +1218,7 @@ export default function CoachPage() {
       return (saved as SectionKey) || 'experience-library'
     } catch { return 'experience-library' }
   })
-  const [contextStatus, setContextStatus] = useState<ContextStatusResponse | null>(null)
+  const [contextStatus, setContextStatus] = useState<ProfileStatusResponse | null>(null)
   // showResumeZone removed — resume upload is always visible
   const [hasStarted, setHasStarted] = useState(false)
   const [contextData, setContextData] = useState<Record<string, Record<string, unknown>>>({})
@@ -1214,10 +1257,10 @@ export default function CoachPage() {
     scrollToBottom()
   }, [messages, isProcessing, scrollToBottom])
 
-  // Fetch context status on mount and poll every 5s
+  // Fetch profile status on mount and poll every 5s
   const fetchContextStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/context/status')
+      const res = await fetch('/api/context/profile-status')
       if (res.ok) {
         const data = await res.json()
         setContextStatus(data)
@@ -1343,28 +1386,18 @@ export default function CoachPage() {
 
   const handleSectionClick = (section: SectionKey) => {
     if (isProcessing) return
-    const label = SECTION_META[section]?.label || section
-    const data = contextData[section]
-    const isFilled = contextStatus?.contexts?.[section]?.filled
+    const sectionStatus = contextStatus?.sections?.[section]
+    const label = sectionStatus?.label || SECTION_META[section]?.label || section
+    const isFilled = sectionStatus?.filled
 
     if (isFilled) {
-      // Build a specific message about what might need updating
-      let gaps = ''
-      if (section === 'experience-library' && data) {
-        const missing: string[] = []
-        if (!data.experiences || (data.experiences as unknown[]).length === 0) missing.push('work experiences')
-        if (!data.education || (data.education as unknown[]).length === 0) missing.push('education/degrees')
-        const skills = data.skills as Record<string, unknown[]> | undefined
-        if (!skills?.technical || skills.technical.length === 0) missing.push('technical skills')
-        if (missing.length > 0) gaps = ` I notice these are still empty: ${missing.join(', ')}.`
-      }
-      if (section === 'qa-master' && data) {
-        const missing: string[] = []
-        if (!data.salary_expectations) missing.push('salary expectations')
-        if (!data.why_leaving) missing.push('why leaving')
-        if (!data.greatest_weakness) missing.push('greatest weakness')
-        if (missing.length > 0) gaps = ` These are still empty: ${missing.join(', ')}.`
-      }
+      // Use schema-driven field data to detect gaps
+      const missingFields = Object.values(sectionStatus?.fields || {})
+        .filter(f => f.required && !f.filled)
+        .map(f => f.label)
+      const gaps = missingFields.length > 0
+        ? ` I notice these are still empty: ${missingFields.join(', ')}.`
+        : ''
       sendMessage(`Let's review my ${label} section.${gaps} What's in there, and what should I update?`)
     } else {
       sendMessage(`Let's work on ${label} now.`)
