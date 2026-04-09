@@ -216,8 +216,9 @@ export default function ApplyingPage() {
       write_to: outputPath,
       text: builtPrompt,
     })
-    setShowTailorModal(false)
-    setTailorJdText('')
+    // Don't close modal — keep it open to show progress and results
+    // setShowTailorModal(false)
+    // setTailorJdText('')
   }
 
   // FIX 2: Tailor resume from detail panel — auto-loads JD from vault file
@@ -435,7 +436,8 @@ export default function ApplyingPage() {
               <select
                 value={tailorAppDropdown}
                 onChange={(e) => setTailorAppDropdown(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+                disabled={agentStatus === 'running' || agentStatus === 'completed'}
+                className="w-full px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
               >
                 <option value="">-- None --</option>
                 {applications.map((app) => (
@@ -448,24 +450,89 @@ export default function ApplyingPage() {
             <textarea
               value={tailorJdText}
               onChange={(e) => setTailorJdText(e.target.value)}
+              disabled={agentStatus === 'running' || agentStatus === 'completed'}
               placeholder="Paste job description here..."
-              className="w-full h-48 p-3 border border-border rounded-md bg-bg text-text text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent/40"
+              className="w-full h-48 p-3 border border-border rounded-md bg-bg text-text text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
             />
-            <div className="flex gap-2 mt-3">
-              <button
-                onClick={handleTailorResume}
-                disabled={!tailorJdText.trim()}
-                className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
-              >
-                Generate Resume
-              </button>
-              <button
-                onClick={() => { setShowTailorModal(false); setTailorJdText(''); setTailorAppDropdown(''); setTailorForApp(null) }}
-                className="px-4 py-2 bg-bg border border-border text-text-muted rounded-md text-sm hover:text-text transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
+            {/* Action buttons */}
+            {agentStatus !== 'running' && agentStatus !== 'completed' && (
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={handleTailorResume}
+                  disabled={!tailorJdText.trim()}
+                  className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                >
+                  Generate Resume
+                </button>
+                <button
+                  onClick={() => { setShowTailorModal(false); setTailorJdText(''); setTailorAppDropdown(''); setTailorForApp(null); resetAgent() }}
+                  className="px-4 py-2 bg-bg border border-border text-text-muted rounded-md text-sm hover:text-text transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {/* Agent progress inside modal */}
+            {agentStatus === 'running' && (
+              <div className="mt-4 p-3 bg-accent/5 border border-accent/20 rounded-lg flex items-center gap-2 text-sm">
+                <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                <span>Resume agent is working — this may take 30-60 seconds...</span>
+              </div>
+            )}
+
+            {agentStatus === 'completed' && (
+              <div className="mt-4 p-3 bg-success/5 border border-success/20 rounded-lg text-sm">
+                <div className="font-medium text-success mb-2">Resume generated!</div>
+                {tailorOutputFile && (
+                  <div className="text-text-muted text-xs mb-2">
+                    Saved to: <span className="font-mono text-text">{tailorOutputFile}</span>
+                  </div>
+                )}
+                {agentOutput && (
+                  <div className="mt-2 max-h-60 overflow-y-auto p-3 bg-bg border border-border rounded-md">
+                    <pre className="text-xs text-text whitespace-pre-wrap font-sans leading-relaxed">{agentOutput}</pre>
+                  </div>
+                )}
+                <div className="flex gap-2 mt-3">
+                  {agentOutput && (
+                    <button
+                      onClick={handleCopyResume}
+                      className="text-xs px-3 py-1.5 bg-bg border border-border rounded hover:bg-surface transition-colors"
+                    >
+                      {copySuccess ? 'Copied!' : 'Copy Resume'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setShowTailorModal(false); setTailorJdText(''); setTailorAppDropdown(''); setTailorForApp(null); resetAgent() }}
+                    className="text-xs px-3 py-1.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {agentStatus === 'failed' && (
+              <div className="mt-4 p-3 bg-danger/5 border border-danger/20 rounded-lg text-sm">
+                <div className="text-danger mb-2">{agentError || 'Resume generation failed.'}</div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleTailorResume}
+                    disabled={!tailorJdText.trim()}
+                    className="text-xs px-3 py-1.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
+                  >
+                    Retry
+                  </button>
+                  <button
+                    onClick={() => { setShowTailorModal(false); resetAgent() }}
+                    className="text-xs px-3 py-1.5 bg-bg border border-border rounded hover:bg-surface transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
