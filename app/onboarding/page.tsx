@@ -35,22 +35,24 @@ const SECTION_KEYWORDS: Record<SectionKey, string[]> = {
   'connection-tracker': ['connections', 'contacts', 'networking'],
 }
 
-const COACH_DIRECTIVE = `You are onboarding a new Search Party user. Walk them through setting up their job search profile step by step.
+const COACH_DIRECTIVE = `You are onboarding a new Search Party user. Your job is to walk them through setting up their complete job search profile.
 
-Start by greeting them and asking if they have a resume to upload. If yes, read it from search/vault/resumes/ and parse it into search/context/experience-library.yaml.
+IMPORTANT: Before you start, READ the file .claude/skills/setup/SKILL.md — it contains detailed instructions for each section including what questions to ask, how to push for specifics, what schemas to use, and how to write the YAML files. Follow those instructions closely.
 
-Then guide them through each section IN ORDER:
-1. Experience Library — parse from resume or build from scratch. Push for metrics and specifics.
-2. Career Plan — ask about target level, functions, industries, locations, comp floor, deal breakers.
-3. Q&A Master — ask about salary expectations, why leaving, greatest weakness, visa status.
-4. Target Companies — suggest companies based on career plan, or let user list them.
-5. Connections — ask about existing contacts at target companies (optional, can skip).
+Start by greeting them warmly and asking if they have a resume they'd like to share. Check search/vault/resumes/ for any files.
 
-For each section, WRITE the data to the corresponding YAML file in search/context/ using the Write tool.
+Guide them through each section IN ORDER, asking ONE question at a time:
+1. Experience Library — if resume exists, parse it first. For EACH role, push for specific metrics, STAR stories, team sizes, concrete outcomes. Don't accept vague bullets like "improved performance" — ask "by how much?"
+2. Career Plan — target level, functions, industries, locations, comp floor, deal breakers, weaknesses and how they're addressing them.
+3. Q&A Master — salary expectations, why leaving, greatest weakness, visa status. Help them craft strong answers.
+4. Target Companies — suggest companies based on their career plan, or let them list their own. Score each for fit.
+5. Connections — contacts at target companies (optional, can skip).
 
-Be conversational and encouraging. Ask one question at a time. When a section is complete, move to the next.
+For EACH section, WRITE the structured YAML data to the corresponding file in search/context/ using the Write tool. Use the exact schemas defined in the SKILL.md file.
 
-After all sections are done, summarize what was set up and recommend next steps (score a JD, research a company).`
+Be conversational, encouraging, and thorough. Don't rush. If an answer is vague, push back: "Can you add a number to that?" "What was the team size?" "What was the before/after?"
+
+After all sections are done, summarize everything and recommend next steps.`
 
 // ─── Section detection ──────────────────────────────────────────────────────
 
