@@ -1035,34 +1035,7 @@ function ProfilePanel({
           )
         })}
 
-        {/* Interview Journal */}
-        {sections['interview-history'] && (
-          <div
-            className="rounded-lg border border-border/60 bg-bg p-3.5 cursor-pointer hover:border-accent/40"
-            onClick={() => onEditSection('interview-history')}
-          >
-            <div className="flex items-start gap-2.5">
-              <span className="text-base mt-0.5">
-                {sections['interview-history'].filled ? '\u2705' : '\u26AA'}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">{sections['interview-history'].icon || SECTION_META['interview-history']?.icon}</span>
-                  <span className="text-sm font-medium text-text">
-                    {sections['interview-history'].label || SECTION_META['interview-history']?.label}
-                  </span>
-                  <span className="ml-auto text-xs text-accent hover:text-accent-hover font-medium">View</span>
-                </div>
-                <p className="text-xs text-text-muted mt-0.5">Auto-populated after interviews</p>
-                {contextData['interview-history'] && (
-                  <div className="mt-2">
-                    <ContextPreviewCompact name="interview-history" data={contextData['interview-history']} />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Interview Journal removed from profile — belongs in Interviewing page */}
       </div>
 
       {/* Progress bar */}
@@ -1264,7 +1237,7 @@ export default function CoachPage() {
 
   // Fetch all context data for previews
   const fetchAllContextData = useCallback(async () => {
-    const names = ['experience-library', 'career-plan', 'qa-master', 'target-companies', 'connection-tracker', 'interview-history']
+    const names = ['experience-library', 'career-plan', 'qa-master', 'target-companies', 'connection-tracker']
     try {
       const results = await Promise.all(
         names.map(async (name) => {
