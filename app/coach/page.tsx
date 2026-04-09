@@ -1176,10 +1176,7 @@ export default function CoachPage() {
     } catch { return 'experience-library' }
   })
   const [contextStatus, setContextStatus] = useState<ContextStatusResponse | null>(null)
-  const [showResumeZone, setShowResumeZone] = useState(() => {
-    if (typeof window === 'undefined') return true
-    return localStorage.getItem('coach-resume-zone') !== 'false'
-  })
+  // showResumeZone removed — resume upload is always visible
   const [hasStarted, setHasStarted] = useState(false)
   const [contextData, setContextData] = useState<Record<string, Record<string, unknown>>>({})
   const [editingSection, setEditingSection] = useState<string | null>(null)
@@ -1204,9 +1201,7 @@ export default function CoachPage() {
     }
   }, [currentSection])
 
-  useEffect(() => {
-    localStorage.setItem('coach-resume-zone', String(showResumeZone))
-  }, [showResumeZone])
+  // coach-resume-zone localStorage removed — always visible
 
   // Auto-scroll
   const scrollToBottom = useCallback(() => {
@@ -1297,10 +1292,6 @@ export default function CoachPage() {
           const detectedIdx = SECTION_ORDER.indexOf(detected)
           return detectedIdx >= currentIdx ? detected : prev
         })
-      }
-
-      if (detected && detected !== 'experience-library') {
-        setShowResumeZone(false)
       }
 
       agentReset()
@@ -1440,7 +1431,7 @@ export default function CoachPage() {
         </div>
 
         {/* Resume drop zone */}
-        {showResumeZone && !isContextReady && <ResumeDropZone onUploaded={handleResumeUploaded} />}
+        <ResumeDropZone onUploaded={handleResumeUploaded} />
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
