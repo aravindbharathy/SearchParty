@@ -456,9 +456,14 @@ export default function OnboardingPage() {
 
   const handleSectionClick = (section: SectionKey) => {
     if (isProcessing) return
-    const meta = SECTION_META[section]
     const isFilled = contextStatus?.contexts?.[section]?.filled
-    const label = contextStatus?.contexts?.[section]?.label || meta.description
+    const label = contextStatus?.contexts?.[section]?.label || section
+
+    const message = isFilled
+      ? `Switch to ${label}? The coach will review what's filled and ask if you want to update anything.`
+      : `Switch to ${label}? The coach will help you fill this section.`
+
+    if (!confirm(message)) return
 
     if (isFilled) {
       sendMessage(`I'd like to go back to the ${label} section. Can you show me what's in it and ask if I want to update anything?`)
