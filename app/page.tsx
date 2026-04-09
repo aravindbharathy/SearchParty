@@ -127,22 +127,12 @@ export default function CommandCenter() {
     setBriefingContent(null)
 
     try {
-      const promptRes = await fetch('/api/agent/build-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skill: 'daily-briefing' }),
+      await spawnAgent('coach', {
+        skill: 'daily-briefing',
+        entry_name: 'briefing',
+        metadata: {},
+        text: `Produce a daily briefing for today. Read search/pipeline/applications.yaml, search/pipeline/interviews.yaml, search/context/connection-tracker.yaml, and search/context/snapshot.yaml for current status.`,
       })
-      if (promptRes.ok) {
-        const data = await promptRes.json() as { prompt: string }
-        await spawnAgent('coach', {
-          skill: 'daily-briefing',
-          entry_name: 'briefing',
-          metadata: {},
-          text: data.prompt,
-        })
-      } else {
-        setBriefingLoading(false)
-      }
     } catch {
       setBriefingLoading(false)
     }

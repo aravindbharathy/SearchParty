@@ -554,28 +554,7 @@ export default function OnboardingPage() {
     setResumeProcessing(true)
     setResumeError(null)
     try {
-      // Build prompt server-side (agent in -p mode can't read files —
-      // the build-prompt API reads actual resume content from vault/resumes/)
-      let builtPrompt = ''
-      try {
-        const promptRes = await fetch('/api/agent/build-prompt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ skill: 'setup-experience' }),
-        })
-        if (promptRes.ok) {
-          const data = await promptRes.json() as { prompt: string }
-          builtPrompt = data.prompt
-        }
-      } catch {}
-
-      if (!builtPrompt) {
-        setResumeError('Failed to build prompt — could not read resume files from vault.')
-        setResumeProcessing(false)
-        return
-      }
-
-      // Spawn agent with write_to directive — agent outputs YAML, process manager writes it
+      // Spawn agent with write_to directive — agent reads vault files directly and outputs YAML
       const res = await fetch('/api/agent/spawn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -584,7 +563,7 @@ export default function OnboardingPage() {
           directive: {
             skill: 'setup-experience',
             write_to: 'context/experience-library.yaml',
-            text: builtPrompt,
+            text: `Parse my resume into a structured experience library. Read the resume files from search/vault/resumes/ and output valid YAML matching the experience-library schema.`,
           },
         }),
       })

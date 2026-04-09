@@ -154,23 +154,6 @@ export default function FindingPage() {
     const company = jdCompany.trim() || detectedCompany?.name || ''
     const role = jdRole.trim() || ''
 
-    let builtPrompt = ''
-    try {
-      const promptRes = await fetch('/api/agent/build-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skill: 'score-jd', params: { jdText: jdText.trim() } }),
-      })
-      if (promptRes.ok) {
-        const data = await promptRes.json() as { prompt: string }
-        builtPrompt = data.prompt
-      }
-    } catch { /* ignore */ }
-
-    if (!builtPrompt) {
-      builtPrompt = `Score this job description (context files unavailable):\n\n${jdText}`
-    }
-
     // Build a slug for the entry filename: company-role-date
     const slug = [company, role].filter(Boolean).join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unknown'
 
@@ -197,7 +180,7 @@ export default function FindingPage() {
       skill: 'score-jd',
       entry_name: slug,
       metadata: { company, role, url: jdUrl.trim(), jd_file: jdPath },
-      text: builtPrompt,
+      text: `Score this job description against my profile. Read my experience library and career plan from search/context/ for the analysis.\n\nCompany: ${company}\nRole: ${role}\n\nJob Description:\n${jdText}`,
     })
   }
 
@@ -208,26 +191,16 @@ export default function FindingPage() {
     const companySlug = researchCompany.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
     try {
-      const promptRes = await fetch('/api/agent/build-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skill: 'company-research', params: { companyName: researchCompany.trim() } }),
+      await spawnAgent('research', {
+        skill: 'company-research',
+        entry_name: companySlug,
+        metadata: { company: researchCompany.trim() },
+        write_to: `intel/${companySlug}.yaml`,
+        text: `Research "${researchCompany.trim()}" and produce structured company intel. Read search/context/career-plan.yaml and search/context/target-companies.yaml for candidate context.`,
       })
-      if (promptRes.ok) {
-        const data = await promptRes.json() as { prompt: string }
-        await spawnAgent('research', {
-          skill: 'company-research',
-          entry_name: companySlug,
-          metadata: { company: researchCompany.trim() },
-          write_to: `intel/${companySlug}.yaml`,
-          text: data.prompt,
-        })
-        setResearchStatus('done')
-        setResearchCompany('')
-        setTimeout(() => { loadCompanies(); setResearchStatus('idle') }, 2000)
-      } else {
-        setResearchStatus('error')
-      }
+      setResearchStatus('done')
+      setResearchCompany('')
+      setTimeout(() => { loadCompanies(); setResearchStatus('idle') }, 2000)
     } catch {
       setResearchStatus('error')
     }
@@ -237,23 +210,13 @@ export default function FindingPage() {
     setGenerateTargetsStatus('running')
 
     try {
-      const promptRes = await fetch('/api/agent/build-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skill: 'generate-targets' }),
+      await spawnAgent('research', {
+        skill: 'generate-targets',
+        write_to: 'context/target-companies.yaml',
+        text: `Generate a ranked list of target companies for my job search. Read search/context/career-plan.yaml for my target level, functions, industries, and compensation floor.`,
       })
-      if (promptRes.ok) {
-        const data = await promptRes.json() as { prompt: string }
-        await spawnAgent('research', {
-          skill: 'generate-targets',
-          write_to: 'context/target-companies.yaml',
-          text: data.prompt,
-        })
-        setGenerateTargetsStatus('done')
-        setTimeout(() => { loadCompanies(); setGenerateTargetsStatus('idle') }, 2000)
-      } else {
-        setGenerateTargetsStatus('error')
-      }
+      setGenerateTargetsStatus('done')
+      setTimeout(() => { loadCompanies(); setGenerateTargetsStatus('idle') }, 2000)
     } catch {
       setGenerateTargetsStatus('error')
     }

@@ -188,25 +188,6 @@ export default function ApplyingPage() {
     const outputPath = `output/resumes/${companySlug}-${roleSlug}-${timestamp}.md`
     setTailorOutputFile(outputPath)
 
-    // Build prompt server-side (agent in -p mode can't read files —
-    // the build-prompt API reads experience library + career plan from disk)
-    let builtPrompt = ''
-    try {
-      const promptRes = await fetch('/api/agent/build-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skill: 'resume-tailor', params: { jdText: tailorJdText.trim() } }),
-      })
-      if (promptRes.ok) {
-        const data = await promptRes.json() as { prompt: string }
-        builtPrompt = data.prompt
-      }
-    } catch {}
-
-    if (!builtPrompt) {
-      builtPrompt = `Tailor a resume for this JD (context files unavailable):\n\n${tailorJdText}`
-    }
-
     await spawnAgent('resume', {
       skill: 'resume-tailor',
       entry_name: `${companySlug}-${roleSlug}`,
@@ -216,7 +197,7 @@ export default function ApplyingPage() {
         jd_file: linkedApp?.jd_source || '',
       },
       write_to: outputPath,
-      text: builtPrompt,
+      text: `Tailor a resume for this job description. Read search/context/experience-library.yaml and search/context/career-plan.yaml for my background.\n\nCompany: ${linkedApp?.company || 'unknown'}\nRole: ${linkedApp?.role || 'unknown'}\n\nJob Description:\n${tailorJdText}`,
     })
     // Don't close modal — keep it open to show progress and results
     // setShowTailorModal(false)

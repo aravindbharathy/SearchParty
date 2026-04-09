@@ -174,23 +174,13 @@ export default function NetworkingPage() {
     const dateSlug = new Date().toISOString().split('T')[0]
 
     try {
-      const promptRes = await fetch('/api/agent/build-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skill: 'connection-request', params: { batchSize: 25 } }),
+      await spawnAgent('networking', {
+        skill: 'connection-request',
+        entry_name: `batch-${dateSlug}`,
+        metadata: { company: 'multiple' },
+        write_to: `output/messages/connection-batch-${dateSlug}.md`,
+        text: `Generate 25 personalized LinkedIn connection requests. Read search/context/target-companies.yaml, search/context/connection-tracker.yaml, and search/context/experience-library.yaml for context. Round-robin across target companies, each message under 300 characters.`,
       })
-      if (promptRes.ok) {
-        const data = await promptRes.json() as { prompt: string }
-        await spawnAgent('networking', {
-          skill: 'connection-request',
-          entry_name: `batch-${dateSlug}`,
-          metadata: { company: 'multiple' },
-          write_to: `output/messages/connection-batch-${dateSlug}.md`,
-          text: data.prompt,
-        })
-      } else {
-        setConnectionBatchStatus('error')
-      }
     } catch {
       setConnectionBatchStatus('error')
     }
@@ -208,26 +198,13 @@ export default function NetworkingPage() {
     const contactSlug = contact.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
     try {
-      const promptRes = await fetch('/api/agent/build-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          skill: 'referral-request',
-          params: { contactName: contact.name, company: contact.company },
-        }),
+      await spawnAgent('networking', {
+        skill: 'referral-request',
+        entry_name: `${companySlug}-${contactSlug}`,
+        metadata: { company: contact.company, role: contact.role },
+        write_to: `output/messages/referral-${companySlug}-${contactSlug}.md`,
+        text: `Generate a 3-message referral request sequence for "${contact.name}" at "${contact.company}". Read search/context/connection-tracker.yaml for prior interaction history.`,
       })
-      if (promptRes.ok) {
-        const data = await promptRes.json() as { prompt: string }
-        await spawnAgent('networking', {
-          skill: 'referral-request',
-          entry_name: `${companySlug}-${contactSlug}`,
-          metadata: { company: contact.company, role: contact.role },
-          write_to: `output/messages/referral-${companySlug}-${contactSlug}.md`,
-          text: data.prompt,
-        })
-      } else {
-        setReferralStatus('error')
-      }
     } catch {
       setReferralStatus('error')
     }
@@ -241,23 +218,13 @@ export default function NetworkingPage() {
     const dateSlug = new Date().toISOString().split('T')[0]
 
     try {
-      const promptRes = await fetch('/api/agent/build-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skill: 'linkedin-audit' }),
+      await spawnAgent('networking', {
+        skill: 'linkedin-audit',
+        entry_name: `audit-${dateSlug}`,
+        metadata: {},
+        write_to: `output/messages/linkedin-audit-${dateSlug}.md`,
+        text: `Audit my LinkedIn profile against my target roles. Read search/context/career-plan.yaml, search/context/experience-library.yaml, and top JDs from search/vault/job-descriptions/ for the analysis.`,
       })
-      if (promptRes.ok) {
-        const data = await promptRes.json() as { prompt: string }
-        await spawnAgent('networking', {
-          skill: 'linkedin-audit',
-          entry_name: `audit-${dateSlug}`,
-          metadata: {},
-          write_to: `output/messages/linkedin-audit-${dateSlug}.md`,
-          text: data.prompt,
-        })
-      } else {
-        setLinkedinAuditStatus('error')
-      }
     } catch {
       setLinkedinAuditStatus('error')
     }
