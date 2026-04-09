@@ -82,31 +82,51 @@ export default function CommandCenterPage() {
     return () => clearInterval(interval)
   }, [fetchSessions])
 
+  const clearBlackboard = async () => {
+    await fetch('http://localhost:8790/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'agents', value: {}, log_entry: 'Reset from dashboard' }),
+    }).catch(() => {})
+    await fetch('http://localhost:8790/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'directives', value: [], log_entry: 'Reset: cleared directives' }),
+    }).catch(() => {})
+    await fetch('http://localhost:8790/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'findings', value: {}, log_entry: 'Reset: cleared findings' }),
+    }).catch(() => {})
+  }
+
   const handleReset = async () => {
-    if (!confirm('Reset everything?\n\nThis will clear:\n- All agent sessions\n- All pipeline applications\n- All scored JDs and entries\n- All generated resumes and messages\n- All blackboard state (agents, directives, findings)\n\nContext files (experience, career plan, etc.) will be kept.\nVault source files will be kept.')) return
+    const choice = prompt(
+      'What do you want to reset?\n\n' +
+      '1 — Reset activity (pipeline, entries, output, agent sessions)\n' +
+      '    Keeps: context files, vault files, intel\n\n' +
+      '2 — Full reset (everything back to onboarding)\n' +
+      '    Clears: context files, pipeline, entries, output, sessions\n' +
+      '    Keeps: vault source files, intel\n\n' +
+      'Type 1 or 2:'
+    )
+
+    if (choice !== '1' && choice !== '2') return
+
+    const full = choice === '2'
+    if (full && !confirm('Are you sure? This will erase your experience library, career plan, Q&A answers, and all other context. You will need to go through onboarding again.')) return
 
     try {
-      const res = await fetch('/api/reset', { method: 'POST' })
+      const res = await fetch(`/api/reset?full=${full}`, { method: 'POST' })
       if (res.ok) {
-        // Clear blackboard
-        await fetch('http://localhost:8790/write', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: 'agents', value: {}, log_entry: 'Full reset from dashboard' }),
-        }).catch(() => {})
-        await fetch('http://localhost:8790/write', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: 'directives', value: [], log_entry: 'Reset: cleared directives' }),
-        }).catch(() => {})
-        await fetch('http://localhost:8790/write', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: 'findings', value: {}, log_entry: 'Reset: cleared findings' }),
-        }).catch(() => {})
-
+        await clearBlackboard()
         fetchSessions()
-        alert('Reset complete. Refresh the page to see clean state.')
+        if (full) {
+          window.location.href = '/onboarding'
+        } else {
+          alert('Activity reset complete.')
+          window.location.reload()
+        }
       }
     } catch {
       alert('Reset failed')
