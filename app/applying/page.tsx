@@ -74,6 +74,8 @@ export default function ApplyingPage() {
   const [tailorOutputFile, setTailorOutputFile] = useState<string | null>(null)
   const [tailorReviewData, setTailorReviewData] = useState<string | null>(null)
   const [copySuccess, setCopySuccess] = useState(false)
+  const [viewingResume, setViewingResume] = useState<string | null>(null)
+  const [resumeContent, setResumeContent] = useState<string>('')
 
   const { spawnAgent, status: agentStatus, error: agentError, output: agentOutput, reset: resetAgent } = useAgentEvents()
 
@@ -241,6 +243,22 @@ export default function ApplyingPage() {
   }
 
   // Inline edit save handler for detail panel fields
+  const viewResumeFile = async (path: string) => {
+    setViewingResume(path)
+    setResumeContent('Loading...')
+    try {
+      const res = await fetch(`/api/vault/read-file?path=${encodeURIComponent(path)}`)
+      if (res.ok) {
+        const data = await res.json() as { content: string }
+        setResumeContent(data.content)
+      } else {
+        setResumeContent('Failed to load resume file.')
+      }
+    } catch {
+      setResumeContent('Failed to load resume file.')
+    }
+  }
+
   const handleDeleteApplication = async (app: Application) => {
     // Step 1: confirm deletion
     const hasResume = !!app.resume_version
@@ -711,13 +729,13 @@ export default function ApplyingPage() {
                 <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Resume</div>
                 {selectedApp.resume_version ? (
                   <div>
-                    <div className="text-sm text-accent mb-1">{selectedApp.resume_version}</div>
-                    <a
-                      href={`/vault?file=${encodeURIComponent(selectedApp.resume_version)}`}
+                    <div className="text-sm text-text-muted mb-1 font-mono text-xs">{selectedApp.resume_version}</div>
+                    <button
+                      onClick={() => viewResumeFile(selectedApp.resume_version)}
                       className="text-xs text-accent hover:text-accent-hover hover:underline"
                     >
                       View Resume
-                    </a>
+                    </button>
                   </div>
                 ) : (
                   <div className="text-sm text-text-muted">Not yet tailored</div>
@@ -814,6 +832,40 @@ export default function ApplyingPage() {
                   className="text-sm bg-transparent border border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-1 rounded transition-colors resize-y"
                 />
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Resume Viewer Modal */}
+      {viewingResume && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface border border-border rounded-lg w-full max-w-3xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div>
+                <h3 className="font-semibold">Resume</h3>
+                <p className="text-xs text-text-muted font-mono">{viewingResume}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(resumeContent)
+                    } catch { /* ignore */ }
+                  }}
+                  className="text-xs px-3 py-1.5 bg-bg border border-border rounded hover:bg-surface transition-colors"
+                >
+                  Copy
+                </button>
+                <button
+                  onClick={() => setViewingResume(null)}
+                  className="text-xs px-3 py-1.5 bg-bg border border-border rounded hover:bg-surface transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed">{resumeContent}</pre>
             </div>
           </div>
         </div>
