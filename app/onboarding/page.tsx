@@ -545,10 +545,10 @@ export default function OnboardingPage() {
           {showSkipButton && (
             <div className="flex justify-end mb-2">
               <button
-                onClick={() => sendMessage('Skip this section')}
+                onClick={() => sendMessage('Skip this')}
                 className="text-xs text-text-muted hover:text-text transition-colors"
               >
-                Skip this section &rarr;
+                Skip this &rarr;
               </button>
             </div>
           )}
