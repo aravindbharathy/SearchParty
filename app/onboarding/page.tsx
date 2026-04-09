@@ -27,12 +27,13 @@ const SECTION_ORDER: SectionKey[] = [
   'connection-tracker',
 ]
 
+// Keywords ordered from most specific to least — matched in section order (first wins)
 const SECTION_KEYWORDS: Record<SectionKey, string[]> = {
-  'experience-library': ['experience', 'resume', 'work history', 'roles', 'experience library'],
-  'career-plan': ['career plan', 'target level', 'functions', 'industries', 'locations', 'comp', 'deal breaker'],
-  'qa-master': ['q&a', 'qa master', 'salary', 'why leaving', 'weakness', 'visa'],
-  'target-companies': ['target companies', 'companies', 'company list'],
-  'connection-tracker': ['connections', 'contacts', 'networking'],
+  'experience-library': ['experience library', 'experience entries', 'work history', 'let\'s start with experience', 'start with your experience', 'parse your resume', 'star stor', 'each role'],
+  'career-plan': ['career plan', 'career targets', 'target level', 'what level', 'deal breaker', 'comp floor', 'minimum comp'],
+  'qa-master': ['q&a master', 'q&a prep', 'salary expectation', 'why are you leaving', 'greatest weakness', 'visa status', 'tough interview question'],
+  'target-companies': ['target companies', 'company list', 'which companies', 'companies you want'],
+  'connection-tracker': ['connection tracker', 'existing contacts', 'contacts at target', 'know anyone at'],
 }
 
 const COACH_DIRECTIVE = `You are onboarding a new Search Party user. Your job is to walk them through setting up their complete job search profile.
@@ -58,9 +59,9 @@ After all sections are done, summarize everything and recommend next steps.`
 
 function detectSection(text: string): SectionKey | null {
   const lower = text.toLowerCase()
-  // Check in reverse order so we match the most specific section
-  for (let i = SECTION_ORDER.length - 1; i >= 0; i--) {
-    const key = SECTION_ORDER[i]
+  // Check in forward order — first matching section wins
+  // This ensures earlier sections (experience) match before later ones (connections)
+  for (const key of SECTION_ORDER) {
     if (SECTION_KEYWORDS[key].some((kw) => lower.includes(kw))) {
       return key
     }
@@ -352,9 +353,14 @@ export default function OnboardingPage() {
       setIsProcessing(false)
 
       // Detect which section the coach is now talking about
+      // Only advance forward — never go back to a previous section
       const detected = detectSection(agentOutput)
       if (detected) {
-        setCurrentSection(detected)
+        setCurrentSection(prev => {
+          const currentIdx = prev ? SECTION_ORDER.indexOf(prev) : -1
+          const detectedIdx = SECTION_ORDER.indexOf(detected)
+          return detectedIdx >= currentIdx ? detected : prev
+        })
       }
 
       // Hide resume zone once coach moves past experience
