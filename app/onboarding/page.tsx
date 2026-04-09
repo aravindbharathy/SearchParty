@@ -83,9 +83,11 @@ const SECTION_META: Record<string, { icon: string; description: string }> = {
 function ProgressPanel({
   status,
   currentSection,
+  onSectionClick,
 }: {
   status: ContextStatusResponse | null
   currentSection: SectionKey | null
+  onSectionClick?: (section: SectionKey) => void
 }) {
   if (!status) return null
 
@@ -113,12 +115,13 @@ function ProgressPanel({
           return (
             <div
               key={key}
-              className={`rounded-lg border p-3.5 transition-all ${
+              onClick={() => onSectionClick?.(key)}
+              className={`rounded-lg border p-3.5 transition-all cursor-pointer hover:shadow-sm ${
                 isCurrent
                   ? 'border-accent bg-accent/5 shadow-sm'
                   : isFilled
-                    ? 'border-border bg-surface'
-                    : 'border-border/60 bg-bg'
+                    ? 'border-border bg-surface hover:border-accent/40'
+                    : 'border-border/60 bg-bg hover:border-accent/40'
               }`}
             >
               <div className="flex items-start gap-2.5">
@@ -451,6 +454,20 @@ export default function OnboardingPage() {
     [isProcessing, spawnAgent],
   )
 
+  const handleSectionClick = (section: SectionKey) => {
+    if (isProcessing) return
+    const meta = SECTION_META[section]
+    const isFilled = contextStatus?.contexts?.[section]?.filled
+    const label = contextStatus?.contexts?.[section]?.label || meta.description
+
+    if (isFilled) {
+      sendMessage(`I'd like to go back to the ${label} section. Can you show me what's in it and ask if I want to update anything?`)
+    } else {
+      sendMessage(`Let's work on the ${label} section now.`)
+    }
+    setCurrentSection(section)
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -579,7 +596,7 @@ export default function OnboardingPage() {
 
       {/* ─── Right Panel: Live Progress (40%) ─── */}
       <div className="lg:w-[40%] border-t lg:border-t-0 lg:border-l border-border bg-bg flex flex-col min-h-0">
-        <ProgressPanel status={contextStatus} currentSection={currentSection} />
+        <ProgressPanel status={contextStatus} currentSection={currentSection} onSectionClick={handleSectionClick} />
       </div>
     </div>
   )
