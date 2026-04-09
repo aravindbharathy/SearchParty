@@ -335,7 +335,7 @@ export default function OnboardingPage() {
     if (hasStarted) return
     setHasStarted(true)
     setIsProcessing(true)
-    spawnAgent('research', {
+    spawnAgent('coach', {
       skill: 'onboarding-coach',
       entry_name: 'onboarding-session',
       text: COACH_DIRECTIVE,
@@ -390,7 +390,7 @@ export default function OnboardingPage() {
       setIsProcessing(true)
 
       try {
-        await spawnAgent('research', {
+        await spawnAgent('coach', {
           skill: 'onboarding-coach',
           entry_name: 'onboarding-followup',
           text: text.trim(),
