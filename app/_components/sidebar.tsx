@@ -28,6 +28,7 @@ const NAV_ITEMS: (NavItem | { separator: string })[] = [
   { separator: '' },
   { label: 'Vault', href: '/vault' },
   { label: 'Context', href: '/context' },
+  { label: 'Onboarding', href: '/onboarding' },
 ]
 
 export function Sidebar({ connected, urgencyCount, networkingCount = 0, activePage }: SidebarProps) {
