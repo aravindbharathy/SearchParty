@@ -1,0 +1,1551 @@
+'use client'
+
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { MarkdownView } from '../_components/markdown-view'
+import { useAgentEvents } from '../hooks/use-agent-events'
+import type { ContextStatusResponse } from '../types/context'
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+interface ChatMessage {
+  role: 'coach' | 'user'
+  content: string
+}
+
+type SectionKey =
+  | 'experience-library'
+  | 'career-plan'
+  | 'qa-master'
+  | 'target-companies'
+  | 'connection-tracker'
+
+const SECTION_ORDER: SectionKey[] = [
+  'experience-library',
+  'career-plan',
+  'qa-master',
+  'target-companies',
+  'connection-tracker',
+]
+
+// Keywords ordered from most specific to least — matched in section order (first wins)
+const SECTION_KEYWORDS: Record<SectionKey, string[]> = {
+  'experience-library': ['your background', 'experience library', 'experience entries', 'work history', 'let\'s start with experience', 'start with your experience', 'parse your resume', 'star stor', 'each role'],
+  'career-plan': ['what you\'re looking for', 'career plan', 'career targets', 'target level', 'what level', 'deal breaker', 'comp floor', 'minimum comp'],
+  'qa-master': ['your story', 'q&a master', 'q&a prep', 'salary expectation', 'why are you leaving', 'greatest weakness', 'visa status', 'tough interview question'],
+  'target-companies': ['target companies', 'company list', 'which companies', 'companies you want'],
+  'connection-tracker': ['your network', 'connection tracker', 'existing contacts', 'contacts at target', 'know anyone at'],
+}
+
+const ONBOARDING_DIRECTIVE = `You are onboarding a new Search Party user. Your job is to walk them through setting up their complete job search profile.
+
+IMPORTANT: Before you start, READ the file .claude/skills/setup/SKILL.md — it contains detailed instructions for each section including what questions to ask, how to push for specifics, what schemas to use, and how to write the YAML files. Follow those instructions closely.
+
+Start by greeting them warmly and asking if they have a resume they'd like to share. Check search/vault/resumes/ for any files.
+
+Guide them through each section IN ORDER, asking ONE question at a time:
+1. Your Background — if resume exists, parse it first. For EACH role, push for specific metrics, STAR stories, team sizes, concrete outcomes. Don't accept vague bullets like "improved performance" — ask "by how much?"
+2. What You're Looking For — target level, functions, industries, locations, comp floor, deal breakers, weaknesses and how they're addressing them.
+3. Your Story — salary expectations, why leaving, greatest weakness, visa status. Help them craft strong answers.
+4. Target Companies — suggest companies based on their career plan, or let them list their own. Score each for fit.
+5. Connections — contacts at target companies (optional, can skip).
+
+For EACH section, WRITE the structured YAML data to the corresponding file in search/context/ using the Write tool. Use the exact schemas defined in the SKILL.md file.
+
+Be conversational, encouraging, and thorough. Don't rush. If an answer is vague, push back: "Can you add a number to that?" "What was the team size?" "What was the before/after?"
+
+After all sections are done, summarize everything and recommend next steps.`
+
+const COMPANION_DIRECTIVE = `You are the Career Coach for a Search Party user who has already completed onboarding. Read the blackboard and context files in search/context/.
+
+Greet the user, briefly summarize their search status (pipeline stats, recent activity), and ask what they'd like to work on today.
+
+You can help with:
+- Updating their profile (any of the 5 context sections)
+- Reviewing job search strategy
+- Prepping for upcoming interviews
+- Refining their resume or cover letter approach
+- Networking strategy
+- Any job search question
+
+Read search/pipeline/applications.yaml and search/context/snapshot.yaml for current pipeline status. Be warm, practical, and proactive.`
+
+// ─── Section detection ──────────────────────────────────────────────────────
+
+function detectSection(text: string): SectionKey | null {
+  const lower = text.toLowerCase()
+  for (const key of SECTION_ORDER) {
+    if (SECTION_KEYWORDS[key].some((kw) => lower.includes(kw))) {
+      return key
+    }
+  }
+  return null
+}
+
+// ─── Section Meta ──────────────────────────────────────────────────────────
+
+const SECTION_META: Record<string, { icon: string; description: string; label: string }> = {
+  'experience-library': { icon: '\uD83D\uDCCB', description: 'Work history, skills, education', label: 'Your Background' },
+  'career-plan': { icon: '\uD83C\uDFAF', description: 'Target level, functions, industries, comp', label: "What You're Looking For" },
+  'qa-master': { icon: '\uD83D\uDCAC', description: 'Salary, why leaving, weakness, visa', label: 'Your Story' },
+  'target-companies': { icon: '\uD83C\uDFE2', description: 'Companies you want to work at', label: 'Target Companies' },
+  'connection-tracker': { icon: '\uD83E\uDD1D', description: 'Contacts at target companies', label: 'Your Network' },
+  'interview-history': { icon: '\uD83D\uDCDD', description: 'Auto-populated after interviews', label: 'Interview Journal' },
+}
+
+// ─── Badge Component ───────────────────────────────────────────────────────
+
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 bg-bg border border-border rounded-full text-xs font-medium">
+      {children}
+    </span>
+  )
+}
+
+// ─── Context Preview Components ────────────────────────────────────────────
+
+function ExperienceLibraryPreview({ data }: { data: Record<string, unknown> }) {
+  const contact = (data.contact || {}) as Record<string, string>
+  const experiences = (data.experiences as Array<Record<string, unknown>>) || []
+  const education = (data.education as Array<Record<string, unknown>>) || []
+  const skills = (data.skills || {}) as Record<string, unknown>
+  const technical = (skills.technical as Array<Record<string, unknown>>) || []
+  const leadership = (skills.leadership as unknown[]) || []
+
+  if (!contact.name && experiences.length === 0 && technical.length === 0) {
+    return <p className="text-xs text-text-muted italic">No data yet</p>
+  }
+
+  const contactParts = [contact.name, contact.email, contact.location].filter(Boolean)
+
+  return (
+    <div className="space-y-1 text-xs text-text-muted">
+      {contactParts.length > 0 && (
+        <p><span className="font-medium text-text">{contactParts.join(' \u00B7 ')}</span></p>
+      )}
+      <p>
+        <Badge>{experiences.length} experience{experiences.length !== 1 ? 's' : ''}</Badge>
+        {' '}
+        <Badge>{education.length} degree{education.length !== 1 ? 's' : ''}</Badge>
+        {' '}
+        <Badge>{technical.length + leadership.length} skills</Badge>
+      </p>
+    </div>
+  )
+}
+
+function CareerPlanPreview({ data }: { data: Record<string, unknown> }) {
+  const target = (data.target || {}) as Record<string, unknown>
+  const level = target.level as string
+  const functions = (target.functions as string[]) || []
+  const locations = (target.locations as string[]) || []
+  const compFloor = target.comp_floor as number
+
+  if (!level && functions.length === 0) {
+    return <p className="text-xs text-text-muted italic">No data yet</p>
+  }
+
+  const parts = [level, ...functions].filter(Boolean)
+  return (
+    <div className="space-y-1 text-xs text-text-muted">
+      <p>Target: <span className="font-medium text-text">{parts.join(' \u00B7 ')}</span></p>
+      {locations.length > 0 && <p>Locations: <span className="font-medium text-text">{locations.join(', ')}</span></p>}
+      {compFloor > 0 && <p>Min comp: <span className="font-medium text-text">${compFloor.toLocaleString()}</span></p>}
+    </div>
+  )
+}
+
+function QAMasterPreview({ data }: { data: Record<string, unknown> }) {
+  const items = [
+    { label: 'Salary', set: !!(data.salary_expectations as string) },
+    { label: 'Why leaving', set: !!(data.why_leaving as string) },
+    { label: 'Weakness', set: !!(data.greatest_weakness as string) },
+    { label: 'Visa', set: !!(data.visa_status as string) },
+  ]
+  const customQA = (data.custom_qa as Array<Record<string, unknown>>) || []
+  const anySet = items.some(i => i.set) || customQA.length > 0
+
+  if (!anySet) return <p className="text-xs text-text-muted italic">No data yet</p>
+
+  return (
+    <div className="text-xs text-text-muted">
+      <div className="flex flex-wrap gap-x-3">
+        {items.map(item => (
+          <span key={item.label}>
+            {item.label}: {item.set ? <span className="text-text font-medium">(set)</span> : <span className="italic">(empty)</span>}
+          </span>
+        ))}
+      </div>
+      {customQA.length > 0 && <p className="mt-1"><Badge>{customQA.length} custom Q&amp;As</Badge></p>}
+    </div>
+  )
+}
+
+function TargetCompaniesPreview({ data }: { data: Record<string, unknown> }) {
+  const companies = (data.companies as Array<Record<string, unknown>>) || []
+  if (companies.length === 0) return <p className="text-xs text-text-muted italic">No companies yet</p>
+
+  const top = [...companies].sort((a, b) => {
+    const order: Record<string, number> = { high: 0, medium: 1, low: 2 }
+    return (order[(a.priority as string) || 'low'] || 2) - (order[(b.priority as string) || 'low'] || 2)
+  }).slice(0, 3).map(c => c.name as string)
+
+  return (
+    <div className="text-xs text-text-muted">
+      <p><Badge>{companies.length} compan{companies.length !== 1 ? 'ies' : 'y'}</Badge></p>
+      <p className="mt-1">Top: <span className="font-medium text-text">{top.join(', ')}</span></p>
+    </div>
+  )
+}
+
+function ConnectionTrackerPreview({ data }: { data: Record<string, unknown> }) {
+  const contacts = (data.contacts as Array<Record<string, unknown>>) || []
+  if (contacts.length === 0) return <p className="text-xs text-text-muted italic">No contacts yet</p>
+
+  const companies = new Set(contacts.map(c => c.company as string).filter(Boolean))
+  return (
+    <div className="text-xs text-text-muted">
+      <p><Badge>{contacts.length} contact{contacts.length !== 1 ? 's' : ''}</Badge> across <Badge>{companies.size} compan{companies.size !== 1 ? 'ies' : 'y'}</Badge></p>
+    </div>
+  )
+}
+
+function InterviewHistoryPreview({ data }: { data: Record<string, unknown> }) {
+  const interviews = (data.interviews as Array<Record<string, unknown>>) || []
+  if (interviews.length === 0) {
+    return <p className="text-xs text-text-muted italic">Will populate after interview debriefs</p>
+  }
+  return <p className="text-xs text-text-muted"><Badge>{interviews.length} interview{interviews.length !== 1 ? 's' : ''}</Badge></p>
+}
+
+function ContextPreviewCompact({ name, data }: { name: string; data: Record<string, unknown> }) {
+  switch (name) {
+    case 'experience-library': return <ExperienceLibraryPreview data={data} />
+    case 'career-plan': return <CareerPlanPreview data={data} />
+    case 'qa-master': return <QAMasterPreview data={data} />
+    case 'target-companies': return <TargetCompaniesPreview data={data} />
+    case 'connection-tracker': return <ConnectionTrackerPreview data={data} />
+    case 'interview-history': return <InterviewHistoryPreview data={data} />
+    default: return null
+  }
+}
+
+// ─── Edit Modal Components ─────────────────────────────────────────────────
+
+function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto mx-4">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function ExperienceLibraryEditor({ data, onSave, onCancel, saving, saveError }: {
+  data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void; onCancel: () => void; saving: boolean; saveError: string | null
+}) {
+  const contact = (data.contact || {}) as Record<string, string>
+  const [name, setName] = useState(contact.name || '')
+  const [email, setEmail] = useState(contact.email || '')
+  const [phone, setPhone] = useState(contact.phone || '')
+  const [linkedin, setLinkedin] = useState(contact.linkedin || '')
+  const [location, setLocation] = useState(contact.location || '')
+  const [summary, setSummary] = useState((data.summary as string) || '')
+
+  const existingExperiences = (data.experiences as Array<Record<string, unknown>>) || []
+  const [experiences, setExperiences] = useState(
+    existingExperiences.map(e => ({
+      id: (e.id as string) || '',
+      company: (e.company as string) || '',
+      role: (e.role as string) || '',
+      dates: (e.dates as string) || '',
+      projects: (e.projects as Array<Record<string, unknown>>) || [],
+    }))
+  )
+
+  const existingEducation = (data.education as Array<Record<string, unknown>>) || []
+  const [education, setEducation] = useState(
+    existingEducation.map(ed => ({
+      institution: (ed.institution as string) || '',
+      degree: (ed.degree as string) || '',
+      field: (ed.field as string) || '',
+      year: (ed.year as string) || '',
+    }))
+  )
+
+  const skills = (data.skills || {}) as Record<string, unknown>
+  const existingTechnical = (skills.technical as Array<Record<string, unknown>>) || []
+  const existingLeadership = (skills.leadership as unknown[]) || []
+  const [technicalSkills, setTechnicalSkills] = useState(
+    existingTechnical.map(s => ({
+      name: (s.name as string) || '',
+      proficiency: (s.proficiency as string) || 'intermediate',
+      years: (s.years as number) || 0,
+    }))
+  )
+  const [leadershipSkills, setLeadershipSkills] = useState(
+    existingLeadership.map(s => {
+      if (typeof s === 'string') return { name: s, proficiency: 'intermediate', years: 0 }
+      const sk = s as Record<string, unknown>
+      return { name: (sk.name as string) || '', proficiency: (sk.proficiency as string) || 'intermediate', years: (sk.years as number) || 0 }
+    })
+  )
+
+  const updateExperience = (i: number, field: string, value: string) => {
+    setExperiences(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: value } : e))
+  }
+
+  const updateEducation = (i: number, field: string, value: string) => {
+    setEducation(prev => prev.map((ed, idx) => idx === i ? { ...ed, [field]: value } : ed))
+  }
+
+  const updateTechnical = (i: number, field: string, value: string | number) => {
+    setTechnicalSkills(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
+  }
+
+  const updateLeadership = (i: number, field: string, value: string | number) => {
+    setLeadershipSkills(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
+  }
+
+  const handleSubmit = () => {
+    onSave({
+      ...data,
+      contact: { name, email, phone, linkedin, location },
+      summary,
+      experiences: experiences.filter(e => e.company.trim()).map((e, i) => ({
+        ...e,
+        id: e.id || `exp-${String(i + 1).padStart(3, '0')}`,
+      })),
+      education: education.filter(ed => ed.institution.trim()),
+      skills: {
+        technical: technicalSkills.filter(s => s.name.trim()),
+        leadership: leadershipSkills.filter(s => s.name.trim()),
+      },
+    })
+  }
+
+  return (
+    <div className="p-6">
+      <h2 className="text-lg font-semibold mb-4">Edit Your Background</h2>
+
+      {saveError && <p className="text-danger text-sm mb-3">{saveError}</p>}
+
+      <div className="space-y-4">
+        {/* Contact Info */}
+        <div>
+          <h4 className="text-sm font-semibold mb-2">Contact Information</h4>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Full Name" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <input type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="Location" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+          </div>
+          <input type="text" value={linkedin} onChange={e => setLinkedin(e.target.value)} placeholder="LinkedIn URL" className="w-full mt-2 px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+
+        {/* Summary */}
+        <div>
+          <label className="block text-sm font-semibold mb-1">Summary</label>
+          <textarea value={summary} onChange={e => setSummary(e.target.value)} rows={3} placeholder="Professional summary..." className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+
+        {/* Experiences */}
+        <div>
+          <h4 className="text-sm font-semibold mb-2">Work Experience</h4>
+          {experiences.map((exp, i) => (
+            <div key={i} className="mb-3 p-3 border border-border/50 rounded space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input type="text" value={exp.company} onChange={e => updateExperience(i, 'company', e.target.value)} placeholder="Company" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+                <input type="text" value={exp.role} onChange={e => updateExperience(i, 'role', e.target.value)} placeholder="Role" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+              </div>
+              <input type="text" value={exp.dates} onChange={e => updateExperience(i, 'dates', e.target.value)} placeholder="Dates (e.g. Jan 2020 - Dec 2022)" className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <div className="flex justify-end">
+                <button onClick={() => setExperiences(prev => prev.filter((_, idx) => idx !== i))} className="text-xs text-text-muted hover:text-danger">Remove</button>
+              </div>
+            </div>
+          ))}
+          <button onClick={() => setExperiences(prev => [...prev, { id: '', company: '', role: '', dates: '', projects: [] }])} className="text-sm text-accent hover:text-accent-hover">+ Add Experience</button>
+        </div>
+
+        {/* STAR Stories note */}
+        <p className="text-xs text-text-muted italic bg-bg border border-border/50 rounded p-2">
+          STAR stories are best created through the coach conversation. Ask the coach to help you refine your stories for maximum impact.
+        </p>
+
+        {/* Education */}
+        <div>
+          <h4 className="text-sm font-semibold mb-2">Education</h4>
+          {education.map((ed, i) => (
+            <div key={i} className="mb-3 p-3 border border-border/50 rounded space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input type="text" value={ed.institution} onChange={e => updateEducation(i, 'institution', e.target.value)} placeholder="Institution" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+                <input type="text" value={ed.degree} onChange={e => updateEducation(i, 'degree', e.target.value)} placeholder="Degree" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+                <input type="text" value={ed.field} onChange={e => updateEducation(i, 'field', e.target.value)} placeholder="Field of Study" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+                <input type="text" value={ed.year} onChange={e => updateEducation(i, 'year', e.target.value)} placeholder="Year" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+              </div>
+              <div className="flex justify-end">
+                <button onClick={() => setEducation(prev => prev.filter((_, idx) => idx !== i))} className="text-xs text-text-muted hover:text-danger">Remove</button>
+              </div>
+            </div>
+          ))}
+          <button onClick={() => setEducation(prev => [...prev, { institution: '', degree: '', field: '', year: '' }])} className="text-sm text-accent hover:text-accent-hover">+ Add Education</button>
+        </div>
+
+        {/* Technical Skills */}
+        <div>
+          <h4 className="text-sm font-semibold mb-2">Technical Skills</h4>
+          {technicalSkills.map((s, i) => (
+            <div key={i} className="flex gap-2 mb-2 items-center">
+              <input type="text" value={s.name} onChange={e => updateTechnical(i, 'name', e.target.value)} placeholder="Skill name" className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <select value={s.proficiency} onChange={e => updateTechnical(i, 'proficiency', e.target.value)} className="px-3 py-2 bg-bg border border-border rounded text-sm">
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+                <option value="expert">Expert</option>
+              </select>
+              <input type="number" value={s.years || ''} onChange={e => updateTechnical(i, 'years', Number(e.target.value) || 0)} placeholder="Yrs" className="w-16 px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <button onClick={() => setTechnicalSkills(prev => prev.filter((_, idx) => idx !== i))} className="px-2 py-2 text-text-muted hover:text-danger text-sm">x</button>
+            </div>
+          ))}
+          <button onClick={() => setTechnicalSkills(prev => [...prev, { name: '', proficiency: 'intermediate', years: 0 }])} className="text-sm text-accent hover:text-accent-hover">+ Add Skill</button>
+        </div>
+
+        {/* Leadership Skills */}
+        <div>
+          <h4 className="text-sm font-semibold mb-2">Leadership Skills</h4>
+          {leadershipSkills.map((s, i) => (
+            <div key={i} className="flex gap-2 mb-2 items-center">
+              <input type="text" value={s.name} onChange={e => updateLeadership(i, 'name', e.target.value)} placeholder="Skill name" className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <select value={s.proficiency} onChange={e => updateLeadership(i, 'proficiency', e.target.value)} className="px-3 py-2 bg-bg border border-border rounded text-sm">
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+                <option value="expert">Expert</option>
+              </select>
+              <input type="number" value={s.years || ''} onChange={e => updateLeadership(i, 'years', Number(e.target.value) || 0)} placeholder="Yrs" className="w-16 px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <button onClick={() => setLeadershipSkills(prev => prev.filter((_, idx) => idx !== i))} className="px-2 py-2 text-text-muted hover:text-danger text-sm">x</button>
+            </div>
+          ))}
+          <button onClick={() => setLeadershipSkills(prev => [...prev, { name: '', proficiency: 'intermediate', years: 0 }])} className="text-sm text-accent hover:text-accent-hover">+ Add Skill</button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border">
+        {saving && <span className="text-sm text-text-muted">Saving...</span>}
+        <button onClick={onCancel} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-bg transition-colors">Cancel</button>
+        <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-50">Save</button>
+      </div>
+    </div>
+  )
+}
+
+function CareerPlanEditor({ data, onSave, onCancel, saving, saveError }: {
+  data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void; onCancel: () => void; saving: boolean; saveError: string | null
+}) {
+  const target = (data.target || {}) as Record<string, unknown>
+  const [level, setLevel] = useState((target.level as string) || '')
+  const [functions, setFunctions] = useState(((target.functions as string[]) || []).join(', '))
+  const [industries, setIndustries] = useState(((target.industries as string[]) || []).join(', '))
+  const [locations, setLocations] = useState(((target.locations as string[]) || []).join(', '))
+  const [compFloor, setCompFloor] = useState(String(target.comp_floor || ''))
+  const [dealBreakers, setDealBreakers] = useState(((data.deal_breakers as string[]) || []).join(', '))
+
+  const workStyle = (data.work_style || {}) as Record<string, string>
+  const [environment, setEnvironment] = useState(workStyle.environment || '')
+  const [teamSize, setTeamSize] = useState(workStyle.team_size || '')
+  const [pace, setPace] = useState(workStyle.pace || '')
+  const [autonomy, setAutonomy] = useState(workStyle.autonomy || '')
+
+  const rolePrefs = (data.role_preferences || {}) as Record<string, string>
+  const [track, setTrack] = useState(rolePrefs.track || '')
+  const [handsOnVsStrategic, setHandsOnVsStrategic] = useState(rolePrefs.hands_on_vs_strategic || '')
+  const [scope, setScope] = useState(rolePrefs.scope || '')
+
+  const [whatMatters, setWhatMatters] = useState(((data.what_matters as string[]) || []).join(', '))
+
+  const culturePrefs = (data.culture_preferences || {}) as Record<string, unknown>
+  const [companyStage, setCompanyStage] = useState((culturePrefs.company_stage as string) || '')
+  const [cultureStyle, setCultureStyle] = useState((culturePrefs.culture_style as string) || '')
+  const [cultureValues, setCultureValues] = useState(((culturePrefs.values as string[]) || []).join(', '))
+
+  const motivation = (data.motivation || {}) as Record<string, unknown>
+  const [whySearching, setWhySearching] = useState((motivation.why_searching as string) || '')
+  const [dreamRole, setDreamRole] = useState((motivation.dream_role as string) || '')
+  const [nonNegotiables, setNonNegotiables] = useState(((motivation.non_negotiables as string[]) || []).join(', '))
+
+  const handleSubmit = () => {
+    onSave({
+      ...data,
+      target: {
+        level,
+        functions: functions.split(',').map(s => s.trim()).filter(Boolean),
+        industries: industries.split(',').map(s => s.trim()).filter(Boolean),
+        locations: locations.split(',').map(s => s.trim()).filter(Boolean),
+        comp_floor: compFloor ? Number(compFloor) : 0,
+      },
+      deal_breakers: dealBreakers.split(',').map(s => s.trim()).filter(Boolean),
+      work_style: { environment, team_size: teamSize, pace, autonomy },
+      role_preferences: { track, hands_on_vs_strategic: handsOnVsStrategic, scope },
+      what_matters: whatMatters.split(',').map(s => s.trim()).filter(Boolean),
+      culture_preferences: {
+        company_stage: companyStage,
+        culture_style: cultureStyle,
+        values: cultureValues.split(',').map(s => s.trim()).filter(Boolean),
+      },
+      motivation: {
+        why_searching: whySearching,
+        dream_role: dreamRole,
+        non_negotiables: nonNegotiables.split(',').map(s => s.trim()).filter(Boolean),
+      },
+    })
+  }
+
+  return (
+    <div className="p-6">
+      <h2 className="text-lg font-semibold mb-4">Edit What You&apos;re Looking For</h2>
+      {saveError && <p className="text-danger text-sm mb-3">{saveError}</p>}
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Target Level</label>
+            <input type="text" value={level} onChange={e => setLevel(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Min Total Comp ($)</label>
+            <input type="number" value={compFloor} onChange={e => setCompFloor(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Functions (comma-separated)</label>
+          <input type="text" value={functions} onChange={e => setFunctions(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Industries (comma-separated)</label>
+          <input type="text" value={industries} onChange={e => setIndustries(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Locations (comma-separated)</label>
+          <input type="text" value={locations} onChange={e => setLocations(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Deal Breakers (comma-separated)</label>
+          <input type="text" value={dealBreakers} onChange={e => setDealBreakers(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+
+        {/* Work Style */}
+        <h3 className="text-sm font-semibold pt-2">Work Style</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-text-muted mb-1">Environment</label>
+            <select value={environment} onChange={e => setEnvironment(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm">
+              <option value="">--</option>
+              <option value="remote">Remote</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="in-office">In-office</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-text-muted mb-1">Team Size</label>
+            <select value={teamSize} onChange={e => setTeamSize(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm">
+              <option value="">--</option>
+              <option value="small">Small (1-10)</option>
+              <option value="medium">Medium (10-50)</option>
+              <option value="large">Large (50+)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-text-muted mb-1">Pace</label>
+            <select value={pace} onChange={e => setPace(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm">
+              <option value="">--</option>
+              <option value="startup">Startup (fast)</option>
+              <option value="moderate">Moderate</option>
+              <option value="steady">Steady</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-text-muted mb-1">Autonomy</label>
+            <select value={autonomy} onChange={e => setAutonomy(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm">
+              <option value="">--</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low / structured</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Role Preferences */}
+        <h3 className="text-sm font-semibold pt-2">Role Preferences</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs text-text-muted mb-1">Track</label>
+            <input type="text" value={track} onChange={e => setTrack(e.target.value)} placeholder="e.g. IC, Manager" className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs text-text-muted mb-1">Hands-on vs Strategic</label>
+            <input type="text" value={handsOnVsStrategic} onChange={e => setHandsOnVsStrategic(e.target.value)} placeholder="e.g. 70% hands-on" className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs text-text-muted mb-1">Scope</label>
+            <input type="text" value={scope} onChange={e => setScope(e.target.value)} placeholder="e.g. team, org, company" className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+          </div>
+        </div>
+
+        {/* What Matters */}
+        <div>
+          <label className="block text-sm font-medium mb-1">What Matters (comma-separated, in priority order)</label>
+          <input type="text" value={whatMatters} onChange={e => setWhatMatters(e.target.value)} placeholder="e.g. impact, learning, compensation, culture" className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+
+        {/* Culture */}
+        <h3 className="text-sm font-semibold pt-2">Culture Preferences</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-text-muted mb-1">Company Stage</label>
+            <input type="text" value={companyStage} onChange={e => setCompanyStage(e.target.value)} placeholder="e.g. startup, growth, enterprise" className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs text-text-muted mb-1">Culture Style</label>
+            <input type="text" value={cultureStyle} onChange={e => setCultureStyle(e.target.value)} placeholder="e.g. collaborative, competitive" className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs text-text-muted mb-1">Values (comma-separated)</label>
+          <input type="text" value={cultureValues} onChange={e => setCultureValues(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+
+        {/* Motivation */}
+        <h3 className="text-sm font-semibold pt-2">Motivation</h3>
+        <div>
+          <label className="block text-xs text-text-muted mb-1">Why are you searching?</label>
+          <textarea value={whySearching} onChange={e => setWhySearching(e.target.value)} rows={2} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs text-text-muted mb-1">Dream role description</label>
+          <textarea value={dreamRole} onChange={e => setDreamRole(e.target.value)} rows={2} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs text-text-muted mb-1">Non-negotiables (comma-separated)</label>
+          <input type="text" value={nonNegotiables} onChange={e => setNonNegotiables(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border">
+        {saving && <span className="text-sm text-text-muted">Saving...</span>}
+        <button onClick={onCancel} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-bg transition-colors">Cancel</button>
+        <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-50">Save</button>
+      </div>
+    </div>
+  )
+}
+
+function QAMasterEditor({ data, onSave, onCancel, saving, saveError }: {
+  data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void; onCancel: () => void; saving: boolean; saveError: string | null
+}) {
+  const [salary, setSalary] = useState((data.salary_expectations as string) || '')
+  const [whyLeaving, setWhyLeaving] = useState((data.why_leaving as string) || '')
+  const [weakness, setWeakness] = useState((data.greatest_weakness as string) || '')
+  const [visa, setVisa] = useState((data.visa_status as string) || '')
+  const existingQA = (data.custom_qa as Array<{ q: string; a: string }>) || []
+  const [customQA, setCustomQA] = useState(existingQA.length > 0 ? existingQA : [] as Array<{ q: string; a: string }>)
+
+  const handleSubmit = () => {
+    onSave({
+      ...data,
+      salary_expectations: salary,
+      why_leaving: whyLeaving,
+      greatest_weakness: weakness,
+      visa_status: visa,
+      custom_qa: customQA.filter(qa => qa.q.trim()),
+    })
+  }
+
+  return (
+    <div className="p-6">
+      <h2 className="text-lg font-semibold mb-4">Edit Your Story</h2>
+      {saveError && <p className="text-danger text-sm mb-3">{saveError}</p>}
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Salary Expectations</label>
+          <textarea value={salary} onChange={e => setSalary(e.target.value)} rows={2} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Why Leaving</label>
+          <textarea value={whyLeaving} onChange={e => setWhyLeaving(e.target.value)} rows={3} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Greatest Weakness</label>
+          <textarea value={weakness} onChange={e => setWeakness(e.target.value)} rows={3} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Visa Status</label>
+          <input type="text" value={visa} onChange={e => setVisa(e.target.value)} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+        </div>
+
+        {/* Custom Q&As */}
+        <div>
+          <h4 className="text-sm font-semibold mb-2">Custom Q&amp;As</h4>
+          {customQA.map((qa, i) => (
+            <div key={i} className="mb-3 p-3 border border-border/50 rounded space-y-2">
+              <input type="text" value={qa.q} onChange={e => setCustomQA(prev => prev.map((item, idx) => idx === i ? { ...item, q: e.target.value } : item))} placeholder="Question" className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <textarea value={qa.a} onChange={e => setCustomQA(prev => prev.map((item, idx) => idx === i ? { ...item, a: e.target.value } : item))} placeholder="Answer" rows={2} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <div className="flex justify-end">
+                <button onClick={() => setCustomQA(prev => prev.filter((_, idx) => idx !== i))} className="text-xs text-text-muted hover:text-danger">Remove</button>
+              </div>
+            </div>
+          ))}
+          <button onClick={() => setCustomQA(prev => [...prev, { q: '', a: '' }])} className="text-sm text-accent hover:text-accent-hover">+ Add Q&amp;A</button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border">
+        {saving && <span className="text-sm text-text-muted">Saving...</span>}
+        <button onClick={onCancel} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-bg transition-colors">Cancel</button>
+        <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-50">Save</button>
+      </div>
+    </div>
+  )
+}
+
+function TargetCompaniesEditor({ data, onSave, onCancel, saving, saveError }: {
+  data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void; onCancel: () => void; saving: boolean; saveError: string | null
+}) {
+  const existingCompanies = (data.companies as Array<Record<string, unknown>>) || []
+  const [companies, setCompanies] = useState(
+    existingCompanies.length > 0
+      ? existingCompanies.map(c => ({
+          name: (c.name as string) || '',
+          slug: (c.slug as string) || '',
+          fit_score: (c.fit_score as number) || 0,
+          status: (c.status as string) || 'researching',
+          priority: (c.priority as string) || 'medium',
+          notes: (c.notes as string) || '',
+        }))
+      : [{ name: '', slug: '', fit_score: 0, status: 'researching', priority: 'medium', notes: '' }]
+  )
+
+  const updateCompany = (i: number, field: string, value: string | number) => {
+    setCompanies(prev => prev.map((c, idx) => idx === i ? { ...c, [field]: value } : c))
+  }
+
+  const handleSubmit = () => {
+    const validCompanies = companies.filter(c => c.name.trim())
+    onSave({
+      ...data,
+      companies: validCompanies.map(c => ({
+        ...c,
+        slug: c.slug || c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      })),
+    })
+  }
+
+  return (
+    <div className="p-6">
+      <h2 className="text-lg font-semibold mb-4">Edit Target Companies</h2>
+      {saveError && <p className="text-danger text-sm mb-3">{saveError}</p>}
+
+      <div className="space-y-3">
+        {companies.map((company, i) => (
+          <div key={i} className="p-3 border border-border/50 rounded space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <input type="text" value={company.name} onChange={e => updateCompany(i, 'name', e.target.value)} placeholder="Company Name" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <select value={company.priority} onChange={e => updateCompany(i, 'priority', e.target.value)} className="px-3 py-2 bg-bg border border-border rounded text-sm">
+                <option value="high">High Priority</option>
+                <option value="medium">Medium Priority</option>
+                <option value="low">Low Priority</option>
+              </select>
+              <select value={company.status} onChange={e => updateCompany(i, 'status', e.target.value)} className="px-3 py-2 bg-bg border border-border rounded text-sm">
+                <option value="researching">Researching</option>
+                <option value="targeting">Targeting</option>
+                <option value="applied">Applied</option>
+                <option value="archived">Archived</option>
+              </select>
+              <input type="number" value={company.fit_score || ''} onChange={e => updateCompany(i, 'fit_score', Number(e.target.value) || 0)} placeholder="Fit Score (0-100)" min={0} max={100} className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+            </div>
+            <textarea value={company.notes} onChange={e => updateCompany(i, 'notes', e.target.value)} placeholder="Notes" rows={2} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <div className="flex justify-end">
+              <button onClick={() => setCompanies(prev => prev.filter((_, idx) => idx !== i))} className="text-xs text-text-muted hover:text-danger">Remove</button>
+            </div>
+          </div>
+        ))}
+        <button onClick={() => setCompanies(prev => [...prev, { name: '', slug: '', fit_score: 0, status: 'researching', priority: 'medium', notes: '' }])} className="text-sm text-accent hover:text-accent-hover">+ Add Company</button>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border">
+        {saving && <span className="text-sm text-text-muted">Saving...</span>}
+        <button onClick={onCancel} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-bg transition-colors">Cancel</button>
+        <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-50">Save</button>
+      </div>
+    </div>
+  )
+}
+
+function ConnectionTrackerEditor({ data, onSave, onCancel, saving, saveError }: {
+  data: Record<string, unknown>; onSave: (d: Record<string, unknown>) => void; onCancel: () => void; saving: boolean; saveError: string | null
+}) {
+  const existingContacts = (data.contacts as Array<Record<string, unknown>>) || []
+  const [contacts, setContacts] = useState(
+    existingContacts.length > 0
+      ? existingContacts.map(c => ({
+          name: (c.name as string) || '',
+          company: (c.company as string) || '',
+          role: (c.role as string) || '',
+          relationship: (c.relationship as string) || 'cold',
+          linkedin_url: (c.linkedin_url as string) || '',
+          notes: (c.notes as string) || '',
+        }))
+      : [{ name: '', company: '', role: '', relationship: 'cold', linkedin_url: '', notes: '' }]
+  )
+
+  const updateContact = (i: number, field: string, value: string) => {
+    setContacts(prev => prev.map((c, idx) => idx === i ? { ...c, [field]: value } : c))
+  }
+
+  const handleSubmit = () => {
+    const validContacts = contacts.filter(c => c.name.trim())
+    onSave({
+      ...data,
+      contacts: validContacts.map((c, i) => ({
+        id: `conn-${String(i + 1).padStart(3, '0')}`,
+        name: c.name,
+        company: c.company,
+        role: c.role,
+        relationship: c.relationship,
+        linkedin_url: c.linkedin_url,
+        notes: c.notes,
+      })),
+    })
+  }
+
+  return (
+    <div className="p-6">
+      <h2 className="text-lg font-semibold mb-4">Edit Your Network</h2>
+      {saveError && <p className="text-danger text-sm mb-3">{saveError}</p>}
+
+      <div className="space-y-3">
+        {contacts.map((contact, i) => (
+          <div key={i} className="p-3 border border-border/50 rounded space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <input type="text" value={contact.name} onChange={e => updateContact(i, 'name', e.target.value)} placeholder="Name" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <input type="text" value={contact.company} onChange={e => updateContact(i, 'company', e.target.value)} placeholder="Company" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <input type="text" value={contact.role} onChange={e => updateContact(i, 'role', e.target.value)} placeholder="Role" className="px-3 py-2 bg-bg border border-border rounded text-sm" />
+              <select value={contact.relationship} onChange={e => updateContact(i, 'relationship', e.target.value)} className="px-3 py-2 bg-bg border border-border rounded text-sm">
+                <option value="cold">Cold</option>
+                <option value="connected">Connected</option>
+                <option value="warm">Warm</option>
+                <option value="referred">Referred</option>
+              </select>
+            </div>
+            <input type="text" value={contact.linkedin_url} onChange={e => updateContact(i, 'linkedin_url', e.target.value)} placeholder="LinkedIn URL" className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <textarea value={contact.notes} onChange={e => updateContact(i, 'notes', e.target.value)} placeholder="Notes" rows={2} className="w-full px-3 py-2 bg-bg border border-border rounded text-sm" />
+            <div className="flex justify-end">
+              <button onClick={() => setContacts(prev => prev.filter((_, idx) => idx !== i))} className="text-xs text-text-muted hover:text-danger">Remove</button>
+            </div>
+          </div>
+        ))}
+        <button onClick={() => setContacts(prev => [...prev, { name: '', company: '', role: '', relationship: 'cold', linkedin_url: '', notes: '' }])} className="text-sm text-accent hover:text-accent-hover">+ Add Contact</button>
+      </div>
+
+      <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border">
+        {saving && <span className="text-sm text-text-muted">Saving...</span>}
+        <button onClick={onCancel} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-bg transition-colors">Cancel</button>
+        <button onClick={handleSubmit} disabled={saving} className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-50">Save</button>
+      </div>
+    </div>
+  )
+}
+
+function InterviewHistoryViewer({ data, onCancel }: { data: Record<string, unknown>; onCancel: () => void }) {
+  const interviews = (data.interviews as Array<Record<string, unknown>>) || []
+  const patterns = (data.patterns || {}) as Record<string, unknown>
+
+  return (
+    <div className="p-6">
+      <h2 className="text-lg font-semibold mb-4">Interview Journal</h2>
+      {interviews.length === 0 ? (
+        <p className="text-sm text-text-muted">Will populate after interview debriefs.</p>
+      ) : (
+        <div className="space-y-3">
+          {interviews.map((interview, i) => (
+            <div key={i} className="p-3 border border-border/50 rounded text-sm">
+              <pre className="whitespace-pre-wrap text-xs">{JSON.stringify(interview, null, 2)}</pre>
+            </div>
+          ))}
+          {(patterns.strong_areas as string[] || []).length > 0 && (
+            <div className="mt-3">
+              <h4 className="text-sm font-medium">Patterns</h4>
+              <p className="text-xs text-text-muted">Strong: {(patterns.strong_areas as string[]).join(', ')}</p>
+              <p className="text-xs text-text-muted">Weak: {((patterns.weak_areas as string[]) || []).join(', ')}</p>
+            </div>
+          )}
+        </div>
+      )}
+      <div className="flex justify-end mt-6 pt-4 border-t border-border">
+        <button onClick={onCancel} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-bg transition-colors">Close</button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Profile Panel (Right Panel) ───────────────────────────────────────────
+
+function ProfilePanel({
+  status,
+  currentSection,
+  contextData,
+  onSectionClick,
+  onEditSection,
+}: {
+  status: ContextStatusResponse | null
+  currentSection: SectionKey | null
+  contextData: Record<string, Record<string, unknown>>
+  onSectionClick: (section: SectionKey) => void
+  onEditSection: (section: string) => void
+}) {
+  if (!status) return null
+
+  const contexts = status.contexts
+  const setupSections = SECTION_ORDER.filter((k) => k in contexts)
+  const filledCount = setupSections.filter((k) => contexts[k]?.filled).length
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-5 py-4 border-b border-border">
+        <h2 className="text-lg font-semibold text-text">Your Profile</h2>
+        <p className="text-sm text-text-muted mt-1">
+          Context files power every AI feature
+        </p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {SECTION_ORDER.map((key) => {
+          const ctx = contexts[key]
+          if (!ctx) return null
+          const meta = SECTION_META[key]
+          const isCurrent = currentSection === key
+          const isFilled = ctx.filled
+
+          return (
+            <div
+              key={key}
+              className={`rounded-lg border p-3.5 transition-all ${
+                isCurrent
+                  ? 'border-accent bg-accent/5 shadow-sm'
+                  : isFilled
+                    ? 'border-border bg-surface hover:border-accent/40'
+                    : 'border-border/60 bg-bg hover:border-accent/40'
+              }`}
+            >
+              <div className="flex items-start gap-2.5">
+                <span className="text-base mt-0.5">
+                  {isFilled ? '\u2705' : isCurrent ? '\uD83D\uDD35' : '\u26AA'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{meta.icon}</span>
+                    <span className="text-sm font-medium text-text">{meta.label}</span>
+                    {isFilled && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEditSection(key) }}
+                        className="ml-auto text-xs text-accent hover:text-accent-hover font-medium"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-muted mt-0.5">{meta.description}</p>
+                  {/* Compact preview */}
+                  {contextData[key] && (
+                    <div className="mt-2">
+                      <ContextPreviewCompact name={key} data={contextData[key]} />
+                    </div>
+                  )}
+                  {isFilled && ctx.lastModified && (
+                    <p className="text-xs text-text-muted mt-1">
+                      Updated {new Date(ctx.lastModified).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {/* Clickable area for empty sections to trigger coach */}
+              {!isFilled && (
+                <button
+                  onClick={() => onSectionClick(key)}
+                  className="mt-2 w-full text-left text-xs text-accent hover:text-accent-hover"
+                >
+                  Let&apos;s work on this section &rarr;
+                </button>
+              )}
+            </div>
+          )
+        })}
+
+        {/* Interview Journal */}
+        {contexts['interview-history'] && (
+          <div
+            className="rounded-lg border border-border/60 bg-bg p-3.5 cursor-pointer hover:border-accent/40"
+            onClick={() => onEditSection('interview-history')}
+          >
+            <div className="flex items-start gap-2.5">
+              <span className="text-base mt-0.5">
+                {contexts['interview-history'].filled ? '\u2705' : '\u26AA'}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{SECTION_META['interview-history'].icon}</span>
+                  <span className="text-sm font-medium text-text">
+                    {SECTION_META['interview-history'].label}
+                  </span>
+                  <span className="ml-auto text-xs text-accent hover:text-accent-hover font-medium">View</span>
+                </div>
+                <p className="text-xs text-text-muted mt-0.5">Auto-populated after interviews</p>
+                {contextData['interview-history'] && (
+                  <div className="mt-2">
+                    <ContextPreviewCompact name="interview-history" data={contextData['interview-history']} />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div className="px-5 py-4 border-t border-border">
+        <div className="flex justify-between text-sm mb-2">
+          <span className="font-medium text-text">{filledCount}/5 complete</span>
+          <span className="text-text-muted">{Math.round((filledCount / 5) * 100)}%</span>
+        </div>
+        <div className="w-full h-2 bg-border rounded-full overflow-hidden">
+          <div
+            className="h-full bg-accent rounded-full transition-all duration-500"
+            style={{ width: `${(filledCount / 5) * 100}%` }}
+          />
+        </div>
+        {filledCount >= 5 && (
+          <a
+            href="/"
+            className="mt-4 block text-center px-5 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors"
+          >
+            Go to Dashboard &rarr;
+          </a>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Resume Drop Zone ───────────────────────────────────────────────────────
+
+function ResumeDropZone({
+  onUploaded,
+}: {
+  onUploaded: () => void
+}) {
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFiles = async (files: FileList) => {
+    if (files.length === 0) return
+    setUploading(true)
+    setError(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', files[0])
+      formData.append('subfolder', 'resumes')
+      const res = await fetch('/api/vault/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) {
+        const body = await res.json()
+        setError(body.error || 'Upload failed')
+        return
+      }
+      onUploaded()
+    } catch {
+      setError('Network error during upload')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="px-4 py-3">
+      <div
+        className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
+          dragging ? 'border-accent bg-accent/5' : 'border-border hover:border-accent/50'
+        }`}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragging(true)
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragging(false)
+          handleFiles(e.dataTransfer.files)
+        }}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".pdf,.doc,.docx,.txt"
+          onChange={(e) => e.target.files && handleFiles(e.target.files)}
+        />
+        {uploading ? (
+          <p className="text-sm text-text-muted">Uploading...</p>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-text">Drop your resume here</p>
+            <p className="text-xs text-text-muted mt-1">PDF, DOC, DOCX, or TXT</p>
+          </>
+        )}
+      </div>
+      {error && <p className="text-xs text-danger mt-1">{error}</p>}
+    </div>
+  )
+}
+
+// ─── Quick Action Buttons ───────────────────────────────────────────────────
+
+function QuickActions({
+  onSelect,
+  options,
+}: {
+  onSelect: (text: string) => void
+  options: string[]
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          onClick={() => onSelect(opt)}
+          className="px-3 py-1.5 text-xs font-medium border border-accent/30 text-accent rounded-full hover:bg-accent/10 transition-colors"
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ─── Main Page ──────────────────────────────────────────────────────────────
+
+export default function CoachPage() {
+  // Restore conversation from localStorage if available
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem('coach-messages')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+  const [input, setInput] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [currentSection, setCurrentSection] = useState<SectionKey | null>(() => {
+    if (typeof window === 'undefined') return 'experience-library'
+    try {
+      const saved = localStorage.getItem('coach-section')
+      return (saved as SectionKey) || 'experience-library'
+    } catch { return 'experience-library' }
+  })
+  const [contextStatus, setContextStatus] = useState<ContextStatusResponse | null>(null)
+  const [showResumeZone, setShowResumeZone] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return localStorage.getItem('coach-resume-zone') !== 'false'
+  })
+  const [hasStarted, setHasStarted] = useState(false)
+  const [contextData, setContextData] = useState<Record<string, Record<string, unknown>>>({})
+  const [editingSection, setEditingSection] = useState<string | null>(null)
+  const [editData, setEditData] = useState<Record<string, unknown> | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents()
+
+  // Persist conversation to localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('coach-messages', JSON.stringify(messages))
+    }
+  }, [messages])
+
+  useEffect(() => {
+    if (currentSection) {
+      localStorage.setItem('coach-section', currentSection)
+    }
+  }, [currentSection])
+
+  useEffect(() => {
+    localStorage.setItem('coach-resume-zone', String(showResumeZone))
+  }, [showResumeZone])
+
+  // Auto-scroll
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [])
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, isProcessing, scrollToBottom])
+
+  // Fetch context status on mount and poll every 5s
+  const fetchContextStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/context/status')
+      if (res.ok) {
+        const data = await res.json()
+        setContextStatus(data)
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  // Fetch all context data for previews
+  const fetchAllContextData = useCallback(async () => {
+    const names = ['experience-library', 'career-plan', 'qa-master', 'target-companies', 'connection-tracker', 'interview-history']
+    try {
+      const results = await Promise.all(
+        names.map(async (name) => {
+          try {
+            const res = await fetch(`/api/context/${name}`)
+            if (!res.ok) return [name, {}] as const
+            const data = await res.json()
+            return [name, data] as const
+          } catch {
+            return [name, {}] as const
+          }
+        })
+      )
+      const dataMap: Record<string, Record<string, unknown>> = {}
+      for (const [name, data] of results) {
+        dataMap[name] = data as Record<string, unknown>
+      }
+      setContextData(dataMap)
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => {
+    fetchContextStatus()
+    fetchAllContextData()
+    const interval = setInterval(fetchContextStatus, 5000)
+    return () => clearInterval(interval)
+  }, [fetchContextStatus, fetchAllContextData])
+
+  // Determine if this is first visit (context empty) or return visit
+  const isContextReady = contextStatus?.contextReady ?? false
+
+  // Spawn coach on mount — ONLY if no saved conversation exists
+  useEffect(() => {
+    if (hasStarted) return
+    setHasStarted(true)
+    if (messages.length > 0) {
+      // Restored from localStorage — don't re-spawn
+      return
+    }
+    setIsProcessing(true)
+    const directive = isContextReady ? COMPANION_DIRECTIVE : ONBOARDING_DIRECTIVE
+    spawnAgent('coach', {
+      skill: 'onboarding-coach',
+      entry_name: 'onboarding-session',
+      text: directive,
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextStatus])
+
+  // Watch for agent completion
+  useEffect(() => {
+    if (agentStatus === 'completed' && agentOutput) {
+      setMessages((prev) => [...prev, { role: 'coach', content: agentOutput }])
+      setIsProcessing(false)
+
+      const detected = detectSection(agentOutput)
+      if (detected) {
+        setCurrentSection(prev => {
+          const currentIdx = prev ? SECTION_ORDER.indexOf(prev) : -1
+          const detectedIdx = SECTION_ORDER.indexOf(detected)
+          return detectedIdx >= currentIdx ? detected : prev
+        })
+      }
+
+      if (detected && detected !== 'experience-library') {
+        setShowResumeZone(false)
+      }
+
+      agentReset()
+      fetchContextStatus()
+      fetchAllContextData()
+    }
+    if (agentStatus === 'failed') {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'coach', content: 'Something went wrong. Please try sending your message again.' },
+      ])
+      setIsProcessing(false)
+      agentReset()
+    }
+    if (agentStatus === 'timeout') {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'coach', content: 'The request timed out. Please try again.' },
+      ])
+      setIsProcessing(false)
+      agentReset()
+    }
+  }, [agentStatus, agentOutput, agentReset, fetchContextStatus, fetchAllContextData])
+
+  // Send a message
+  const sendMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isProcessing) return
+      setMessages((prev) => [...prev, { role: 'user', content: text.trim() }])
+      setInput('')
+      setIsProcessing(true)
+
+      try {
+        await spawnAgent('coach', {
+          skill: 'onboarding-coach',
+          entry_name: 'onboarding-followup',
+          text: text.trim(),
+        })
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'coach', content: 'Failed to reach the coach. Please try again.' },
+        ])
+        setIsProcessing(false)
+      }
+    },
+    [isProcessing, spawnAgent],
+  )
+
+  const handleSectionClick = (section: SectionKey) => {
+    if (isProcessing) return
+    const label = SECTION_META[section]?.label || section
+    sendMessage(`Let's work on ${label} now.`)
+    setCurrentSection(section)
+  }
+
+  const handleEditSection = async (section: string) => {
+    // Load fresh data for modal
+    try {
+      const res = await fetch(`/api/context/${section}`)
+      if (res.ok) {
+        const data = await res.json()
+        setEditData(data)
+        setEditingSection(section)
+        setSaveError(null)
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleModalSave = async (section: string, data: Record<string, unknown>) => {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const res = await fetch(`/api/context/${section}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        const body = await res.json()
+        if (body.fieldErrors) {
+          const msgs = Object.entries(body.fieldErrors).map(([path, errs]) => `${path}: ${(errs as string[]).join(', ')}`)
+          setSaveError(msgs.join('; '))
+        } else {
+          setSaveError(body.error || 'Save failed')
+        }
+        return
+      }
+      setEditingSection(null)
+      setEditData(null)
+      fetchContextStatus()
+      fetchAllContextData()
+    } catch {
+      setSaveError('Network error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage(input)
+    }
+  }
+
+  const handleResumeUploaded = () => {
+    sendMessage("I've uploaded my resume to vault/resumes/")
+  }
+
+  // Detect quick actions from the last coach message
+  const lastCoachMsg = [...messages].reverse().find((m) => m.role === 'coach')
+  const showResumeActions =
+    lastCoachMsg &&
+    currentSection === 'experience-library' &&
+    /resume/i.test(lastCoachMsg.content) &&
+    messages.length <= 2
+  const showSkipButton = currentSection && !isProcessing && messages.length > 1
+
+  return (
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-3.5rem)] overflow-hidden">
+      {/* ─── Left Panel: Coach Chat (60%) ─── */}
+      <div className="flex-1 lg:w-[60%] flex flex-col bg-white dark:bg-surface min-h-0">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border bg-surface">
+          <span className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-base">
+            {'\uD83E\uDD16'}
+          </span>
+          <div>
+            <h1 className="text-base font-semibold text-text">Career Coach</h1>
+            <p className="text-xs text-text-muted">
+              {isContextReady ? 'Your job search companion' : 'Setting up your job search profile'}
+            </p>
+          </div>
+        </div>
+
+        {/* Resume drop zone */}
+        {showResumeZone && !isContextReady && <ResumeDropZone onUploaded={handleResumeUploaded} />}
+
+        {/* Messages */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-[85%] rounded-xl px-4 py-3 ${
+                  msg.role === 'user'
+                    ? 'bg-accent/10 text-text rounded-br-sm'
+                    : 'bg-bg text-text rounded-bl-sm'
+                }`}
+              >
+                {msg.role === 'coach' && (
+                  <p className="text-xs font-medium text-text-muted mb-1.5">
+                    {'\uD83E\uDD16'} Coach
+                  </p>
+                )}
+                {msg.role === 'coach' ? (
+                  <MarkdownView content={msg.content} />
+                ) : (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Quick action buttons after coach's resume question */}
+          {showResumeActions && !isProcessing && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%]">
+                <QuickActions
+                  onSelect={sendMessage}
+                  options={['Yes, use my resume', 'No, start from scratch']}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Processing indicator */}
+          {isProcessing && (
+            <div className="flex justify-start">
+              <div className="bg-bg rounded-xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-text-muted">Coach is thinking...</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input area */}
+        <div className="border-t border-border px-4 py-3 bg-surface">
+          {showSkipButton && (
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={() => sendMessage('Skip this')}
+                className="text-xs text-text-muted hover:text-text transition-colors"
+              >
+                Skip this &rarr;
+              </button>
+            </div>
+          )}
+          <p className="text-xs text-text-muted mb-1.5 flex items-center gap-1">
+            <span>{'\uD83C\uDF99\uFE0F'}</span>
+            <span>Tip: Use your device&apos;s dictation (mic button on keyboard) -- speaking produces richer, more natural answers than typing.</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type or dictate your response..."
+              disabled={isProcessing}
+              className="flex-1 px-3.5 py-2.5 border border-border rounded-lg bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
+            />
+            <button
+              onClick={() => sendMessage(input)}
+              disabled={!input.trim() || isProcessing}
+              className="px-4 py-2.5 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── Right Panel: Profile (40%) ─── */}
+      <div className="lg:w-[40%] border-t lg:border-t-0 lg:border-l border-border bg-bg flex flex-col min-h-0">
+        <ProfilePanel
+          status={contextStatus}
+          currentSection={currentSection}
+          contextData={contextData}
+          onSectionClick={handleSectionClick}
+          onEditSection={handleEditSection}
+        />
+      </div>
+
+      {/* ─── Edit Modals ─── */}
+      {editingSection && editData && (
+        <ModalOverlay onClose={() => { setEditingSection(null); setEditData(null) }}>
+          {editingSection === 'experience-library' && (
+            <ExperienceLibraryEditor data={editData} onSave={d => handleModalSave(editingSection, d)} onCancel={() => { setEditingSection(null); setEditData(null) }} saving={saving} saveError={saveError} />
+          )}
+          {editingSection === 'career-plan' && (
+            <CareerPlanEditor data={editData} onSave={d => handleModalSave(editingSection, d)} onCancel={() => { setEditingSection(null); setEditData(null) }} saving={saving} saveError={saveError} />
+          )}
+          {editingSection === 'qa-master' && (
+            <QAMasterEditor data={editData} onSave={d => handleModalSave(editingSection, d)} onCancel={() => { setEditingSection(null); setEditData(null) }} saving={saving} saveError={saveError} />
+          )}
+          {editingSection === 'target-companies' && (
+            <TargetCompaniesEditor data={editData} onSave={d => handleModalSave(editingSection, d)} onCancel={() => { setEditingSection(null); setEditData(null) }} saving={saving} saveError={saveError} />
+          )}
+          {editingSection === 'connection-tracker' && (
+            <ConnectionTrackerEditor data={editData} onSave={d => handleModalSave(editingSection, d)} onCancel={() => { setEditingSection(null); setEditData(null) }} saving={saving} saveError={saveError} />
+          )}
+          {editingSection === 'interview-history' && (
+            <InterviewHistoryViewer data={editData} onCancel={() => { setEditingSection(null); setEditData(null) }} />
+          )}
+        </ModalOverlay>
+      )}
+    </div>
+  )
+}

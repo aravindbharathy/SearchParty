@@ -14,6 +14,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: (NavItem | { separator: string })[] = [
+  { label: 'Career Coach', href: '/coach' },
   { label: 'Dashboard', href: '/' },
   { label: 'Command Center', href: '/command-center' },
   { separator: 'Lifecycle' },
@@ -27,8 +28,6 @@ const NAV_ITEMS: (NavItem | { separator: string })[] = [
   { label: 'Playbook', href: '/playbook' },
   { separator: '' },
   { label: 'Vault', href: '/vault' },
-  { label: 'Context', href: '/context' },
-  { label: 'Onboarding', href: '/onboarding' },
 ]
 
 export function Sidebar({ connected, urgencyCount, networkingCount = 0, activePage }: SidebarProps) {

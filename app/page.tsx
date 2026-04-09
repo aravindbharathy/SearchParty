@@ -65,7 +65,7 @@ export default function Dashboard() {
         setContextStatus(data)
         if (!data.contextReady) {
           setRedirecting(true)
-          router.push('/onboarding')
+          router.push('/coach')
         }
       })
       .catch(() => {})
