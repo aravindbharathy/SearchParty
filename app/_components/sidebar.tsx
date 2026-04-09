@@ -14,7 +14,8 @@ interface NavItem {
 }
 
 const NAV_ITEMS: (NavItem | { separator: string })[] = [
-  { label: 'Command Center', href: '/' },
+  { label: 'Dashboard', href: '/' },
+  { label: 'Command Center', href: '/command-center' },
   { separator: 'Lifecycle' },
   { label: 'Finding Roles', href: '/finding' },
   { label: 'Applying', href: '/applying' },
