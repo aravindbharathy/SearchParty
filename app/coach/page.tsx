@@ -923,7 +923,7 @@ function MissingFieldsList({ section }: { section: ProfileSectionStatus }) {
   if (missing.length === 0) return null
 
   return (
-    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+    <p className="text-[10px] text-danger font-medium mt-1">
       Missing: {missing.join(', ')}
     </p>
   )
@@ -1030,15 +1030,7 @@ function ProfilePanel({
                   )}
                 </div>
               </div>
-              {/* Clickable area for empty sections to trigger coach */}
-              {!isFilled && (
-                <button
-                  onClick={() => onSectionClick(key)}
-                  className="mt-2 w-full text-left text-xs text-accent hover:text-accent-hover"
-                >
-                  Let&apos;s work on this section &rarr;
-                </button>
-              )}
+              {/* "Let's work on this section" removed — "Start" button in header handles this */}
             </div>
           )
         })}
