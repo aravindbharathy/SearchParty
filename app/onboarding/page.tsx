@@ -291,17 +291,50 @@ function QuickActions({
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  // Restore conversation from localStorage if available
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem('onboarding-messages')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
   const [input, setInput] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
-  const [currentSection, setCurrentSection] = useState<SectionKey | null>('experience-library')
+  const [currentSection, setCurrentSection] = useState<SectionKey | null>(() => {
+    if (typeof window === 'undefined') return 'experience-library'
+    try {
+      const saved = localStorage.getItem('onboarding-section')
+      return (saved as SectionKey) || 'experience-library'
+    } catch { return 'experience-library' }
+  })
   const [contextStatus, setContextStatus] = useState<ContextStatusResponse | null>(null)
-  const [showResumeZone, setShowResumeZone] = useState(true)
+  const [showResumeZone, setShowResumeZone] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return localStorage.getItem('onboarding-resume-zone') !== 'false'
+  })
   const [hasStarted, setHasStarted] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents()
+
+  // Persist conversation to localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('onboarding-messages', JSON.stringify(messages))
+    }
+  }, [messages])
+
+  useEffect(() => {
+    if (currentSection) {
+      localStorage.setItem('onboarding-section', currentSection)
+    }
+  }, [currentSection])
+
+  useEffect(() => {
+    localStorage.setItem('onboarding-resume-zone', String(showResumeZone))
+  }, [showResumeZone])
 
   // Auto-scroll
   const scrollToBottom = useCallback(() => {
@@ -333,10 +366,14 @@ export default function OnboardingPage() {
     return () => clearInterval(interval)
   }, [fetchContextStatus])
 
-  // Spawn coach on mount
+  // Spawn coach on mount — ONLY if no saved conversation exists
   useEffect(() => {
     if (hasStarted) return
     setHasStarted(true)
+    if (messages.length > 0) {
+      // Restored from localStorage — don't re-spawn, conversation is already here
+      return
+    }
     setIsProcessing(true)
     spawnAgent('coach', {
       skill: 'onboarding-coach',

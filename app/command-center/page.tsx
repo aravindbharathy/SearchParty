@@ -122,6 +122,10 @@ export default function CommandCenterPage() {
         await clearBlackboard()
         fetchSessions()
         if (full) {
+          // Clear onboarding conversation so coach starts fresh
+          localStorage.removeItem('onboarding-messages')
+          localStorage.removeItem('onboarding-section')
+          localStorage.removeItem('onboarding-resume-zone')
           window.location.href = '/onboarding'
         } else {
           alert('Activity reset complete.')
