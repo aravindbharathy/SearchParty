@@ -930,7 +930,7 @@ function ProfilePanel({
           return (
             <div
               key={key}
-              className={`rounded-lg border p-3.5 transition-all ${
+              className={`rounded-lg border p-3.5 transition-all cursor-pointer ${
                 isCurrent
                   ? 'border-accent bg-accent/5 shadow-sm'
                   : isFilled
@@ -946,14 +946,32 @@ function ProfilePanel({
                   <div className="flex items-center gap-2">
                     <span className="text-sm">{meta.icon}</span>
                     <span className="text-sm font-medium text-text">{meta.label}</span>
-                    {isFilled && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onEditSection(key) }}
-                        className="ml-auto text-xs text-accent hover:text-accent-hover font-medium"
-                      >
-                        Edit
-                      </button>
-                    )}
+                    <div className="ml-auto flex items-center gap-2">
+                      {isFilled && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onSectionClick(key) }}
+                            className="text-xs text-text-muted hover:text-accent cursor-pointer"
+                          >
+                            Discuss
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onEditSection(key) }}
+                            className="text-xs text-accent hover:text-accent-hover font-medium cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                        </>
+                      )}
+                      {!isFilled && !isCurrent && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onSectionClick(key) }}
+                          className="text-xs text-accent hover:text-accent-hover cursor-pointer"
+                        >
+                          Start
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-text-muted mt-0.5">{meta.description}</p>
                   {/* Compact preview */}
