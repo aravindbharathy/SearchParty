@@ -82,6 +82,37 @@ export default function CommandCenterPage() {
     return () => clearInterval(interval)
   }, [fetchSessions])
 
+  const handleReset = async () => {
+    if (!confirm('Reset everything?\n\nThis will clear:\n- All agent sessions\n- All pipeline applications\n- All scored JDs and entries\n- All generated resumes and messages\n- All blackboard state (agents, directives, findings)\n\nContext files (experience, career plan, etc.) will be kept.\nVault source files will be kept.')) return
+
+    try {
+      const res = await fetch('/api/reset', { method: 'POST' })
+      if (res.ok) {
+        // Clear blackboard
+        await fetch('http://localhost:8790/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: 'agents', value: {}, log_entry: 'Full reset from dashboard' }),
+        }).catch(() => {})
+        await fetch('http://localhost:8790/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: 'directives', value: [], log_entry: 'Reset: cleared directives' }),
+        }).catch(() => {})
+        await fetch('http://localhost:8790/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: 'findings', value: {}, log_entry: 'Reset: cleared findings' }),
+        }).catch(() => {})
+
+        fetchSessions()
+        alert('Reset complete. Refresh the page to see clean state.')
+      }
+    } catch {
+      alert('Reset failed')
+    }
+  }
+
   const handleStartAgent = async (agentName: string) => {
     setSpawningAgent(agentName)
     try {
@@ -163,10 +194,16 @@ export default function CommandCenterPage() {
         <h1 className="text-3xl font-bold">Command Center</h1>
         <div className="flex items-center gap-3">
           <button
+            onClick={handleReset}
+            className="text-xs text-danger hover:text-danger/80 px-2 py-1 border border-danger/30 rounded transition-colors"
+          >
+            Reset All
+          </button>
+          <button
             onClick={fetchSessions}
             className="text-xs text-text-muted hover:text-text px-2 py-1 border border-border rounded transition-colors"
           >
-            {sessionsLoading ? 'Refreshing...' : 'Refresh Sessions'}
+            {sessionsLoading ? 'Refreshing...' : 'Refresh'}
           </button>
           <div className="flex items-center gap-2 text-xs">
             <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-text-muted/40'}`} />
