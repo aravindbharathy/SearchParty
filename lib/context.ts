@@ -101,6 +101,28 @@ export const CareerPlanSchema = z.object({
   deal_breakers: z.array(z.string()).default([]),
   addressing_weaknesses: z.array(AddressingWeaknessSchema).default([]),
   resume_preferences: ResumePreferencesSchema.default({ format: '', summary_length: '', tone: '', avoid_words: [] }),
+  work_style: z.object({
+    environment: z.string().default(''),
+    team_size: z.string().default(''),
+    pace: z.string().default(''),
+    autonomy: z.string().default(''),
+  }).default({ environment: '', team_size: '', pace: '', autonomy: '' }),
+  role_preferences: z.object({
+    track: z.string().default(''),
+    hands_on_vs_strategic: z.string().default(''),
+    scope: z.string().default(''),
+  }).default({ track: '', hands_on_vs_strategic: '', scope: '' }),
+  what_matters: z.array(z.string()).default([]),
+  culture_preferences: z.object({
+    company_stage: z.string().default(''),
+    culture_style: z.string().default(''),
+    values: z.array(z.string()).default([]),
+  }).default({ company_stage: '', culture_style: '', values: [] }),
+  motivation: z.object({
+    why_searching: z.string().default(''),
+    dream_role: z.string().default(''),
+    non_negotiables: z.array(z.string()).default([]),
+  }).default({ why_searching: '', dream_role: '', non_negotiables: [] }),
 })
 
 const CustomQASchema = z.object({
@@ -177,19 +199,19 @@ export const CONTEXT_FILES = {
   'experience-library': {
     schema: ExperienceLibrarySchema,
     filename: 'experience-library.yaml',
-    label: 'Experience Library',
+    label: 'Your Background',
     description: 'Your work history, skills, and STAR stories',
   },
   'career-plan': {
     schema: CareerPlanSchema,
     filename: 'career-plan.yaml',
-    label: 'Career Plan',
+    label: 'What You\'re Looking For',
     description: 'Target roles, industries, and preferences',
   },
   'qa-master': {
     schema: QAMasterSchema,
     filename: 'qa-master.yaml',
-    label: 'Q&A Master',
+    label: 'Your Story',
     description: 'Common interview Q&A and personal details',
   },
   'target-companies': {
@@ -201,13 +223,13 @@ export const CONTEXT_FILES = {
   'connection-tracker': {
     schema: ConnectionTrackerSchema,
     filename: 'connection-tracker.yaml',
-    label: 'Connection Tracker',
+    label: 'Your Network',
     description: 'Networking contacts and outreach history',
   },
   'interview-history': {
     schema: InterviewHistorySchema,
     filename: 'interview-history.yaml',
-    label: 'Interview History',
+    label: 'Interview Journal',
     description: 'Past interviews, scores, and patterns',
   },
 } as const

@@ -29,11 +29,11 @@ const SECTION_ORDER: SectionKey[] = [
 
 // Keywords ordered from most specific to least — matched in section order (first wins)
 const SECTION_KEYWORDS: Record<SectionKey, string[]> = {
-  'experience-library': ['experience library', 'experience entries', 'work history', 'let\'s start with experience', 'start with your experience', 'parse your resume', 'star stor', 'each role'],
-  'career-plan': ['career plan', 'career targets', 'target level', 'what level', 'deal breaker', 'comp floor', 'minimum comp'],
-  'qa-master': ['q&a master', 'q&a prep', 'salary expectation', 'why are you leaving', 'greatest weakness', 'visa status', 'tough interview question'],
+  'experience-library': ['your background', 'experience library', 'experience entries', 'work history', 'let\'s start with experience', 'start with your experience', 'parse your resume', 'star stor', 'each role'],
+  'career-plan': ['what you\'re looking for', 'career plan', 'career targets', 'target level', 'what level', 'deal breaker', 'comp floor', 'minimum comp'],
+  'qa-master': ['your story', 'q&a master', 'q&a prep', 'salary expectation', 'why are you leaving', 'greatest weakness', 'visa status', 'tough interview question'],
   'target-companies': ['target companies', 'company list', 'which companies', 'companies you want'],
-  'connection-tracker': ['connection tracker', 'existing contacts', 'contacts at target', 'know anyone at'],
+  'connection-tracker': ['your network', 'connection tracker', 'existing contacts', 'contacts at target', 'know anyone at'],
 }
 
 const COACH_DIRECTIVE = `You are onboarding a new Search Party user. Your job is to walk them through setting up their complete job search profile.
@@ -43,9 +43,9 @@ IMPORTANT: Before you start, READ the file .claude/skills/setup/SKILL.md — it 
 Start by greeting them warmly and asking if they have a resume they'd like to share. Check search/vault/resumes/ for any files.
 
 Guide them through each section IN ORDER, asking ONE question at a time:
-1. Experience Library — if resume exists, parse it first. For EACH role, push for specific metrics, STAR stories, team sizes, concrete outcomes. Don't accept vague bullets like "improved performance" — ask "by how much?"
-2. Career Plan — target level, functions, industries, locations, comp floor, deal breakers, weaknesses and how they're addressing them.
-3. Q&A Master — salary expectations, why leaving, greatest weakness, visa status. Help them craft strong answers.
+1. Your Background — if resume exists, parse it first. For EACH role, push for specific metrics, STAR stories, team sizes, concrete outcomes. Don't accept vague bullets like "improved performance" — ask "by how much?"
+2. What You're Looking For — target level, functions, industries, locations, comp floor, deal breakers, weaknesses and how they're addressing them.
+3. Your Story — salary expectations, why leaving, greatest weakness, visa status. Help them craft strong answers.
 4. Target Companies — suggest companies based on their career plan, or let them list their own. Score each for fit.
 5. Connections — contacts at target companies (optional, can skip).
 
@@ -145,7 +145,7 @@ function ProgressPanel({
           )
         })}
 
-        {/* Interview History — always gray */}
+        {/* Interview Journal — always gray */}
         {contexts['interview-history'] && (
           <div className="rounded-lg border border-border/60 bg-bg p-3.5 opacity-60">
             <div className="flex items-start gap-2.5">

@@ -96,11 +96,21 @@ function CareerPlanPreview({ data }: { data: Record<string, unknown> }) {
   const resumePrefs = (data.resume_preferences || {}) as Record<string, unknown>
   const resumeFormat = resumePrefs.format as string
 
+  const workStyle = (data.work_style || {}) as Record<string, string>
+  const rolePreferences = (data.role_preferences || {}) as Record<string, string>
+  const whatMatters = (data.what_matters as string[]) || []
+  const culturePrefs = (data.culture_preferences || {}) as Record<string, unknown>
+  const cultureValues = (culturePrefs.values as string[]) || []
+  const motivation = (data.motivation || {}) as Record<string, unknown>
+  const motivationNonNeg = (motivation.non_negotiables as string[]) || []
+
   if (!level && functions.length === 0 && industries.length === 0) {
-    return <p className="text-sm text-text-muted italic">No data yet. Edit to set your career plan.</p>
+    return <p className="text-sm text-text-muted italic">No data yet. Edit to set what you&apos;re looking for.</p>
   }
 
   const targetParts = [level, ...functions, ...industries].filter(Boolean)
+  const workStyleParts = [workStyle.environment, workStyle.team_size, workStyle.pace, workStyle.autonomy].filter(Boolean)
+  const rolePrefParts = [rolePreferences.track, rolePreferences.hands_on_vs_strategic, rolePreferences.scope].filter(Boolean)
 
   return (
     <div className="space-y-1.5 text-sm text-text-muted">
@@ -112,6 +122,24 @@ function CareerPlanPreview({ data }: { data: Record<string, unknown> }) {
         {compFloor > 0 && <>{locations.length > 0 ? ' \u00B7 ' : ''}Min comp: <span className="font-medium text-text">${compFloor.toLocaleString()}</span></>}
       </p>
       <p>Deal breakers: {dealBreakers.length > 0 ? <span className="font-medium text-text">{dealBreakers.join(', ')}</span> : <span className="italic">(none set)</span>}</p>
+      {workStyleParts.length > 0 && (
+        <p>Work style: <span className="font-medium text-text">{workStyleParts.join(' \u00B7 ')}</span></p>
+      )}
+      {rolePrefParts.length > 0 && (
+        <p>Role: <span className="font-medium text-text">{rolePrefParts.join(' \u00B7 ')}</span></p>
+      )}
+      {whatMatters.length > 0 && (
+        <p>What matters: <span className="font-medium text-text">{whatMatters.join(' \u203A ')}</span></p>
+      )}
+      {((culturePrefs.company_stage as string) || (culturePrefs.culture_style as string) || cultureValues.length > 0) && (
+        <p>Culture: <span className="font-medium text-text">{[culturePrefs.company_stage as string, culturePrefs.culture_style as string, ...cultureValues].filter(Boolean).join(' \u00B7 ')}</span></p>
+      )}
+      {((motivation.why_searching as string) || (motivation.dream_role as string)) && (
+        <p>Motivation: <span className="font-medium text-text">{(motivation.dream_role as string) || (motivation.why_searching as string)}</span></p>
+      )}
+      {motivationNonNeg.length > 0 && (
+        <p>Non-negotiables: <span className="font-medium text-text">{motivationNonNeg.join(', ')}</span></p>
+      )}
       {resumeFormat && <p>Resume: <span className="font-medium text-text">{resumeFormat}</span></p>}
     </div>
   )

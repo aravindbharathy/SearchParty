@@ -21,14 +21,14 @@ You are running the Search Party setup wizard. Your job is to guide the user thr
 
 ## Full Setup Order (when no subcommand)
 
-1. Experience Library (most important — do this first)
-2. Career Plan
-3. Q&A Master
+1. Your Background (most important — do this first)
+2. What You're Looking For
+3. Your Story
 4. Target Companies
-5. Connection Tracker
-6. Interview History (skip — auto-populated later)
+5. Your Network
+6. Interview Journal (skip — auto-populated later)
 
-## Experience Library (`/setup experience`)
+## Your Background (`/setup experience`)
 
 ### Step 1: Check Vault for Resumes
 
@@ -108,7 +108,7 @@ files:
     parsed_at: "{now}"
 ```
 
-## Career Plan (`/setup career-plan`)
+## What You're Looking For (`/setup career-plan`)
 
 Ask conversationally:
 1. "What level are you targeting?" (Staff Engineer, Senior, etc.)
@@ -120,9 +120,34 @@ Ask conversationally:
 7. "Any weaknesses you're working on? How are you addressing them?"
 8. "Resume preferences?" (format, tone, words to avoid)
 
-Write to `search/context/career-plan.yaml`.
+### Step 4B: Work Style & Preferences
 
-## Q&A Master (`/setup qa`)
+Ask about work environment preferences:
+1. "Do you prefer remote, hybrid, or in-person?"
+2. "What team size do you thrive in — small (2-5), medium (5-15), or large?"
+3. "Do you prefer a fast startup pace, steady growth company, or structured enterprise?"
+4. "How much autonomy do you want — self-directed, guided goals, or structured tasks?"
+
+Ask about role preferences:
+5. "Are you looking for an IC track, management track, or open to either?"
+6. "Do you want to stay hands-on, move into strategy, or a mix?"
+7. "Are you a specialist (deep), generalist (broad), or T-shaped?"
+
+Ask about what matters most:
+8. "Rank these by importance to you: learning new things, impact on users, career growth, compensation, work-life balance, team quality, mission-driven work"
+
+Ask about culture:
+9. "Do you prefer early startups, growth-stage, or public/enterprise companies?"
+10. "What company values matter to you?"
+
+Ask about motivation:
+11. "What are you running TOWARD in your next role? (not just what you're leaving)"
+12. "Describe your dream role in 2-3 sentences"
+13. "What are your absolute non-negotiables beyond deal breakers?"
+
+Write ALL answers to `search/context/career-plan.yaml` using the expanded schema.
+
+## Your Story (`/setup qa`)
 
 Ask conversationally:
 1. "What are your salary expectations?"
@@ -143,7 +168,7 @@ Write to `search/context/qa-master.yaml`.
    - Priority (high/medium/low)
 4. Write to `search/context/target-companies.yaml`
 
-## Connection Tracker (`/setup connections`)
+## Your Network (`/setup connections`)
 
 Ask conversationally:
 1. "Who do you know at your target companies?"

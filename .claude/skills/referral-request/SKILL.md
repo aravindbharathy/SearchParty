@@ -65,7 +65,7 @@ Write to `search/output/messages/referral-{company-slug}-{contact-slug}.md`:
 {full message text}
 ```
 
-## Step 4: Update Connection Tracker
+## Step 4: Update Your Network
 
 Update the contact's record in `search/context/connection-tracker.yaml`:
 - Add outreach entry with type "referral-request"
