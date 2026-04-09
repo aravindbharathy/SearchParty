@@ -1008,7 +1008,7 @@ function ProfilePanel({
                           onClick={(e) => { e.stopPropagation(); onSectionClick(key) }}
                           className="text-xs text-accent hover:text-accent-hover cursor-pointer"
                         >
-                          Start
+                          {sect.required_filled > 0 ? 'Resume' : 'Start'}
                         </button>
                       )}
                     </div>
