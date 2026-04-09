@@ -552,13 +552,17 @@ export default function OnboardingPage() {
               </button>
             </div>
           )}
+          <p className="text-xs text-text-muted mb-1.5 flex items-center gap-1">
+            <span>🎙️</span>
+            <span>Tip: Use your device&apos;s dictation (mic button on keyboard) — speaking produces richer, more natural answers than typing.</span>
+          </p>
           <div className="flex items-center gap-2">
             <input
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder="Type or dictate your response..."
               disabled={isProcessing}
               className="flex-1 px-3.5 py-2.5 border border-border rounded-lg bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
             />

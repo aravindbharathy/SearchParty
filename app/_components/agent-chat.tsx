@@ -155,7 +155,7 @@ export function AgentChat({ agentName, initialOutput, skill, onClose, metadata }
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type a message..."
+          placeholder="Type or dictate your response..."
           disabled={isProcessing}
           className="flex-1 px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
         />
