@@ -120,15 +120,19 @@ class ProcessManager {
       const model = AGENT_MODELS[request.agent] || DEFAULT_MODEL
       const claudePath = process.env.CLAUDE_PATH || 'claude'
 
-      // Build args: interactive mode with JSON output (NOT -p print mode)
-      const args: string[] = ['--output-format', 'json', '--model', model]
+      // Build args: interactive mode with JSON output, MCP blackboard enabled
+      const args: string[] = [
+        '--output-format', 'json',
+        '--model', model,
+        '--dangerously-load-development-channels', 'server:blackboard-channel',
+      ]
 
       if (hasExistingSession) {
-        // Resume existing persistent session — agent has full memory
+        // Resume existing persistent session — agent has full memory + blackboard access
         args.push('--resume', existing.session_id)
         console.log(`[process-manager] resuming session ${existing.session_id} for ${request.agent}`)
       } else {
-        // First interaction — create new session with agent definition
+        // First interaction — create new session with agent definition + blackboard
         args.push('--agent', request.agent)
         console.log(`[process-manager] creating new session for ${request.agent}`)
       }
