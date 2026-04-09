@@ -1,779 +1,536 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { MarkdownView } from '../_components/markdown-view'
+import { useAgentEvents } from '../hooks/use-agent-events'
 import type { ContextStatusResponse } from '../types/context'
 
-// ─── Inline Forms ───────────────────────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────────────────
 
-function CareerPlanForm({ onSave }: { onSave: () => void }) {
-  const [level, setLevel] = useState('')
-  const [functions, setFunctions] = useState('')
-  const [industries, setIndustries] = useState('')
-  const [locations, setLocations] = useState('')
-  const [compFloor, setCompFloor] = useState('')
-  const [dealBreakers, setDealBreakers] = useState('')
-  const [weaknesses, setWeaknesses] = useState<Array<{ weakness: string; mitigation: string }>>([])
-  const [resumeFormat, setResumeFormat] = useState('')
-  const [summaryLength, setSummaryLength] = useState('')
-  const [resumeTone, setResumeTone] = useState('')
-  const [avoidWords, setAvoidWords] = useState<string[]>([])
-  const [newAvoidWord, setNewAvoidWord] = useState('')
-  const [existingData, setExistingData] = useState<Record<string, unknown>>({})
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+interface ChatMessage {
+  role: 'coach' | 'user'
+  content: string
+}
 
-  useEffect(() => {
-    fetch('/api/context/career-plan')
-      .then(r => r.json())
-      .then(data => {
-        setExistingData(data)
-        if (data.target?.level) setLevel(data.target.level)
-        if (data.target?.functions?.length) setFunctions(data.target.functions.join(', '))
-        if (data.target?.industries?.length) setIndustries(data.target.industries.join(', '))
-        if (data.target?.locations?.length) setLocations(data.target.locations.join(', '))
-        if (data.target?.comp_floor) setCompFloor(String(data.target.comp_floor))
-        if (data.deal_breakers?.length) setDealBreakers(data.deal_breakers.join(', '))
-        if (data.addressing_weaknesses?.length) setWeaknesses(data.addressing_weaknesses)
-        if (data.resume_preferences) {
-          const rp = data.resume_preferences
-          if (rp.format) setResumeFormat(rp.format)
-          if (rp.summary_length) setSummaryLength(rp.summary_length)
-          if (rp.tone) setResumeTone(rp.tone)
-          if (rp.avoid_words?.length) setAvoidWords(rp.avoid_words)
-        }
-      })
-      .catch(() => {})
-  }, [])
+type SectionKey =
+  | 'experience-library'
+  | 'career-plan'
+  | 'qa-master'
+  | 'target-companies'
+  | 'connection-tracker'
 
-  const handleSave = async () => {
-    setSaving(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/context/career-plan', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...existingData,
-          target: {
-            ...(existingData.target as Record<string, unknown> || {}),
-            level,
-            functions: functions.split(',').map(s => s.trim()).filter(Boolean),
-            industries: industries.split(',').map(s => s.trim()).filter(Boolean),
-            locations: locations.split(',').map(s => s.trim()).filter(Boolean),
-            comp_floor: compFloor ? Number(compFloor) : 0,
-          },
-          deal_breakers: dealBreakers.split(',').map(s => s.trim()).filter(Boolean),
-          addressing_weaknesses: weaknesses.filter(w => w.weakness.trim()),
-          resume_preferences: {
-            format: resumeFormat,
-            summary_length: summaryLength,
-            tone: resumeTone,
-            avoid_words: avoidWords,
-          },
-        }),
-      })
-      if (!res.ok) {
-        const body = await res.json()
-        setError(body.error || 'Save failed')
-        return
-      }
-      onSave()
-    } catch {
-      setError('Network error')
-    } finally {
-      setSaving(false)
+const SECTION_ORDER: SectionKey[] = [
+  'experience-library',
+  'career-plan',
+  'qa-master',
+  'target-companies',
+  'connection-tracker',
+]
+
+const SECTION_KEYWORDS: Record<SectionKey, string[]> = {
+  'experience-library': ['experience', 'resume', 'work history', 'roles', 'experience library'],
+  'career-plan': ['career plan', 'target level', 'functions', 'industries', 'locations', 'comp', 'deal breaker'],
+  'qa-master': ['q&a', 'qa master', 'salary', 'why leaving', 'weakness', 'visa'],
+  'target-companies': ['target companies', 'companies', 'company list'],
+  'connection-tracker': ['connections', 'contacts', 'networking'],
+}
+
+const COACH_DIRECTIVE = `You are onboarding a new Search Party user. Walk them through setting up their job search profile step by step.
+
+Start by greeting them and asking if they have a resume to upload. If yes, read it from search/vault/resumes/ and parse it into search/context/experience-library.yaml.
+
+Then guide them through each section IN ORDER:
+1. Experience Library — parse from resume or build from scratch. Push for metrics and specifics.
+2. Career Plan — ask about target level, functions, industries, locations, comp floor, deal breakers.
+3. Q&A Master — ask about salary expectations, why leaving, greatest weakness, visa status.
+4. Target Companies — suggest companies based on career plan, or let user list them.
+5. Connections — ask about existing contacts at target companies (optional, can skip).
+
+For each section, WRITE the data to the corresponding YAML file in search/context/ using the Write tool.
+
+Be conversational and encouraging. Ask one question at a time. When a section is complete, move to the next.
+
+After all sections are done, summarize what was set up and recommend next steps (score a JD, research a company).`
+
+// ─── Section detection ──────────────────────────────────────────────────────
+
+function detectSection(text: string): SectionKey | null {
+  const lower = text.toLowerCase()
+  // Check in reverse order so we match the most specific section
+  for (let i = SECTION_ORDER.length - 1; i >= 0; i--) {
+    const key = SECTION_ORDER[i]
+    if (SECTION_KEYWORDS[key].some((kw) => lower.includes(kw))) {
+      return key
     }
   }
+  return null
+}
+
+// ─── Progress Panel ─────────────────────────────────────────────────────────
+
+const SECTION_META: Record<string, { icon: string; description: string }> = {
+  'experience-library': { icon: '📋', description: 'Work history, skills, education' },
+  'career-plan': { icon: '🎯', description: 'Target level, functions, industries, comp' },
+  'qa-master': { icon: '💬', description: 'Salary, why leaving, weakness, visa' },
+  'target-companies': { icon: '🏢', description: 'Companies you want to work at' },
+  'connection-tracker': { icon: '🤝', description: 'Contacts at target companies' },
+  'interview-history': { icon: '📝', description: 'Auto-populated after interviews' },
+}
+
+function ProgressPanel({
+  status,
+  currentSection,
+}: {
+  status: ContextStatusResponse | null
+  currentSection: SectionKey | null
+}) {
+  if (!status) return null
+
+  const contexts = status.contexts
+  const setupSections = SECTION_ORDER.filter((k) => k in contexts)
+  const filledCount = setupSections.filter((k) => contexts[k]?.filled).length
 
   return (
-    <div className="mt-4 space-y-3">
-      <div>
-        <label className="block text-sm font-medium mb-1">Target Level</label>
-        <input
-          type="text"
-          value={level}
-          onChange={e => setLevel(e.target.value)}
-          placeholder="e.g. Staff Engineer, Senior SWE"
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">Functions <span className="text-text-muted">(comma-separated)</span></label>
-        <input
-          type="text"
-          value={functions}
-          onChange={e => setFunctions(e.target.value)}
-          placeholder="e.g. backend, platform, infrastructure"
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">Industries <span className="text-text-muted">(comma-separated)</span></label>
-        <input
-          type="text"
-          value={industries}
-          onChange={e => setIndustries(e.target.value)}
-          placeholder="e.g. fintech, developer-tools, health-tech"
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">Preferred Locations <span className="text-text-muted">(comma-separated)</span></label>
-        <input
-          type="text"
-          value={locations}
-          onChange={e => setLocations(e.target.value)}
-          placeholder="e.g. SF Bay Area, Remote, NYC"
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">Minimum Total Comp ($)</label>
-        <input
-          type="number"
-          value={compFloor}
-          onChange={e => setCompFloor(e.target.value)}
-          placeholder="e.g. 250000"
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">Deal Breakers <span className="text-text-muted">(comma-separated)</span></label>
-        <input
-          type="text"
-          value={dealBreakers}
-          onChange={e => setDealBreakers(e.target.value)}
-          placeholder="e.g. No visa sponsorship, < 50% remote"
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-        />
+    <div className="flex flex-col h-full">
+      <div className="px-5 py-4 border-b border-border">
+        <h2 className="text-lg font-semibold text-text">Setup Progress</h2>
+        <p className="text-sm text-text-muted mt-1">
+          Your context files power every AI feature
+        </p>
       </div>
 
-      {/* Addressing Weaknesses */}
-      <div>
-        <label className="block text-sm font-medium mb-1">Addressing Weaknesses</label>
-        {weaknesses.map((w, i) => (
-          <div key={i} className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={w.weakness}
-              onChange={e => setWeaknesses(prev => prev.map((wk, idx) => idx === i ? { ...wk, weakness: e.target.value } : wk))}
-              placeholder="Weakness"
-              className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm"
-            />
-            <input
-              type="text"
-              value={w.mitigation}
-              onChange={e => setWeaknesses(prev => prev.map((wk, idx) => idx === i ? { ...wk, mitigation: e.target.value } : wk))}
-              placeholder="Mitigation"
-              className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm"
-            />
-            <button onClick={() => setWeaknesses(prev => prev.filter((_, idx) => idx !== i))} className="px-2 py-2 text-text-muted hover:text-danger text-sm" title="Remove">x</button>
-          </div>
-        ))}
-        <button onClick={() => setWeaknesses(prev => [...prev, { weakness: '', mitigation: '' }])} className="text-sm text-accent hover:text-accent-hover">+ Add Weakness</button>
-      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {SECTION_ORDER.map((key) => {
+          const ctx = contexts[key]
+          if (!ctx) return null
+          const meta = SECTION_META[key]
+          const isCurrent = currentSection === key
+          const isFilled = ctx.filled
 
-      {/* Resume Preferences */}
-      <div>
-        <label className="block text-sm font-medium mb-2">Resume Preferences</label>
-        <div className="space-y-2">
-          <input
-            type="text"
-            value={resumeFormat}
-            onChange={e => setResumeFormat(e.target.value)}
-            placeholder="Format (e.g. one-page, two-column)"
-            className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-          />
-          <input
-            type="text"
-            value={summaryLength}
-            onChange={e => setSummaryLength(e.target.value)}
-            placeholder="Summary length (e.g. 2-3 sentences)"
-            className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-          />
-          <input
-            type="text"
-            value={resumeTone}
-            onChange={e => setResumeTone(e.target.value)}
-            placeholder="Tone (e.g. professional, concise)"
-            className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-          />
-          <div>
-            <label className="block text-xs text-text-muted mb-1">Avoid Words</label>
-            <div className="flex flex-wrap gap-1 mb-2">
-              {avoidWords.map((word, i) => (
-                <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-bg border border-border rounded text-xs">
-                  {word}
-                  <button onClick={() => setAvoidWords(prev => prev.filter((_, idx) => idx !== i))} className="text-text-muted hover:text-danger">x</button>
+          return (
+            <div
+              key={key}
+              className={`rounded-lg border p-3.5 transition-all ${
+                isCurrent
+                  ? 'border-accent bg-accent/5 shadow-sm'
+                  : isFilled
+                    ? 'border-border bg-surface'
+                    : 'border-border/60 bg-bg'
+              }`}
+            >
+              <div className="flex items-start gap-2.5">
+                <span className="text-base mt-0.5">
+                  {isFilled ? '\u2705' : isCurrent ? '\uD83D\uDD35' : '\u26AA'}
                 </span>
-              ))}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{meta.icon}</span>
+                    <span className="text-sm font-medium text-text">{ctx.label}</span>
+                  </div>
+                  <p className="text-xs text-text-muted mt-0.5">{meta.description}</p>
+                  {isFilled && ctx.lastModified && (
+                    <p className="text-xs text-text-muted mt-1">
+                      Updated {new Date(ctx.lastModified).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newAvoidWord}
-                onChange={e => setNewAvoidWord(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && newAvoidWord.trim()) {
-                    e.preventDefault()
-                    setAvoidWords(prev => [...prev, newAvoidWord.trim()])
-                    setNewAvoidWord('')
-                  }
-                }}
-                placeholder="Add word to avoid"
-                className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm"
-              />
-              <button
-                onClick={() => { if (newAvoidWord.trim()) { setAvoidWords(prev => [...prev, newAvoidWord.trim()]); setNewAvoidWord('') } }}
-                className="px-3 py-2 text-sm text-accent hover:text-accent-hover"
-              >
-                Add
-              </button>
+          )
+        })}
+
+        {/* Interview History — always gray */}
+        {contexts['interview-history'] && (
+          <div className="rounded-lg border border-border/60 bg-bg p-3.5 opacity-60">
+            <div className="flex items-start gap-2.5">
+              <span className="text-base mt-0.5">{'\u26AA'}</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{SECTION_META['interview-history'].icon}</span>
+                  <span className="text-sm font-medium text-text">
+                    {contexts['interview-history'].label}
+                  </span>
+                </div>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Auto-populated after interviews
+                </p>
+              </div>
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div className="px-5 py-4 border-t border-border">
+        <div className="flex justify-between text-sm mb-2">
+          <span className="font-medium text-text">{filledCount}/5 complete</span>
+          <span className="text-text-muted">{Math.round((filledCount / 5) * 100)}%</span>
         </div>
-      </div>
-
-      {error && <p className="text-danger text-sm">{error}</p>}
-      <button
-        onClick={handleSave}
-        disabled={saving || !level}
-        className="px-4 py-2 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
-      >
-        {saving ? 'Saving...' : 'Save Career Plan'}
-      </button>
-    </div>
-  )
-}
-
-function QAMasterForm({ onSave }: { onSave: () => void }) {
-  const [salary, setSalary] = useState('')
-  const [whyLeaving, setWhyLeaving] = useState('')
-  const [weakness, setWeakness] = useState('')
-  const [visa, setVisa] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/api/context/qa-master')
-      .then(r => r.json())
-      .then(data => {
-        if (data.salary_expectations) setSalary(data.salary_expectations)
-        if (data.why_leaving) setWhyLeaving(data.why_leaving)
-        if (data.greatest_weakness) setWeakness(data.greatest_weakness)
-        if (data.visa_status) setVisa(data.visa_status)
-      })
-      .catch(() => {})
-  }, [])
-
-  const handleSave = async () => {
-    setSaving(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/context/qa-master', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          salary_expectations: salary,
-          why_leaving: whyLeaving,
-          greatest_weakness: weakness,
-          visa_status: visa,
-        }),
-      })
-      if (!res.ok) {
-        const body = await res.json()
-        setError(body.error || 'Save failed')
-        return
-      }
-      onSave()
-    } catch {
-      setError('Network error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="mt-4 space-y-3">
-      <div>
-        <label className="block text-sm font-medium mb-1">Salary Expectations</label>
-        <input
-          type="text"
-          value={salary}
-          onChange={e => setSalary(e.target.value)}
-          placeholder="e.g. $250K-300K total comp"
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">Why are you leaving?</label>
-        <textarea
-          value={whyLeaving}
-          onChange={e => setWhyLeaving(e.target.value)}
-          placeholder="Positive framing of why you're looking for a new role..."
-          rows={3}
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">Greatest Weakness</label>
-        <textarea
-          value={weakness}
-          onChange={e => setWeakness(e.target.value)}
-          placeholder="A genuine weakness with how you're addressing it..."
-          rows={3}
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">Visa / Work Authorization</label>
-        <input
-          type="text"
-          value={visa}
-          onChange={e => setVisa(e.target.value)}
-          placeholder="e.g. US Citizen, H1B, Green Card"
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-        />
-      </div>
-      {error && <p className="text-danger text-sm">{error}</p>}
-      <button
-        onClick={handleSave}
-        disabled={saving || (!salary && !whyLeaving && !weakness)}
-        className="px-4 py-2 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
-      >
-        {saving ? 'Saving...' : 'Save Q&A'}
-      </button>
-    </div>
-  )
-}
-
-function ConnectionsForm({ onSave }: { onSave: () => void }) {
-  const [contacts, setContacts] = useState<Array<{ name: string; company: string; role: string; relationship: string; linkedin_url: string; notes: string }>>([
-    { name: '', company: '', role: '', relationship: 'cold', linkedin_url: '', notes: '' },
-  ])
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/api/context/connection-tracker')
-      .then(r => r.json())
-      .then(data => {
-        if (data.contacts?.length > 0) {
-          setContacts(data.contacts.map((c: Record<string, string>) => ({
-            name: c.name || '',
-            company: c.company || '',
-            role: c.role || '',
-            relationship: c.relationship || 'cold',
-            linkedin_url: c.linkedin_url || '',
-            notes: c.notes || '',
-          })))
-        }
-      })
-      .catch(() => {})
-  }, [])
-
-  const updateContact = (i: number, field: string, value: string) => {
-    setContacts(prev => prev.map((c, idx) => idx === i ? { ...c, [field]: value } : c))
-  }
-
-  const addContact = () => {
-    setContacts(prev => [...prev, { name: '', company: '', role: '', relationship: 'cold', linkedin_url: '', notes: '' }])
-  }
-
-  const removeContact = (i: number) => {
-    setContacts(prev => prev.filter((_, idx) => idx !== i))
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    setError(null)
-    const validContacts = contacts.filter(c => c.name.trim())
-    try {
-      const res = await fetch('/api/context/connection-tracker', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contacts: validContacts.map((c, i) => ({
-            id: `conn-${String(i + 1).padStart(3, '0')}`,
-            name: c.name,
-            company: c.company,
-            role: c.role,
-            relationship: c.relationship,
-            linkedin_url: c.linkedin_url,
-            notes: c.notes,
-          })),
-        }),
-      })
-      if (!res.ok) {
-        const body = await res.json()
-        setError(body.error || 'Save failed')
-        return
-      }
-      onSave()
-    } catch {
-      setError('Network error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="mt-4 space-y-3">
-      {contacts.map((contact, i) => (
-        <div key={i} className="flex gap-2 items-start">
-          <div className="flex-1 space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                value={contact.name}
-                onChange={e => updateContact(i, 'name', e.target.value)}
-                placeholder="Name"
-                className="px-3 py-2 bg-bg border border-border rounded text-sm"
-              />
-              <input
-                type="text"
-                value={contact.company}
-                onChange={e => updateContact(i, 'company', e.target.value)}
-                placeholder="Company"
-                className="px-3 py-2 bg-bg border border-border rounded text-sm"
-              />
-              <input
-                type="text"
-                value={contact.role}
-                onChange={e => updateContact(i, 'role', e.target.value)}
-                placeholder="Role"
-                className="px-3 py-2 bg-bg border border-border rounded text-sm"
-              />
-              <select
-                value={contact.relationship}
-                onChange={e => updateContact(i, 'relationship', e.target.value)}
-                className="px-3 py-2 bg-bg border border-border rounded text-sm"
-              >
-                <option value="cold">Cold</option>
-                <option value="connected">Connected</option>
-                <option value="warm">Warm</option>
-                <option value="referred">Referred</option>
-              </select>
-            </div>
-            <input
-              type="text"
-              value={contact.linkedin_url}
-              onChange={e => updateContact(i, 'linkedin_url', e.target.value)}
-              placeholder="LinkedIn URL"
-              className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-            />
-            <textarea
-              value={contact.notes}
-              onChange={e => updateContact(i, 'notes', e.target.value)}
-              placeholder="Notes"
-              rows={2}
-              className="w-full px-3 py-2 bg-bg border border-border rounded text-sm"
-            />
-          </div>
-          <button
-            onClick={() => removeContact(i)}
-            className="px-2 py-2 text-text-muted hover:text-danger text-sm"
-            title="Remove"
+        <div className="w-full h-2 bg-border rounded-full overflow-hidden">
+          <div
+            className="h-full bg-accent rounded-full transition-all duration-500"
+            style={{ width: `${(filledCount / 5) * 100}%` }}
+          />
+        </div>
+        {filledCount >= 5 && (
+          <a
+            href="/"
+            className="mt-4 block text-center px-5 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors"
           >
-            x
-          </button>
-        </div>
-      ))}
-      <button
-        onClick={addContact}
-        className="text-sm text-accent hover:text-accent-hover"
-      >
-        + Add Contact
-      </button>
-      {error && <p className="text-danger text-sm">{error}</p>}
-      <div>
-        <button
-          onClick={handleSave}
-          disabled={saving || !contacts.some(c => c.name.trim())}
-          className="px-4 py-2 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : 'Save Connections'}
-        </button>
+            Go to Dashboard &rarr;
+          </a>
+        )}
       </div>
+    </div>
+  )
+}
+
+// ─── Resume Drop Zone ───────────────────────────────────────────────────────
+
+function ResumeDropZone({
+  onUploaded,
+}: {
+  onUploaded: () => void
+}) {
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFiles = async (files: FileList) => {
+    if (files.length === 0) return
+    setUploading(true)
+    setError(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', files[0])
+      formData.append('subfolder', 'resumes')
+      const res = await fetch('/api/vault/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) {
+        const body = await res.json()
+        setError(body.error || 'Upload failed')
+        return
+      }
+      onUploaded()
+    } catch {
+      setError('Network error during upload')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="px-4 py-3">
+      <div
+        className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
+          dragging ? 'border-accent bg-accent/5' : 'border-border hover:border-accent/50'
+        }`}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragging(true)
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragging(false)
+          handleFiles(e.dataTransfer.files)
+        }}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".pdf,.doc,.docx,.txt"
+          onChange={(e) => e.target.files && handleFiles(e.target.files)}
+        />
+        {uploading ? (
+          <p className="text-sm text-text-muted">Uploading...</p>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-text">Drop your resume here</p>
+            <p className="text-xs text-text-muted mt-1">PDF, DOC, DOCX, or TXT</p>
+          </>
+        )}
+      </div>
+      {error && <p className="text-xs text-danger mt-1">{error}</p>}
+    </div>
+  )
+}
+
+// ─── Quick Action Buttons ───────────────────────────────────────────────────
+
+function QuickActions({
+  onSelect,
+  options,
+}: {
+  onSelect: (text: string) => void
+  options: string[]
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          onClick={() => onSelect(opt)}
+          className="px-3 py-1.5 text-xs font-medium border border-accent/30 text-accent rounded-full hover:bg-accent/10 transition-colors"
+        >
+          {opt}
+        </button>
+      ))}
     </div>
   )
 }
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
-const CARD_ORDER: Array<{
-  key: string
-  mode: 'cli' | 'form' | 'auto'
-  cliCommand?: string
-  FormComponent?: React.ComponentType<{ onSave: () => void }>
-}> = [
-  { key: 'experience-library', mode: 'cli', cliCommand: '/setup experience' },
-  { key: 'career-plan', mode: 'form', FormComponent: CareerPlanForm },
-  { key: 'qa-master', mode: 'form', FormComponent: QAMasterForm },
-  { key: 'target-companies', mode: 'cli', cliCommand: '/setup companies' },
-  { key: 'connection-tracker', mode: 'form', FormComponent: ConnectionsForm },
-  { key: 'interview-history', mode: 'auto' },
-]
-
 export default function OnboardingPage() {
-  const [status, setStatus] = useState<ContextStatusResponse | null>(null)
-  const [expandedCard, setExpandedCard] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [resumeDetected, setResumeDetected] = useState(false)
-  const [resumeProcessing, setResumeProcessing] = useState(false)
-  const [resumeSuccess, setResumeSuccess] = useState(false)
-  const [resumeError, setResumeError] = useState<string | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [currentSection, setCurrentSection] = useState<SectionKey | null>('experience-library')
+  const [contextStatus, setContextStatus] = useState<ContextStatusResponse | null>(null)
+  const [showResumeZone, setShowResumeZone] = useState(true)
+  const [hasStarted, setHasStarted] = useState(false)
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch('/api/context/status')
-      const data = await res.json()
-      setStatus(data)
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents()
+
+  // Auto-scroll
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [])
 
   useEffect(() => {
-    fetchStatus()
-    // Vault scan to detect resumes
-    fetch('/api/vault/scan')
-      .then(r => r.json())
-      .then(data => {
-        if (data.subfolders?.resumes?.count > 0) {
-          setResumeDetected(true)
-        }
-      })
-      .catch(() => {})
-  }, [fetchStatus])
+    scrollToBottom()
+  }, [messages, isProcessing, scrollToBottom])
 
-  const handleProcessResume = async () => {
-    setResumeProcessing(true)
-    setResumeError(null)
+  // Fetch context status on mount and poll every 5s
+  const fetchContextStatus = useCallback(async () => {
     try {
-      // Spawn agent with write_to directive — agent reads vault files directly and outputs YAML
-      const res = await fetch('/api/agent/spawn', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agent: 'research',
-          directive: {
-            skill: 'setup-experience',
-            write_to: 'context/experience-library.yaml',
-            text: `Parse my resume into a structured experience library. Read the resume files from search/vault/resumes/ and output valid YAML matching the experience-library schema.`,
-          },
-        }),
-      })
-      if (!res.ok) {
-        const body = await res.json()
-        setResumeError(body.error || 'Processing failed')
-        return
+      const res = await fetch('/api/context/status')
+      if (res.ok) {
+        const data = await res.json()
+        setContextStatus(data)
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchContextStatus()
+    const interval = setInterval(fetchContextStatus, 5000)
+    return () => clearInterval(interval)
+  }, [fetchContextStatus])
+
+  // Spawn coach on mount
+  useEffect(() => {
+    if (hasStarted) return
+    setHasStarted(true)
+    setIsProcessing(true)
+    spawnAgent('research', {
+      skill: 'onboarding-coach',
+      entry_name: 'onboarding-session',
+      text: COACH_DIRECTIVE,
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Watch for agent completion
+  useEffect(() => {
+    if (agentStatus === 'completed' && agentOutput) {
+      setMessages((prev) => [...prev, { role: 'coach', content: agentOutput }])
+      setIsProcessing(false)
+
+      // Detect which section the coach is now talking about
+      const detected = detectSection(agentOutput)
+      if (detected) {
+        setCurrentSection(detected)
       }
 
-      // Poll for completion
-      const data = await res.json()
-      const spawnId = data.spawn_id
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusRes = await fetch(`/api/agent/spawn/${spawnId}`)
-          if (!statusRes.ok) return
-          const statusData = await statusRes.json()
-          if (statusData.status === 'completed') {
-            clearInterval(pollInterval)
-            setResumeProcessing(false)
-            setResumeSuccess(true)
-            fetchStatus()
-          } else if (statusData.status === 'failed') {
-            clearInterval(pollInterval)
-            setResumeProcessing(false)
-            setResumeError(statusData.output || 'Processing failed')
-          }
-        } catch {}
-      }, 3000)
+      // Hide resume zone once coach moves past experience
+      if (detected && detected !== 'experience-library') {
+        setShowResumeZone(false)
+      }
 
-      // Safety timeout
-      setTimeout(() => {
-        clearInterval(pollInterval)
-        if (resumeProcessing) {
-          setResumeProcessing(false)
-          setResumeError('Processing timed out — try running /setup experience in terminal')
-        }
-      }, 300000)
-      // Don't reset processing here — the poll interval handles it
-      return
-    } catch {
-      setResumeError('Network error')
-      setResumeProcessing(false)
+      agentReset()
+      fetchContextStatus()
+    }
+    if (agentStatus === 'failed') {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'coach', content: 'Something went wrong. Please try sending your message again.' },
+      ])
+      setIsProcessing(false)
+      agentReset()
+    }
+    if (agentStatus === 'timeout') {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'coach', content: 'The request timed out. Please try again.' },
+      ])
+      setIsProcessing(false)
+      agentReset()
+    }
+  }, [agentStatus, agentOutput, agentReset, fetchContextStatus])
+
+  // Send a message
+  const sendMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isProcessing) return
+      setMessages((prev) => [...prev, { role: 'user', content: text.trim() }])
+      setInput('')
+      setIsProcessing(true)
+
+      try {
+        await spawnAgent('research', {
+          skill: 'onboarding-coach',
+          entry_name: 'onboarding-followup',
+          text: text.trim(),
+        })
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'coach', content: 'Failed to reach the coach. Please try again.' },
+        ])
+        setIsProcessing(false)
+      }
+    },
+    [isProcessing, spawnAgent],
+  )
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage(input)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-text-muted">Loading...</p>
-      </div>
-    )
+  const handleResumeUploaded = () => {
+    sendMessage("I've uploaded my resume to vault/resumes/")
   }
 
-  if (!status) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-danger">Failed to load context status.</p>
-      </div>
-    )
-  }
-
-  const contexts = status.contexts
-  const filledCount = Object.values(contexts).filter(c => c.filled).length
-  const totalCount = Object.keys(contexts).length
-  const progressPct = Math.round((filledCount / totalCount) * 100)
-  const canStart = contexts['experience-library']?.filled && contexts['career-plan']?.filled
+  // Detect quick actions from the last coach message
+  const lastCoachMsg = [...messages].reverse().find((m) => m.role === 'coach')
+  const showResumeActions =
+    lastCoachMsg &&
+    currentSection === 'experience-library' &&
+    /resume/i.test(lastCoachMsg.content) &&
+    messages.length <= 2
+  const showSkipButton = currentSection && !isProcessing && messages.length > 1
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-2">Get Started</h1>
-      <p className="text-text-muted mb-6">
-        Fill in your context to power your AI job search. Start with your experience library, then add your career plan.
-      </p>
-
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between text-sm mb-2">
-          <span className="font-medium">{filledCount}/{totalCount} complete</span>
-          <span className="text-text-muted">{progressPct}%</span>
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-3.5rem)] overflow-hidden">
+      {/* ─── Left Panel: Coach Chat (60%) ─── */}
+      <div className="flex-1 lg:w-[60%] flex flex-col bg-white dark:bg-surface min-h-0">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border bg-surface">
+          <span className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-base">
+            {'\uD83E\uDD16'}
+          </span>
+          <div>
+            <h1 className="text-base font-semibold text-text">Onboarding Coach</h1>
+            <p className="text-xs text-text-muted">Setting up your job search profile</p>
+          </div>
         </div>
-        <div className="w-full h-2 bg-border rounded-full overflow-hidden">
-          <div
-            className="h-full bg-accent rounded-full transition-all duration-500"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-      </div>
 
-      {/* Cards */}
-      <div className="space-y-4">
-        {CARD_ORDER.map((card) => {
-          const ctx = contexts[card.key]
-          if (!ctx) return null
-          const isExpanded = expandedCard === card.key
-          const isFilled = ctx.filled
+        {/* Resume drop zone */}
+        {showResumeZone && <ResumeDropZone onUploaded={handleResumeUploaded} />}
 
-          return (
+        {/* Messages */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {messages.map((msg, i) => (
             <div
-              key={card.key}
-              className={`border rounded-lg overflow-hidden transition-colors ${
-                card.key === 'experience-library' && !isFilled
-                  ? 'border-accent bg-surface shadow-sm'
-                  : 'border-border bg-surface'
-              }`}
+              key={i}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              {/* Card Header */}
-              <div className="flex items-center justify-between px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">
-                    {isFilled ? '\u2705' : '\u26AA'}
-                  </span>
-                  <div>
-                    <h3 className="font-semibold">{ctx.label}</h3>
-                    <p className="text-sm text-text-muted">{ctx.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isFilled && ctx.lastModified && (
-                    <span className="text-xs text-text-muted">
-                      Updated {new Date(ctx.lastModified).toLocaleDateString()}
-                    </span>
-                  )}
-                  {card.mode === 'form' && (
-                    <button
-                      onClick={() => setExpandedCard(isExpanded ? null : card.key)}
-                      className="px-3 py-1.5 text-sm border border-border rounded hover:bg-bg transition-colors"
-                    >
-                      {isExpanded ? 'Close' : isFilled ? 'Edit' : 'Fill In'}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* CLI Prompt */}
-              {card.mode === 'cli' && !isFilled && (
-                <div className="px-5 pb-4 border-t border-border/50 pt-3">
-                  {card.key === 'experience-library' ? (
-                    <div className="space-y-3">
-                      {resumeDetected && !resumeSuccess ? (
-                        <>
-                          <p className="text-sm font-medium text-accent">Resume detected — click to parse it into your experience library</p>
-                          <button
-                            onClick={handleProcessResume}
-                            disabled={resumeProcessing}
-                            className="px-4 py-2 bg-accent text-white rounded text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
-                          >
-                            {resumeProcessing ? 'Parsing resume...' : 'Parse Resume'}
-                          </button>
-                          {resumeError && <p className="text-danger text-sm">{resumeError}</p>}
-                        </>
-                      ) : resumeSuccess ? (
-                        <p className="text-sm font-medium text-green-600">Experience library updated! Refresh to see status.</p>
-                      ) : (
-                        <p className="text-sm text-text-muted">
-                          Drop your resume in <code className="px-1.5 py-0.5 bg-bg border border-border rounded text-xs font-mono">search/vault/resumes/</code> and refresh this page.
-                        </p>
-                      )}
-                      <p className="text-xs text-text-muted border-t border-border/50 pt-2">
-                        Or run <code className="px-1.5 py-0.5 bg-bg border border-border rounded text-xs font-mono">/setup experience</code> in your terminal for a conversational walkthrough
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-sm text-text-muted">Run in Claude Code:</p>
-                      <code className="block px-3 py-2 bg-sidebar-bg text-sidebar-text rounded text-sm font-mono">
-                        {card.cliCommand}
-                      </code>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Auto-populated notice */}
-              {card.mode === 'auto' && (
-                <div className="px-5 pb-4 border-t border-border/50 pt-3">
-                  <p className="text-sm text-text-muted">
-                    Auto-populated after you complete interviews and run debriefs.
+              <div
+                className={`max-w-[85%] rounded-xl px-4 py-3 ${
+                  msg.role === 'user'
+                    ? 'bg-accent/10 text-text rounded-br-sm'
+                    : 'bg-bg text-text rounded-bl-sm'
+                }`}
+              >
+                {msg.role === 'coach' && (
+                  <p className="text-xs font-medium text-text-muted mb-1.5">
+                    {'\uD83E\uDD16'} Coach
                   </p>
-                </div>
-              )}
-
-              {/* Inline Form */}
-              {card.mode === 'form' && isExpanded && card.FormComponent && (
-                <div className="px-5 pb-5 border-t border-border/50">
-                  <card.FormComponent onSave={() => {
-                    setExpandedCard(null)
-                    fetchStatus()
-                  }} />
-                </div>
-              )}
+                )}
+                {msg.role === 'coach' ? (
+                  <MarkdownView content={msg.content} />
+                ) : (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                )}
+              </div>
             </div>
-          )
-        })}
+          ))}
+
+          {/* Quick action buttons after coach's resume question */}
+          {showResumeActions && !isProcessing && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%]">
+                <QuickActions
+                  onSelect={sendMessage}
+                  options={['Yes, use my resume', 'No, start from scratch']}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Processing indicator */}
+          {isProcessing && (
+            <div className="flex justify-start">
+              <div className="bg-bg rounded-xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-text-muted">Coach is thinking...</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input area */}
+        <div className="border-t border-border px-4 py-3 bg-surface">
+          {showSkipButton && (
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={() => sendMessage('Skip this section')}
+                className="text-xs text-text-muted hover:text-text transition-colors"
+              >
+                Skip this section &rarr;
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a message..."
+              disabled={isProcessing}
+              className="flex-1 px-3.5 py-2.5 border border-border rounded-lg bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
+            />
+            <button
+              onClick={() => sendMessage(input)}
+              disabled={!input.trim() || isProcessing}
+              className="px-4 py-2.5 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Send
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Get Started Button */}
-      <div className="mt-8 text-center">
-        {canStart ? (
-          <a
-            href="/"
-            className="inline-block px-6 py-3 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent-hover transition-colors"
-          >
-            Go to Command Center
-          </a>
-        ) : (
-          <p className="text-text-muted text-sm">
-            Fill in at least your <strong>Experience Library</strong> and <strong>Career Plan</strong> to get started.
-          </p>
-        )}
+      {/* ─── Right Panel: Live Progress (40%) ─── */}
+      <div className="lg:w-[40%] border-t lg:border-t-0 lg:border-l border-border bg-bg flex flex-col min-h-0">
+        <ProgressPanel status={contextStatus} currentSection={currentSection} />
       </div>
     </div>
   )
