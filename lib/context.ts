@@ -341,7 +341,9 @@ export async function isContextFilled(name: ContextName): Promise<boolean> {
     // Check for meaningful content based on file type
     switch (name) {
       case 'experience-library':
-        return Array.isArray(parsed.experiences) && parsed.experiences.length > 0
+        // Filled if has experiences OR has summary + contact name (coach may write those first)
+        return (Array.isArray(parsed.experiences) && parsed.experiences.length > 0) ||
+               (!!parsed.summary && !!parsed.contact?.name)
       case 'career-plan':
         return !!(parsed.target?.level || (parsed.target?.functions?.length > 0))
       case 'qa-master':
