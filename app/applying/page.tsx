@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useAgentEvents } from '../hooks/use-agent-events'
+import { AgentChat } from '../_components/agent-chat'
+import { MarkdownView } from '../_components/markdown-view'
 
 interface FollowUp {
   due: string
@@ -357,7 +359,7 @@ export default function ApplyingPage() {
           {tailorReviewData && (
             <div className="mt-3 p-3 bg-bg border border-border rounded-md">
               <h4 className="text-xs font-semibold text-text-muted mb-1">Review Results</h4>
-              <pre className="text-xs text-text whitespace-pre-wrap font-sans">{tailorReviewData}</pre>
+              <MarkdownView content={tailorReviewData} className="text-xs" />
             </div>
           )}
         </div>
@@ -490,7 +492,7 @@ export default function ApplyingPage() {
                 )}
                 {agentOutput && (
                   <div className="mt-2 max-h-60 overflow-y-auto p-3 bg-bg border border-border rounded-md">
-                    <pre className="text-xs text-text whitespace-pre-wrap font-sans leading-relaxed">{agentOutput}</pre>
+                    <MarkdownView content={agentOutput} />
                   </div>
                 )}
                 <div className="flex gap-2 mt-3">
@@ -846,7 +848,7 @@ export default function ApplyingPage() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
-              <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed">{resumeContent}</pre>
+              <MarkdownView content={resumeContent} />
             </div>
           </div>
         </div>

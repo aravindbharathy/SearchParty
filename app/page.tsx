@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBlackboard } from './hooks/use-blackboard'
 import { useAgentEvents } from './hooks/use-agent-events'
+import { AgentChat } from './_components/agent-chat'
 import type { ContextStatusResponse } from './types/context'
 
 interface UrgencyItem {
@@ -186,7 +187,14 @@ export default function CommandCenter() {
         )}
         {briefingContent && (
           <>
-            <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed max-h-96 overflow-y-auto mt-2">{briefingContent}</pre>
+            <div className="mt-2">
+              <AgentChat
+                agentName="coach"
+                initialOutput={briefingContent}
+                skill="daily-briefing"
+                onClose={() => setBriefingContent(null)}
+              />
+            </div>
             {/* FIX 10: Quick-link buttons below briefing output */}
             <div className="flex items-center gap-3 mt-4 pt-3 border-t border-border">
               <a href="/applying" className="text-xs text-accent hover:text-accent-hover font-medium">

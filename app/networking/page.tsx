@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useAgentEvents } from '../hooks/use-agent-events'
+import { AgentChat } from '../_components/agent-chat'
 
 interface Outreach {
   date: string
@@ -507,17 +508,18 @@ export default function NetworkingPage() {
 
       {/* Agent Output */}
       {latestAgentOutput && (
-        <div className="bg-surface border border-border rounded-lg p-5 mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold">Agent Output</h3>
-            <button
-              onClick={() => setLatestAgentOutput(null)}
-              className="text-xs text-text-muted hover:text-text"
-            >
-              Dismiss
-            </button>
-          </div>
-          <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed max-h-96 overflow-y-auto">{latestAgentOutput}</pre>
+        <div className="mb-6">
+          <AgentChat
+            agentName="networking"
+            initialOutput={latestAgentOutput}
+            skill={
+              connectionBatchStatus === 'done' ? 'connection-request'
+              : linkedinAuditStatus === 'done' ? 'linkedin-audit'
+              : 'referral-request'
+            }
+            onClose={() => setLatestAgentOutput(null)}
+            metadata={referralTarget ? { company: referralTarget.company } : undefined}
+          />
         </div>
       )}
 

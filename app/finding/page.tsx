@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useAgentEvents } from '../hooks/use-agent-events'
+import { AgentChat } from '../_components/agent-chat'
+import { MarkdownView } from '../_components/markdown-view'
 
 interface ScoredJD {
   filename: string
@@ -452,7 +454,13 @@ export default function FindingPage() {
                       Dismiss
                     </button>
                   </div>
-                  <pre className="text-sm text-text whitespace-pre-wrap font-sans leading-relaxed">{latestOutput}</pre>
+                  <AgentChat
+                    agentName="research"
+                    initialOutput={latestOutput}
+                    skill="score-jd"
+                    onClose={() => setLatestOutput(null)}
+                    metadata={{ company: jdCompany || 'unknown' }}
+                  />
                   {/* FIX 1: Add to Pipeline button on inline result */}
                   <button
                     onClick={() => {
@@ -654,10 +662,8 @@ export default function FindingPage() {
                   </button>
                 </div>
               </div>
-              <div className="prose prose-sm max-w-none text-text">
-                <pre className="whitespace-pre-wrap text-sm bg-bg p-4 rounded-md border border-border overflow-auto max-h-96">
-                  {jdContent}
-                </pre>
+              <div className="bg-bg p-4 rounded-md border border-border overflow-auto max-h-96">
+                <MarkdownView content={jdContent} />
               </div>
             </div>
           )}
