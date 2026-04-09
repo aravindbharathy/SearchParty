@@ -141,11 +141,11 @@ export const QAMasterSchema = z.object({
 const CompanySchema = z.object({
   name: z.string().default(''),
   slug: z.string().default(''),
-  fit_score: z.number().min(0).max(100).default(0),
-  status: z.enum(['researching', 'targeting', 'applied', 'archived']).default('researching'),
-  priority: z.enum(['high', 'medium', 'low']).default('medium'),
+  fit_score: z.number().nullable().default(null).transform(v => v ?? 0),
+  status: z.string().default('researching'),
+  priority: z.string().nullable().default('medium').transform(v => v ?? 'medium'),
   notes: z.string().default(''),
-})
+}).passthrough()  // allow extra fields agents might write (category, location, etc.)
 
 export const TargetCompaniesSchema = z.object({
   companies: z.array(CompanySchema).default([]),
