@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAgentEvents } from './hooks/use-agent-events'
 import { AgentChat } from './_components/agent-chat'
 import type { ContextStatusResponse } from './types/context'
@@ -48,9 +47,7 @@ const FUNNEL_STAGES = [
 ]
 
 export default function Dashboard() {
-  const router = useRouter()
   const [contextStatus, setContextStatus] = useState<ContextStatusResponse | null>(null)
-  const [redirecting, setRedirecting] = useState(false)
   const [urgency, setUrgency] = useState<UrgencyData | null>(null)
   const [stats, setStats] = useState<PipelineStats | null>(null)
   const [netStats, setNetStats] = useState<NetworkingStats | null>(null)
@@ -63,13 +60,9 @@ export default function Dashboard() {
       .then((r) => r.json())
       .then((data: ContextStatusResponse) => {
         setContextStatus(data)
-        if (!data.contextReady) {
-          setRedirecting(true)
-          router.push('/coach')
-        }
       })
       .catch(() => {})
-  }, [router])
+  }, [])
 
   const fetchDashboardData = useCallback(() => {
     fetch('/api/pipeline/urgency')
@@ -89,18 +82,13 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
-    if (contextStatus?.contextReady) {
-      fetchDashboardData()
-    }
-  }, [contextStatus, fetchDashboardData])
+    fetchDashboardData()
+  }, [fetchDashboardData])
 
   useEffect(() => {
-    const handleFocus = () => {
-      if (contextStatus?.contextReady) fetchDashboardData()
-    }
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [contextStatus, fetchDashboardData])
+    window.addEventListener('focus', fetchDashboardData)
+    return () => window.removeEventListener('focus', fetchDashboardData)
+  }, [fetchDashboardData])
 
   useEffect(() => {
     if (agentStatus === 'completed' || agentStatus === 'failed') {
@@ -135,14 +123,7 @@ export default function Dashboard() {
     }
   }
 
-  if (!contextStatus || redirecting) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-text-muted">Loading...</p>
-      </div>
-    )
-  }
-
+  const isContextReady = contextStatus?.contextReady ?? false
   const totalUrgency = (urgency?.overdue.length ?? 0) + (urgency?.today.length ?? 0)
   const maxFunnelCount = stats ? Math.max(1, ...Object.values(stats.byStatus)) : 1
 
@@ -160,7 +141,23 @@ export default function Dashboard() {
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-3xl font-bold">Dashboard</h1>
       </div>
-      <p className="text-text-muted mb-8">Your job search at a glance.</p>
+      <p className="text-text-muted mb-6">Your job search at a glance.</p>
+
+      {/* Setup prompt when profile is incomplete */}
+      {!isContextReady && (
+        <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 mb-8 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-text">Your profile isn&apos;t complete yet</p>
+            <p className="text-xs text-text-muted mt-0.5">Set up your background, career goals, and preferences so agents can personalize everything.</p>
+          </div>
+          <a
+            href="/coach"
+            className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover shrink-0 ml-4"
+          >
+            Continue Setup
+          </a>
+        </div>
+      )}
 
       {/* ─── Urgency Sections ──────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

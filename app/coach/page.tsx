@@ -1360,11 +1360,31 @@ export default function CoachPage() {
     if (typeof window === 'undefined') return []
     try {
       const saved = localStorage.getItem('coach-messages')
-      return saved ? JSON.parse(saved) : []
+      if (!saved) return []
+      const parsed = JSON.parse(saved) as ChatMessage[]
+      // Filter out stale internal messages from process manager
+      return parsed.filter(m => !(m.role === 'coach' && (
+        m.content.includes('session preserved for resume') ||
+        m.content.includes('Dashboard restarted')
+      )))
     } catch { return [] }
   })
   const [input, setInput] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const processingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Safety: auto-reset isProcessing after 90 seconds to prevent permanent stuck state
+  useEffect(() => {
+    if (isProcessing) {
+      processingTimerRef.current = setTimeout(() => {
+        setIsProcessing(false)
+      }, 90_000)
+    } else if (processingTimerRef.current) {
+      clearTimeout(processingTimerRef.current)
+      processingTimerRef.current = null
+    }
+    return () => { if (processingTimerRef.current) clearTimeout(processingTimerRef.current) }
+  }, [isProcessing])
   const [currentSection, setCurrentSection] = useState<SectionKey | null>(() => {
     if (typeof window === 'undefined') return 'experience-library'
     try {
@@ -1383,7 +1403,7 @@ export default function CoachPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents()
+  const { spawnAgent, status: agentStatus, output: agentOutput, partialOutput: agentPartial, reset: agentReset } = useAgentEvents()
 
   // Persist conversation to localStorage
   useEffect(() => {
@@ -1407,9 +1427,10 @@ export default function CoachPage() {
     }
   }, [])
 
+  // Only scroll when a new message is added, not during streaming partial updates
   useEffect(() => {
     scrollToBottom()
-  }, [messages, isProcessing, scrollToBottom])
+  }, [messages.length, scrollToBottom])
 
   // Fetch profile status on mount and poll every 5s
   const fetchContextStatus = useCallback(async () => {
@@ -1479,6 +1500,12 @@ export default function CoachPage() {
   // Watch for agent completion
   useEffect(() => {
     if (agentStatus === 'completed' && agentOutput) {
+      // Filter out internal process manager messages
+      if (agentOutput.includes('session preserved for resume') || agentOutput.includes('Dashboard restarted')) {
+        setIsProcessing(false)
+        agentReset()
+        return
+      }
       setMessages((prev) => [...prev, { role: 'coach', content: agentOutput }])
       setIsProcessing(false)
 
@@ -1692,12 +1719,25 @@ export default function CoachPage() {
             </div>
           )}
 
-          {/* Processing indicator */}
+          {/* Streaming response or thinking indicator */}
           {isProcessing && (
             <div className="flex justify-start">
-              <div className="bg-bg rounded-xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
-                <span className="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm text-text-muted">Coach is thinking...</span>
+              <div className="max-w-[85%]">
+                {agentPartial ? (
+                  <div className="bg-bg rounded-xl rounded-bl-sm px-4 py-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className="inline-block w-2 h-2 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-text-muted">Coach is thinking...</span>
+                    </div>
+                    <MarkdownView content={agentPartial} />
+                    <span className="inline-block w-1.5 h-4 bg-accent/60 animate-pulse ml-0.5 align-text-bottom" />
+                  </div>
+                ) : (
+                  <div className="bg-bg rounded-xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
+                    <span className="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm text-text-muted">Coach is thinking...</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

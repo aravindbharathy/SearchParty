@@ -11,7 +11,20 @@ export async function GET(
 
     for (const [, agentInfo] of Object.entries(managerStatus.agents)) {
       if (agentInfo.spawn_id === spawnId) {
-        // Read output from sessions.yaml
+        // If running, return partial output from the streaming buffer
+        if (agentInfo.status === 'running') {
+          const partial = processManager.getPartialOutput(spawnId)
+          return NextResponse.json({
+            spawn_id: spawnId,
+            status: 'running',
+            started_at: agentInfo.started_at,
+            session_id: agentInfo.session_id,
+            interactions: agentInfo.interactions,
+            partial_output: partial,
+          })
+        }
+
+        // Completed/failed — read final output from sessions.yaml
         let output: string | undefined
         try {
           const { readFileSync, existsSync } = await import('fs')

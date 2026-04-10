@@ -126,7 +126,7 @@ export default function FindingPage() {
   const chatScrollRef = useRef<HTMLDivElement>(null)
 
   // Agent hook — single persistent session for all research actions
-  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('finding-chat')
+  const { spawnAgent, status: agentStatus, output: agentOutput, partialOutput: agentPartial, reset: agentReset } = useAgentEvents('finding-chat')
 
   // Only disable action buttons during user-initiated actions (not initial greeting or free chat)
   const actionProcessing = chatProcessing && lastActionRef.current !== 'init' && lastActionRef.current !== 'chat'
@@ -208,7 +208,7 @@ export default function FindingPage() {
     }
   }, [])
 
-  useEffect(() => { scrollChatToBottom() }, [chatMessages, chatProcessing, scrollChatToBottom])
+  useEffect(() => { scrollChatToBottom() }, [chatMessages.length, scrollChatToBottom])
 
   // Spawn agent on first load if no saved chat
   useEffect(() => {
@@ -957,10 +957,17 @@ export default function FindingPage() {
           ))}
           {chatProcessing && (
             <div className="flex justify-start">
-              <div className="bg-bg rounded-lg px-3.5 py-2.5 flex items-center gap-2">
-                <span className="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm text-text-muted">Research agent is thinking...</span>
-              </div>
+              {agentPartial ? (
+                <div className="max-w-[90%] bg-bg rounded-lg px-3.5 py-2.5">
+                  <MarkdownView content={agentPartial} className="text-sm" />
+                  <span className="inline-block w-1.5 h-4 bg-accent/60 animate-pulse ml-0.5 align-text-bottom" />
+                </div>
+              ) : (
+                <div className="bg-bg rounded-lg px-3.5 py-2.5 flex items-center gap-2">
+                  <span className="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-text-muted">Research agent is thinking...</span>
+                </div>
+              )}
             </div>
           )}
         </div>
