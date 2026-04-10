@@ -109,8 +109,8 @@ export default function FindingPage() {
   // Pipeline feedback
   const [pipelineMsg, setPipelineMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // Track last action type for conditional data refresh
-  const lastActionRef = useRef<'score' | 'research' | 'targets' | 'chat'>('chat')
+  // Track last action type for conditional data refresh + button disabling
+  const lastActionRef = useRef<'score' | 'research' | 'targets' | 'chat' | 'init'>('init')
 
   // ─── Chat state (persisted) ──────────────────────────────────────────────
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
@@ -127,6 +127,9 @@ export default function FindingPage() {
 
   // Agent hook — single persistent session for all research actions
   const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('finding-chat')
+
+  // Only disable action buttons during user-initiated actions (not initial greeting or free chat)
+  const actionProcessing = chatProcessing && lastActionRef.current !== 'init' && lastActionRef.current !== 'chat'
 
   // ─── Auto-detect company from JD text ────────────────────────────────────
   const detectedCompany = useMemo(() => {
@@ -543,10 +546,10 @@ export default function FindingPage() {
 
               <button
                 onClick={handleScoreJD}
-                disabled={!jdText.trim() || chatProcessing}
+                disabled={!jdText.trim() || actionProcessing}
                 className="px-5 py-2.5 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {chatProcessing ? 'Scoring...' : 'Score JD'}
+                {actionProcessing ? 'Scoring...' : 'Score JD'}
               </button>
 
               {/* Vault JDs */}
@@ -560,8 +563,8 @@ export default function FindingPage() {
                         <span className="text-sm truncate">{file}</span>
                         <button
                           onClick={() => handleScoreVaultJD(file)}
-                          disabled={chatProcessing}
-                          className="text-xs text-accent hover:text-accent-hover font-medium shrink-0 ml-2"
+                          disabled={actionProcessing}
+                          className="text-xs text-accent hover:text-accent-hover font-medium cursor-pointer shrink-0 ml-2"
                         >
                           Score
                         </button>
@@ -658,7 +661,7 @@ export default function FindingPage() {
                         </button>
                         <button
                           onClick={e => { e.stopPropagation(); deleteScoredJD(jd.filename) }}
-                          className="text-xs px-2.5 py-1 text-text-muted hover:text-danger hover:bg-danger/10 rounded-md transition-colors"
+                          className="text-xs px-2.5 py-1 text-text-muted hover:text-danger hover:bg-danger/10 rounded-md transition-colors cursor-pointer"
                         >
                           Delete
                         </button>
@@ -708,10 +711,10 @@ export default function FindingPage() {
                 />
                 <button
                   onClick={handleGenerateTargets}
-                  disabled={chatProcessing}
+                  disabled={actionProcessing}
                   className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                 >
-                  {chatProcessing ? 'Generating...' : 'Generate Targets'}
+                  {actionProcessing ? 'Generating...' : 'Generate Targets'}
                 </button>
               </div>
 
@@ -721,7 +724,7 @@ export default function FindingPage() {
                   <p className="text-text-muted text-sm mb-4">Generate from your career plan or add manually.</p>
                   <button
                     onClick={handleGenerateTargets}
-                    disabled={chatProcessing}
+                    disabled={actionProcessing}
                     className="text-sm text-accent hover:text-accent-hover font-medium"
                   >
                     Generate Target List
@@ -744,9 +747,8 @@ export default function FindingPage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs text-text-muted capitalize">{company.status}</span>
                           {company.fit_score > 0 && (
-                            <span className="text-xs text-accent font-medium">{company.fit_score}/100</span>
+                            <span className="text-xs text-accent font-medium">Fit: {company.fit_score}%</span>
                           )}
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${hasIntel ? 'bg-success/10 text-success' : 'bg-text-muted/10 text-text-muted'}`}>
                             {hasIntel ? 'Researched' : 'No intel'}
@@ -755,16 +757,16 @@ export default function FindingPage() {
                         {company.notes && <p className="text-xs text-text-muted mb-2 line-clamp-2">{company.notes}</p>}
                         <div className="flex items-center gap-2">
                           {hasIntel ? (
-                            <button onClick={() => viewIntel(company.slug)} className="text-xs text-accent hover:text-accent-hover font-medium">
+                            <button onClick={() => viewIntel(company.slug)} className="text-xs text-accent hover:text-accent-hover font-medium cursor-pointer">
                               View Intel
                             </button>
                           ) : (
-                            <button onClick={() => handleResearchCompany(company.name)} disabled={chatProcessing} className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">
-                              Research
+                            <button onClick={() => handleResearchCompany(company.name)} disabled={actionProcessing} className="text-xs text-accent hover:text-accent-hover font-medium cursor-pointer disabled:opacity-50">
+                              Get Intel
                             </button>
                           )}
                           <span className="text-border">·</span>
-                          <button onClick={() => prefillScoreJDForCompany(company.name)} className="text-xs text-text-muted hover:text-accent">
+                          <button onClick={() => prefillScoreJDForCompany(company.name)} className="text-xs text-text-muted hover:text-accent cursor-pointer">
                             Score JD
                           </button>
                         </div>
@@ -906,7 +908,7 @@ export default function FindingPage() {
                   <p className="text-text-muted">No intel available for this company.</p>
                   <button
                     onClick={() => { if (selectedIntelSlug) handleResearchCompany(selectedIntelSlug) }}
-                    disabled={chatProcessing}
+                    disabled={actionProcessing}
                     className="mt-2 text-sm text-accent hover:text-accent-hover font-medium"
                   >
                     Research Now

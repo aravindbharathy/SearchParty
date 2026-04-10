@@ -46,6 +46,8 @@ export default function CommandCenterPage() {
   const { state, connected } = useBlackboard()
   const { spawnAgent, status: spawnStatus, spawnId: activeSpawnId } = useAgentEvents()
 
+  const [showBlackboard, setShowBlackboard] = useState(false)
+
   // Track which agent is currently being spawned
   const [spawningAgent, setSpawningAgent] = useState<string | null>(null)
 
@@ -543,6 +545,111 @@ export default function CommandCenterPage() {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* ─── 4. Live Blackboard ──────────────────────────────────── */}
+      <div className="bg-surface border border-border rounded-lg mb-8">
+        <button
+          onClick={() => setShowBlackboard(prev => !prev)}
+          className="w-full px-5 py-4 flex items-center justify-between text-left"
+        >
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold">Blackboard</h2>
+            <span className="text-xs text-text-muted">Live shared state — what agents read and write</span>
+          </div>
+          <span className="text-xs text-text-muted">{showBlackboard ? '▲ Hide' : '▼ Show'}</span>
+        </button>
+
+        {showBlackboard && (
+          <div className="px-5 pb-5 space-y-5 border-t border-border pt-4">
+            {/* Agent States */}
+            <div>
+              <h3 className="text-sm font-semibold mb-2 text-text-muted">agents.*</h3>
+              {Object.keys(agents).length === 0 ? (
+                <p className="text-xs text-text-muted italic">No agents registered</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {Object.entries(agents).map(([name, data]) => {
+                    const a = data as Record<string, unknown>
+                    return (
+                      <div key={name} className="bg-bg border border-border/60 rounded-md p-3 text-xs">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-1.5 py-0.5 rounded border capitalize ${agentBadgeColor(name)}`}>{name}</span>
+                          <span className={`${a.status === 'completed' ? 'text-success' : a.status === 'active' ? 'text-accent' : 'text-text-muted'}`}>
+                            {String(a.status || 'unknown')}
+                          </span>
+                        </div>
+                        {typeof a.last_task === 'string' && <p className="text-text-muted mt-1"><span className="text-text font-medium">Task:</span> {a.last_task}</p>}
+                        {typeof a.result_summary === 'string' && <p className="text-text-muted mt-0.5"><span className="text-text font-medium">Result:</span> {a.result_summary.slice(0, 200)}{a.result_summary.length > 200 ? '...' : ''}</p>}
+                        {Array.isArray(a.output_files) && a.output_files.length > 0 && (
+                          <p className="text-text-muted mt-0.5"><span className="text-text font-medium">Files:</span> {(a.output_files as string[]).join(', ')}</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Findings */}
+            <div>
+              <h3 className="text-sm font-semibold mb-2 text-text-muted">findings.*</h3>
+              {findingEntries.length === 0 ? (
+                <p className="text-xs text-text-muted italic">No findings posted</p>
+              ) : (
+                <div className="space-y-2">
+                  {findingEntries.map(([id, finding]) => (
+                    <div key={id} className="bg-bg border border-border/60 rounded-md p-3 text-xs">
+                      <div className="flex items-center gap-2 mb-1">
+                        {finding.from && <span className={`px-1.5 py-0.5 rounded border capitalize ${agentBadgeColor(finding.from)}`}>{finding.from}</span>}
+                        {finding.for && (
+                          <>
+                            <span className="text-text-muted">→</span>
+                            <span className={`px-1.5 py-0.5 rounded border capitalize ${agentBadgeColor(finding.for)}`}>{finding.for}</span>
+                          </>
+                        )}
+                        {finding.type && <span className="text-text-muted ml-auto">{finding.type}</span>}
+                      </div>
+                      {finding.text && <p className="text-text mt-1">{String(finding.text).slice(0, 300)}{String(finding.text).length > 300 ? '...' : ''}</p>}
+                      {finding.timestamp && <p className="text-text-muted mt-1">{finding.timestamp}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Directives */}
+            <div>
+              <h3 className="text-sm font-semibold mb-2 text-text-muted">directives[]</h3>
+              {directives.length === 0 ? (
+                <p className="text-xs text-text-muted italic">No directives</p>
+              ) : (
+                <div className="space-y-2">
+                  {directives.map((d, i) => {
+                    const isPending = !d.status || d.status === 'pending' || d.status === 'open'
+                    return (
+                      <div key={d.id || i} className={`bg-bg border rounded-md p-3 text-xs ${isPending ? 'border-amber-500/30' : 'border-border/60'}`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          {d.from && <span className={`px-1.5 py-0.5 rounded border capitalize ${agentBadgeColor(d.from)}`}>{d.from}</span>}
+                          {(d.assigned_to || d.assignee) && (
+                            <>
+                              <span className="text-text-muted">→</span>
+                              <span className={`px-1.5 py-0.5 rounded border capitalize ${agentBadgeColor(d.assigned_to || d.assignee || '')}`}>{d.assigned_to || d.assignee}</span>
+                            </>
+                          )}
+                          <span className={`ml-auto font-medium ${isPending ? 'text-amber-500' : 'text-success'}`}>{d.status || 'pending'}</span>
+                          {d.priority && <span className={`${d.priority === 'high' ? 'text-danger' : d.priority === 'medium' ? 'text-warning' : 'text-text-muted'}`}>{d.priority}</span>}
+                        </div>
+                        <p className="text-text mt-1">{d.title || d.text || d.id}</p>
+                        {d.posted_at && <p className="text-text-muted mt-1">{d.posted_at}</p>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

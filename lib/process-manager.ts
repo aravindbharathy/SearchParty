@@ -111,10 +111,44 @@ class ProcessManager {
     const hasExistingSession = existing?.session_id && existing.status !== 'failed'
 
     try {
-      // Build the message from directive
-      const directiveText = typeof request.directive.text === 'string'
+      // Build the message from directive + blackboard postamble
+      const rawText = typeof request.directive.text === 'string'
         ? request.directive.text
         : JSON.stringify(request.directive)
+
+      // Blackboard postamble — only appended when the agent might produce shareable work
+      // The blackboard is a shared knowledge surface, not a message log.
+      // Agents only write when they have something worth sharing.
+      const blackboardPostamble = `
+
+---
+BLACKBOARD PROTOCOL (use write_to_blackboard):
+The blackboard is a shared knowledge store. Other agents read it to coordinate. Only write when you produced something worth sharing — a scored JD, research intel, a generated artifact, a status change, or work another agent needs to pick up. Do NOT write for casual Q&A, explanations, or conversational replies.
+
+WHEN YOU PRODUCED SHAREABLE WORK, do these:
+
+1. UPDATE YOUR STATUS (only when you completed meaningful work — wrote a file, scored a JD, researched a company):
+   path: "agents.${request.agent}"
+   value: {"role":"${request.agent}","status":"completed","last_task":"<what you did>","result_summary":"<key outcomes>","output_files":["<file paths>"]}
+   Include a log_entry (under 100 chars): "${request.agent}: <brief summary>"
+
+2. POST A FINDING (only when you discovered something another agent should know):
+   path: "findings.${request.agent}"
+   value: {"type":"<type>","text":"<what you found — be specific: company names, scores, file paths>","for":"<target agent name or 'all'>","timestamp":"<ISO>"}
+
+3. POST A DIRECTIVE (only when follow-up work is needed from a specific agent):
+   path: "directives" (read current array first, then write the full array with your new entry appended)
+   New entry: {"id":"dir-<timestamp>","text":"<task>","assigned_to":"<agent>","from":"${request.agent}","priority":"<low|medium|high>","status":"pending","posted_at":"<ISO>"}
+   Examples of when to post directives:
+   - JD scored >= 75 → resume: "Tailor resume for {company} {role}, JD at {path}"
+   - Company intel created → networking: "Generate outreach for {company}"
+   - Interview scheduled → interview: "Prep package needed for {company} {date}"
+   - Context file stale → archivist: "Review and update {file}"
+
+WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a conversation — do NOT write to the blackboard. Just answer them.
+---`
+
+      const directiveText = rawText + blackboardPostamble
 
       // Resolve model
       const model = AGENT_MODELS[request.agent] || DEFAULT_MODEL

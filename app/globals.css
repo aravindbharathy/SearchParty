@@ -38,3 +38,7 @@ body {
   color: var(--color-text);
   font-family: system-ui, -apple-system, sans-serif;
 }
+
+button:not(:disabled) {
+  cursor: pointer;
+}

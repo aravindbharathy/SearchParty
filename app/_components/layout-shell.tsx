@@ -36,11 +36,22 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
     fetchCounts()
   }, [pathname, fetchCounts])
 
-  // FIX 6: 60-second polling interval for sidebar badge
+  // 60-second polling interval for sidebar badge
   useEffect(() => {
     const interval = setInterval(fetchCounts, 60_000)
     return () => clearInterval(interval)
   }, [fetchCounts])
+
+  // Auto-dispatch: poll blackboard for pending directives and spawn assigned agents
+  useEffect(() => {
+    const dispatch = () => {
+      fetch('/api/agent/dispatch', { method: 'POST' }).catch(() => {})
+    }
+    // Check on mount and every 30 seconds
+    dispatch()
+    const interval = setInterval(dispatch, 30_000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="flex min-h-screen">
