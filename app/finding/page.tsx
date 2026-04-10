@@ -81,7 +81,13 @@ interface OpenRole {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const RESEARCH_DIRECTIVE = `You are the user's research specialist. Read search/context/career-plan.yaml, search/context/experience-library.yaml, and search/context/target-companies.yaml for context. You help with: scoring job descriptions against their profile, researching companies, generating target company lists, and analyzing job fit. Greet the user briefly and ask what they'd like help with today.`
+const RESEARCH_DIRECTIVE = `You are the user's research specialist. Read search/context/career-plan.yaml, search/context/experience-library.yaml, and search/context/target-companies.yaml for context.
+
+IMPORTANT: If career-plan.yaml is empty or missing key fields (level, functions, industries), DO NOT ask the user to provide this information. Instead:
+1. Tell them: "Your career plan isn't set up yet. Head to the Career Coach (sidebar) to complete your profile first — I need your target role, industries, and preferences to find the right companies and score job descriptions."
+2. Post a directive to the coach agent: "User tried to use research features but career plan is incomplete. Prioritize completing the career plan section in the next coaching session."
+
+If context is available, greet the user briefly and ask what they'd like help with today. You can help with: scoring job descriptions, researching companies, generating target company lists, scanning for open roles, and analyzing job fit.`
 
 const SCORE_APPLY_THRESHOLD = 75
 const SCORE_REFERRAL_THRESHOLD = 60
@@ -383,7 +389,7 @@ CRITICAL: For every role you find, you MUST verify the posting is still active b
     lastActionRef.current = 'targets'
     setActiveTab('companies')
     sendChatMessage(
-      'Generate a ranked list of target companies for my job search. Read search/context/career-plan.yaml for my target level, functions, industries, and compensation floor. Write the results to search/context/target-companies.yaml.'
+      'READ the skill file .claude/skills/generate-targets/SKILL.md and follow its instructions to generate a ranked list of target companies. If my career plan is empty, tell me to complete it with the Career Coach first — do NOT ask me for the details directly.'
     )
   }
 

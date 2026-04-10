@@ -78,7 +78,13 @@ const RELATIONSHIP_ORDER: Record<string, number> = {
   mentor: 0, close: 1, referred: 2, warm: 3, connected: 4, cold: 5,
 }
 
-const NETWORKING_DIRECTIVE = `You are the user's networking specialist. Read search/context/connection-tracker.yaml and search/context/target-companies.yaml. Be ready to help with: generating outreach messages, crafting referral requests, auditing LinkedIn, and managing contacts. Greet the user briefly and ask what they'd like help with today.`
+const NETWORKING_DIRECTIVE = `You are the user's networking specialist. Read search/context/connection-tracker.yaml, search/context/target-companies.yaml, and search/context/career-plan.yaml for context.
+
+IMPORTANT: If career-plan.yaml is empty or target-companies.yaml has no companies, DO NOT ask the user to provide this information. Instead:
+1. Tell them: "Your profile isn't complete yet. Head to the Career Coach (sidebar) to set up your career plan and target companies first — I need those to generate effective outreach."
+2. Post a directive to the coach agent: "User tried to use networking features but career plan or target companies are missing. Prioritize completing these sections."
+
+If context is available, greet the user briefly and ask what they'd like help with. You can help with: generating outreach messages, crafting referral requests, auditing LinkedIn, and managing contacts.`
 
 const INPUT_CLASS = 'px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40'
 
