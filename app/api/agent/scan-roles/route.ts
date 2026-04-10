@@ -55,10 +55,17 @@ export async function POST(req: Request) {
       })
     }
 
-    // Build the scan directive — references the skill file for full instructions
-    const scanDirective = `READ the skill file .claude/skills/scan-roles/SKILL.md and follow its instructions to scan for open roles at all high-priority target companies. This is a full automated scan.
+    // Build the scan directive — inline instructions (agents can't reliably read .claude/ skill files)
+    const scanDirective = `Scan for open roles at my target companies.
 
-CRITICAL: For every role you find, you MUST verify the posting is still active by WebFetching the URL and checking for an Apply button. Do NOT add roles where the link is dead, redirects to a generic careers page, or says "position filled". Save the full JD text for verified active roles.`
+1. Read search/context/career-plan.yaml and search/context/target-companies.yaml.
+2. For each high-priority company (up to 10), WebSearch for current open roles: "{company} careers {target role keywords}". Look for roles posted in the last 14 days.
+3. Use PREFERRED sources: company careers pages, LinkedIn Jobs, Greenhouse/Lever/Ashby boards. AVOID: ZipRecruiter, SimplyHired, Jooble (stale aggregators).
+4. CRITICAL: For EVERY role, WebFetch the posting URL to VERIFY it's active. Check for Apply button. REJECT if: "position filled", "expired", 404, redirect to generic careers page.
+5. For roles with fit >= 75, extract full JD text and save to search/vault/job-descriptions/{company-slug}-{role-slug}.txt.
+6. Write all verified roles to search/pipeline/open-roles.yaml. Preserve existing roles, deduplicate by URL. Each role: id, company, company_slug, title, url, location, posted_date, discovered_date, source, fit_estimate, status "new", jd_file, verified_active: true.
+7. For high-fit roles with saved JDs, post directives to resume and networking agents.
+8. Post findings to blackboard with summary.`
 
     const result = await processManager.spawn({
       agent: 'research',

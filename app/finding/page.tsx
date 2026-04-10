@@ -350,9 +350,15 @@ export default function FindingPage() {
     lastActionRef.current = 'score'
     setActiveTab('open-roles')
     sendChatMessage(
-      `READ the skill file .claude/skills/scan-roles/SKILL.md and follow its instructions to scan for open roles at all high-priority target companies. This is a full scan.
+      `Scan for open roles at my target companies.
 
-CRITICAL: For every role you find, you MUST verify the posting is still active by WebFetching the URL and checking for an Apply button. Do NOT add roles where the link is dead, redirects to a generic careers page, or says "position filled". Save the full JD text for verified active roles.`
+1. Read search/context/career-plan.yaml and search/context/target-companies.yaml.
+2. For each high-priority company (up to 10), WebSearch for current open roles: "{company} careers {target role keywords}". Look for roles posted in the last 14 days.
+3. Use PREFERRED sources: company careers pages, LinkedIn Jobs, Greenhouse/Lever/Ashby boards. AVOID: ZipRecruiter, SimplyHired, Jooble (stale aggregators).
+4. CRITICAL: For EVERY role, WebFetch the posting URL to VERIFY it's active. Check for Apply button. REJECT if: "position filled", "expired", 404, redirect to generic careers page. Only add verified active roles.
+5. For roles with fit >= 75, extract full JD text and save to search/vault/job-descriptions/{company-slug}-{role-slug}.txt.
+6. Write all verified roles to search/pipeline/open-roles.yaml. Preserve existing roles, deduplicate by URL. Each role needs: id, company, title, url, location, posted_date, discovered_date, fit_estimate, status "new", jd_file, verified_active: true.
+7. For high-fit roles with saved JDs, post directives to resume agent (tailor resume) and networking agent (check connections).`
     )
   }, [sendChatMessage])
 
@@ -398,7 +404,15 @@ CRITICAL: For every role you find, you MUST verify the posting is still active b
     lastActionRef.current = 'targets'
     setActiveTab('companies')
     sendChatMessage(
-      'READ the skill file .claude/skills/generate-targets/SKILL.md and follow its instructions to generate a ranked list of target companies. If my career plan is empty, tell me to complete it with the Career Coach first — do NOT ask me for the details directly.'
+      `Generate a ranked list of target companies for my job search.
+
+1. Read search/context/career-plan.yaml — if empty or missing level/functions/industries, tell me to complete it with the Career Coach first. Do NOT ask me for the info directly. Post a user_action directive to the blackboard.
+2. If career plan is available, use WebSearch to find companies matching my target industries, level, and locations.
+3. For each company, score fit (0-100) on: industry fit (25), role availability (25), culture match (20), compensation (15), location (15).
+4. Categorize: high priority (>=75), medium (50-74), low (<50). Aim for 30 companies.
+5. Write to search/context/target-companies.yaml with: name, slug, fit_score, status, priority, notes.
+6. For high-priority companies, create stub intel files at search/intel/{slug}.yaml.
+7. Post findings to blackboard and directive to networking agent.`
     )
   }
 
