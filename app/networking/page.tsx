@@ -198,7 +198,6 @@ export default function NetworkingPage() {
       if (linkedinAuditStatus === 'running') setLinkedinAuditStatus('done')
       if (referralStatus === 'running') {
         setReferralStatus('done')
-        // FIX 5: Auto-save referral messages on completion
         if (referralContactId && agentOutput) {
           saveReferralToContact(referralContactId, agentOutput)
         }
@@ -210,6 +209,28 @@ export default function NetworkingPage() {
       if (referralStatus === 'running') setReferralStatus('error')
     }
   }, [agentStatus, agentOutput, loadContacts, loadStats, connectionBatchStatus, linkedinAuditStatus, referralStatus, referralContactId, saveReferralToContact])
+
+  // On mount: if agent completed but output wasn't captured, load from entry file
+  useEffect(() => {
+    if ((connectionBatchStatus === 'done' || linkedinAuditStatus === 'done' || referralStatus === 'done') && !latestAgentOutput) {
+      // Try to load the most recent entry for this agent
+      fetch('/api/agent/status')
+        .then(r => r.json())
+        .then(data => {
+          const netAgent = data?.agents?.networking
+          if (netAgent?.spawn_id) {
+            return fetch(`/api/agent/spawn/${netAgent.spawn_id}`)
+          }
+          return null
+        })
+        .then(r => r?.json())
+        .then(data => {
+          if (data?.output) setLatestAgentOutput(data.output)
+        })
+        .catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleGenerateConnectionBatch = async () => {
     agentReset()
