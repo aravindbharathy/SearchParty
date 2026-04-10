@@ -545,6 +545,16 @@ Bun.serve({
     }
 
     // GET /state
+    // POST /reset — reload state from disk (called after dashboard reset writes clean file)
+    if (url.pathname === '/reset' && req.method === 'POST') {
+      memState = loadState()
+      persistState()
+      broadcastToAgents('dashboard', 'reset')
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { 'content-type': 'application/json', ...cors },
+      })
+    }
+
     if (url.pathname === '/state') {
       return new Response(JSON.stringify(memState), {
         headers: { 'content-type': 'application/json', ...cors },

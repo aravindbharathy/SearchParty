@@ -85,26 +85,18 @@ export default function CommandCenterPage() {
   }, [fetchSessions])
 
   const clearBlackboard = async () => {
-    await fetch('http://localhost:8790/write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'agents', value: {} }),
-    }).catch(() => {})
-    await fetch('http://localhost:8790/write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'directives', value: [] }),
-    }).catch(() => {})
-    await fetch('http://localhost:8790/write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'findings', value: {} }),
-    }).catch(() => {})
-    await fetch('http://localhost:8790/write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'log', value: [] }),
-    }).catch(() => {})
+    // The reset API already wrote a clean blackboard-live.yaml to disk.
+    // Tell the blackboard server to reload from the clean file.
+    await fetch('http://localhost:8790/reset', { method: 'POST' }).catch(() => {
+      // Fallback: clear individual paths if /reset endpoint not available (server not restarted yet)
+      for (const [path, value] of [['agents', {}], ['directives', []], ['findings', {}], ['transports', {}]] as const) {
+        fetch('http://localhost:8790/write', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path, value }),
+        }).catch(() => {})
+      }
+    })
   }
 
   const handleReset = async () => {
