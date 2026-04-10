@@ -123,11 +123,18 @@ export default function CommandCenterPage() {
       if (res.ok) {
         await clearBlackboard()
         fetchSessions()
+        // Clear all agent chat localStorage
+        const keysToRemove = [
+          'coach-messages', 'coach-section', 'coach-resume-zone', 'coach-last-briefing-date',
+          'finding-chat-messages', 'finding-active-tab',
+          'networking-chat-messages', 'net-active-tab', 'net-parsed-messages', 'net-active-batch',
+          'agent-spawn-coach-agent', 'agent-spawn-finding-chat', 'agent-spawn-networking-chat',
+        ]
+        for (const key of keysToRemove) {
+          try { localStorage.removeItem(key) } catch {}
+        }
+
         if (full) {
-          // Clear coach conversation so coach starts fresh
-          localStorage.removeItem('coach-messages')
-          localStorage.removeItem('coach-section')
-          localStorage.removeItem('coach-resume-zone')
           window.location.href = '/coach'
         } else {
           alert('Activity reset complete.')

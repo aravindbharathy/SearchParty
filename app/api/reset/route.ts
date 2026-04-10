@@ -23,21 +23,34 @@ export async function POST(req: Request) {
       cleared.push('entries')
     }
 
-    // Clear generated output
-    for (const sub of ['resumes', 'cover-letters', 'messages', 'work-products']) {
-      const dir = join(searchDir, 'output', sub)
-      if (existsSync(dir)) {
-        for (const f of readdirSync(dir)) {
-          unlinkSync(join(dir, f))
-        }
-        cleared.push(`output/${sub}`)
+    // Clear generated output — subfolders and root-level files
+    const outputDir = join(searchDir, 'output')
+    if (existsSync(outputDir)) {
+      for (const f of readdirSync(outputDir)) {
+        const fp = join(outputDir, f)
+        try {
+          const stat = require('fs').statSync(fp)
+          if (stat.isFile()) {
+            unlinkSync(fp)
+          } else if (stat.isDirectory()) {
+            for (const sf of readdirSync(fp)) {
+              unlinkSync(join(fp, sf))
+            }
+          }
+        } catch { /* skip */ }
       }
+      cleared.push('output')
     }
 
     // Reset pipeline
     writeFileSync(join(searchDir, 'pipeline', 'applications.yaml'), 'applications: []\n')
     writeFileSync(join(searchDir, 'pipeline', 'interviews.yaml'), 'interviews: []\n')
     writeFileSync(join(searchDir, 'pipeline', 'offers.yaml'), 'offers: []\n')
+    // Clear open roles and messages
+    const openRolesPath = join(searchDir, 'pipeline', 'open-roles.yaml')
+    if (existsSync(openRolesPath)) unlinkSync(openRolesPath)
+    const messagesPath = join(searchDir, 'pipeline', 'messages.yaml')
+    if (existsSync(messagesPath)) unlinkSync(messagesPath)
     cleared.push('pipeline')
 
     // Reset agent sessions
