@@ -51,7 +51,10 @@
       "Edit(search/**)",
       "Read(search/**)",
       "Read(.claude/**)",
-      "Bash(help with?\", \"Any mutual connections?\", \"Their interests?\":*)"
+      "Bash(help with?\", \"Any mutual connections?\", \"Their interests?\":*)",
+      "Bash(curl -s -o /dev/null -w \"Blackboard: %{http_code}\\\\n\" http://localhost:8790/state)",
+      "Bash(curl -s -o /dev/null -w \"Dashboard: %{http_code}\\\\n\" http://localhost:8791/)",
+      "Bash(curl -s http://localhost:8791/api/networking/contacts)"
     ]
   },
   "enableAllProjectMcpServers": true,

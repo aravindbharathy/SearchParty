@@ -170,19 +170,11 @@ const ConnectionSchema = z.object({
   name: z.string().default(''),
   company: z.string().default(''),
   role: z.string().default(''),
-  relationship: z.string().default('cold'),  // cold, connected, warm, referred, close, mentor
-  how_you_know: z.string().default(''),      // former colleague, met at conference, alumni, etc.
-  mutual_connections: z.string().default(''), // people who connect you
-  their_team: z.string().default(''),        // which team/org they're on
-  can_help_with: z.string().default(''),     // referral, company intel, intro to HM, etc.
-  their_interests: z.string().default(''),   // topics to reference when reaching out
-  last_interaction: z.string().default(''),  // when and what you last talked about
-  linkedin_url: z.string().default(''),
-  email: z.string().default(''),
+  relationship: z.string().default('cold'),
   outreach: z.array(OutreachSchema).default([]),
   follow_ups: z.array(FollowUpSchema).default([]),
   notes: z.string().default(''),
-}).passthrough()  // allow extra fields agents might add
+}).passthrough()  // agents write flexible fields: how_you_know, can_help_with, their_interests, etc.
 
 export const ConnectionTrackerSchema = z.object({
   contacts: z.array(ConnectionSchema).default([]),
