@@ -177,13 +177,15 @@ export default function NetworkingPage() {
     } catch { return [] }
   })
 
-  // LinkedIn audit state — loaded from the actual audit file
-  const [auditResult, setAuditResult] = useState<string | null>(null)
+  // LinkedIn documents state — multiple files (audit, positioning, etc.)
+  const [linkedinDocs, setLinkedinDocs] = useState<Array<{ filename: string; title: string; content: string }>>([])
+  const [selectedDocIdx, setSelectedDocIdx] = useState(0)
   const [auditLoading, setAuditLoading] = useState(false)
 
   // Clipboard feedback
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const [messageSearch, setMessageSearch] = useState('')
+  const [activeBatch, setActiveBatch] = useState<string | null>(null)
   const auditRequestedRef = useRef(false)
 
   // Agent hook
@@ -219,8 +221,10 @@ export default function NetworkingPage() {
     try {
       const res = await fetch('/api/networking/audit')
       if (res.ok) {
-        const data = await res.json() as { content: string | null }
-        if (data.content) setAuditResult(data.content)
+        const data = await res.json() as { documents: Array<{ filename: string; title: string; content: string }> }
+        if (data.documents?.length > 0) {
+          setLinkedinDocs(data.documents)
+        }
       }
     } catch { /* ignore */ }
     finally { setAuditLoading(false) }
@@ -238,6 +242,14 @@ export default function NetworkingPage() {
         try { localStorage.setItem('user-linkedin-url', linkedin) } catch {}
       }
     }).catch(() => {})
+
+    // Poll for changes from auto-dispatched agents or other sources
+    const interval = setInterval(() => {
+      loadContacts()
+      loadSavedMessages()
+      loadAuditFile()
+    }, 30_000)
+    return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadContacts, loadStats, loadAuditFile])
 
@@ -314,12 +326,13 @@ export default function NetworkingPage() {
       // When audit completes, reload the actual audit file (not the agent summary)
       if (auditRequestedRef.current) {
         auditRequestedRef.current = false
-        loadAuditFile()
       }
 
       agentReset()
       loadContacts()
       loadStats()
+      loadSavedMessages()
+      loadAuditFile()
     }
     if (agentStatus === 'failed') {
       setChatMessages(prev => [...prev, { role: 'agent', content: 'Something went wrong. Please try again.' }])
@@ -331,7 +344,7 @@ export default function NetworkingPage() {
 
       agentReset()
     }
-  }, [agentStatus, agentOutput, agentReset, loadContacts, loadStats, loadAuditFile])
+  }, [agentStatus, agentOutput, agentReset, loadContacts, loadStats, loadAuditFile, loadSavedMessages])
 
   const sendChatMessage = useCallback(async (text: string) => {
     if (!text.trim() || chatProcessing) return
@@ -857,16 +870,47 @@ export default function NetworkingPage() {
                     or ask the agent directly for specific outreach.
                   </p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {parsedMessages.filter(msg => {
-                    if (!messageSearch.trim()) return true
+              ) : (() => {
+                const batches = [...new Set(parsedMessages.map(m => (m as Record<string, unknown>).batch as string || 'default'))]
+                const currentBatch = activeBatch && batches.includes(activeBatch) ? activeBatch : batches[0]
+
+                const filteredMessages = parsedMessages.filter(msg => {
+                  if (messageSearch.trim()) {
                     const q = messageSearch.toLowerCase()
                     return (msg.company || '').toLowerCase().includes(q)
                       || (msg.recipient || '').toLowerCase().includes(q)
                       || (msg.text || '').toLowerCase().includes(q)
                       || (msg.role || '').toLowerCase().includes(q)
-                  }).map((msg, idx) => (
+                  }
+                  return ((msg as Record<string, unknown>).batch as string || 'default') === currentBatch
+                })
+
+                return (
+                  <div>
+                    {/* Batch filter pills */}
+                    {batches.length > 1 && !messageSearch.trim() && (
+                      <div className="flex gap-2 mb-3 overflow-x-auto">
+                        {batches.map(batch => (
+                          <button
+                            key={batch}
+                            onClick={() => setActiveBatch(batch)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-colors ${
+                              currentBatch === batch
+                                ? 'bg-accent/10 text-accent border border-accent/30'
+                                : 'bg-bg text-text-muted border border-border hover:text-text'
+                            }`}
+                          >
+                            {batch === 'default' ? 'Batch 1' : batch.replace(/linkedin-connection-requests-?/g, '').replace(/-/g, ' ') || batch}
+                            <span className="ml-1 text-text-muted">
+                              ({parsedMessages.filter(m => ((m as Record<string, unknown>).batch as string || 'default') === batch).length})
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                    {filteredMessages.map((msg, idx) => (
                     <div key={idx} className={`border rounded-lg p-4 transition-all ${
                       msg.sent ? 'border-success/20 bg-success/5 opacity-60' : 'border-border bg-surface'
                     }`}>
@@ -927,29 +971,25 @@ export default function NetworkingPage() {
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           )}
 
           {/* ─── LinkedIn Tab ──────────────────────────────────────── */}
           {activeTab === 'linkedin' && (() => {
-            // Find LinkedIn URL from experience library contact info
             const userLinkedIn = typeof window !== 'undefined' ? localStorage.getItem('user-linkedin-url') : null
+            const selectedDoc = linkedinDocs[selectedDocIdx] || null
             return (
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <h2 className="text-sm font-semibold text-text-muted">LinkedIn Profile Audit</h2>
+                    <h2 className="text-sm font-semibold text-text-muted">LinkedIn</h2>
                     {userLinkedIn && (
-                      <a
-                        href={userLinkedIn}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-accent hover:text-accent-hover flex items-center gap-1"
-                      >
-                        View Profile ↗
-                      </a>
+                      <a href={userLinkedIn} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-accent hover:text-accent-hover">View Profile ↗</a>
                     )}
                   </div>
                   <button
@@ -963,19 +1003,40 @@ export default function NetworkingPage() {
 
                 {auditLoading ? (
                   <div className="bg-surface border border-border rounded-lg p-8 text-center">
-                    <p className="text-text-muted">Loading audit results...</p>
+                    <p className="text-text-muted">Loading...</p>
                   </div>
-                ) : !auditResult ? (
+                ) : linkedinDocs.length === 0 ? (
                   <div className="bg-surface border border-border rounded-lg p-8 text-center">
-                    <p className="text-text-muted text-lg mb-2">No audit results yet.</p>
+                    <p className="text-text-muted text-lg mb-2">No LinkedIn documents yet.</p>
                     <p className="text-text-muted text-sm">
-                      Click &quot;Run Audit&quot; to get profile improvement suggestions
-                      based on your target roles.
+                      Click &quot;Run Audit&quot; to get profile improvement suggestions.
                     </p>
                   </div>
                 ) : (
-                  <div className="bg-surface border border-border rounded-lg p-5">
-                    <MarkdownView content={auditResult} />
+                  <div>
+                    {/* Document selector */}
+                    {linkedinDocs.length > 1 && (
+                      <div className="flex gap-2 mb-4">
+                        {linkedinDocs.map((doc, i) => (
+                          <button
+                            key={doc.filename}
+                            onClick={() => setSelectedDocIdx(i)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                              selectedDocIdx === i
+                                ? 'bg-accent/10 text-accent border border-accent/30'
+                                : 'bg-bg text-text-muted border border-border hover:text-text'
+                            }`}
+                          >
+                            {doc.title}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {selectedDoc && (
+                      <div className="bg-surface border border-border rounded-lg p-5">
+                        <MarkdownView content={selectedDoc.content} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

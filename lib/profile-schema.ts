@@ -168,7 +168,7 @@ export function checkSectionStatus(
     icon: sectionDef.icon,
     description: sectionDef.description,
     auto_populated: sectionDef.auto_populated ?? false,
-    filled: requiredTotal > 0 ? requiredFilled === requiredTotal : false,
+    filled: requiredTotal > 0 ? requiredFilled === requiredTotal : Object.values(fields).some(f => f.filled),
     required_total: requiredTotal,
     required_filled: requiredFilled,
     fields,

@@ -83,7 +83,19 @@ export function useAgentEvents(persistKey?: string) {
     pollRef.current = setInterval(async () => {
       try {
         const res = await fetch(`/api/agent/spawn/${spawnId}`)
-        if (!res.ok) return
+        if (!res.ok) {
+          // 404 = spawn_id was superseded (auto-dispatch overwrote it).
+          // Stop polling and mark as completed — the response was lost to the dispatch.
+          if (res.status === 404) {
+            cleanup()
+            setSpawnState((prev) => ({
+              ...prev,
+              status: 'completed',
+              output: null,
+            }))
+          }
+          return
+        }
         const data = await res.json() as { status: string; output?: string }
 
         if (data.status === 'completed') {

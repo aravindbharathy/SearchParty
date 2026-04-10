@@ -4,33 +4,36 @@ import { join } from 'path'
 import { getSearchDir } from '@/lib/paths'
 
 /**
- * GET — read the latest LinkedIn audit file from search/output/
- * Returns the markdown content of the most recent linkedin-audit-*.md file.
+ * GET — read all LinkedIn-related output files from search/output/
+ * Returns each file separately so the UI can display them as tabs/sections.
  */
 export async function GET() {
   try {
     const outputDir = join(getSearchDir(), 'output')
     if (!existsSync(outputDir)) {
-      return NextResponse.json({ content: null })
+      return NextResponse.json({ documents: [] })
     }
 
-    // Find the most recent linkedin-audit file
-    const files = readdirSync(outputDir)
-      .filter(f => f.startsWith('linkedin-audit') && f.endsWith('.md'))
+    const allFiles = readdirSync(outputDir)
+      .filter(f => f.startsWith('linkedin') && f.endsWith('.md'))
       .sort()
       .reverse()
 
-    if (files.length === 0) {
-      return NextResponse.json({ content: null })
+    if (allFiles.length === 0) {
+      return NextResponse.json({ documents: [] })
     }
 
-    const filePath = join(outputDir, files[0])
-    const content = readFileSync(filePath, 'utf-8')
-
-    return NextResponse.json({
-      content,
-      filename: files[0],
+    const documents = allFiles.map(file => {
+      const content = readFileSync(join(outputDir, file), 'utf-8')
+      // Extract title from first markdown heading, fall back to filename
+      const headingMatch = content.match(/^#\s+(.+)/m)
+      const title = headingMatch
+        ? headingMatch[1].trim()
+        : file.replace(/\.md$/, '').replace(/[-_]\d{4}-\d{2}-\d{2}$/, '').replace(/[-_]/g, ' ').replace(/^linkedin\s*/i, '').replace(/^\w/, c => c.toUpperCase()) || 'LinkedIn Document'
+      return { filename: file, title, content }
     })
+
+    return NextResponse.json({ documents })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

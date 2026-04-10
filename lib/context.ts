@@ -40,13 +40,27 @@ const ExperienceEntrySchema = z.object({
   role: z.string().default(''),
   dates: z.string().default(''),
   projects: z.array(ProjectSchema).default([]),
+}).passthrough().transform(entry => {
+  // Normalize agent field aliases so the UI always has canonical fields populated
+  const e = entry as Record<string, unknown>
+  if (!e.role && e.title) e.role = String(e.title)
+  if (!e.dates && e.tenure) e.dates = String(e.tenure)
+  if (!e.dates && e.period) e.dates = String(e.period)
+  return e as typeof entry
 })
 
 const EducationSchema = z.object({
   institution: z.string().default(''),
   degree: z.string().default(''),
   field: z.string().default(''),
-  year: z.string().default(''),
+  year: z.union([z.string(), z.number()]).transform(v => String(v)).default(''),
+}).passthrough().transform(entry => {
+  const e = entry as Record<string, unknown>
+  if (!e.institution && e.school) e.institution = String(e.school)
+  if (!e.institution && e.university) e.institution = String(e.university)
+  if (!e.field && e.major) e.field = String(e.major)
+  if (!e.field && e.specialization) e.field = String(e.specialization)
+  return e as typeof entry
 })
 
 const TechnicalSkillSchema = z.object({
@@ -70,13 +84,17 @@ export const ExperienceLibrarySchema = z.object({
   education: z.array(EducationSchema).default([]),
   certifications: z.array(z.string()).default([]),
   skills: z.object({
-    technical: z.array(TechnicalSkillSchema).default([]),
+    technical: z.array(z.union([
+      z.string(),
+      TechnicalSkillSchema,
+    ])).default([]),
     leadership: z.array(z.union([
       z.string(),
       TechnicalSkillSchema,
     ])).default([]),
-  }).default({ technical: [], leadership: [] }),
-})
+  }).passthrough() // agents write extra categories: research_methods, domain_expertise, etc.
+    .default({ technical: [], leadership: [] }),
+}).passthrough()
 
 const ResumePreferencesSchema = z.object({
   format: z.string().default(''),
@@ -97,7 +115,7 @@ export const CareerPlanSchema = z.object({
     industries: z.array(z.string()).default([]),
     locations: z.array(z.string()).default([]),
     comp_floor: z.number().default(0),
-  }).default({ level: '', functions: [], industries: [], locations: [], comp_floor: 0 }),
+  }).passthrough().default({ level: '', functions: [], industries: [], locations: [], comp_floor: 0 }),
   deal_breakers: z.array(z.string()).default([]),
   addressing_weaknesses: z.array(AddressingWeaknessSchema).default([]),
   resume_preferences: ResumePreferencesSchema.default({ format: '', summary_length: '', tone: '', avoid_words: [] }),
@@ -123,7 +141,7 @@ export const CareerPlanSchema = z.object({
     dream_role: z.string().default(''),
     non_negotiables: z.array(z.string()).default([]),
   }).default({ why_searching: '', dream_role: '', non_negotiables: [] }),
-})
+}).passthrough()
 
 const CustomQASchema = z.object({
   q: z.string().default(''),
@@ -136,7 +154,7 @@ export const QAMasterSchema = z.object({
   greatest_weakness: z.string().default(''),
   visa_status: z.string().default(''),
   custom_qa: z.array(CustomQASchema).default([]),
-})
+}).passthrough()
 
 const CompanySchema = z.object({
   name: z.string().default(''),
@@ -178,7 +196,7 @@ const ConnectionSchema = z.object({
 
 export const ConnectionTrackerSchema = z.object({
   contacts: z.array(ConnectionSchema).default([]),
-})
+}).passthrough()  // agents write extra top-level fields: strategy_status, outreach_batches, etc.
 
 const PatternsSchema = z.object({
   strong_areas: z.array(z.string()).default([]),
@@ -312,7 +330,13 @@ export async function readContext(name: ContextName): Promise<z.infer<(typeof CO
     return schema.parse({}) as z.infer<(typeof CONTEXT_FILES)[typeof name]['schema']>
   }
 
-  return schema.parse(parsed) as z.infer<(typeof CONTEXT_FILES)[typeof name]['schema']>
+  try {
+    return schema.parse(parsed) as z.infer<(typeof CONTEXT_FILES)[typeof name]['schema']>
+  } catch {
+    // If Zod validation fails (agent wrote unexpected field types), return raw data
+    // with defaults applied for missing top-level fields
+    return { ...schema.parse({}), ...parsed } as z.infer<(typeof CONTEXT_FILES)[typeof name]['schema']>
+  }
 }
 
 export async function writeContext(name: ContextName, data: unknown): Promise<void> {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { MarkdownView } from '../_components/markdown-view'
 import { useAgentEvents } from '../hooks/use-agent-events'
 import type { ProfileStatusResponse, ProfileSectionStatus } from '../types/context'
@@ -1002,12 +1002,19 @@ function KeyInfoLine({ sectionKey, data, filled, section }: { sectionKey: string
       const skills = (data.skills as Record<string, unknown[]>) || {}
       const parts: string[] = []
       if (contact.name) parts.push(contact.name)
-      if (exp.length > 0) parts.push(`${exp.length} roles`)
-      const techCount = skills.technical?.length || 0
-      if (techCount > 0) parts.push(`${techCount} skills`)
+      if (exp.length > 0) parts.push(`${exp.length} role${exp.length !== 1 ? 's' : ''}`)
+      // Count all skill categories (technical, leadership, research_methods, domain_expertise, etc.)
+      let skillCount = 0
+      for (const arr of Object.values(skills)) {
+        if (Array.isArray(arr)) skillCount += arr.length
+      }
+      if (skillCount > 0) parts.push(`${skillCount} skills`)
+      // If we have data but parts is empty, check if section is actually filled
+      if (parts.length === 0 && filled) return <p className="text-sm text-text-muted">Profile data loaded</p>
       if (parts.length === 0) {
         const missing = Object.values(section.fields || {}).filter(f => f.required && !f.filled).map(f => f.label)
-        return <p className="text-sm text-danger truncate">Missing: {missing.slice(0, 3).join(', ')}</p>
+        if (missing.length > 0) return <p className="text-sm text-danger truncate">Missing: {missing.slice(0, 3).join(', ')}</p>
+        return <p className="text-sm text-text-muted italic">Not started</p>
       }
       return <p className="text-sm text-text-muted truncate">{parts.join(' · ')}</p>
     }
@@ -1093,12 +1100,14 @@ function ProfilePanel({
   contextData,
   onSectionClick,
   onEditSection,
+  onResumeUploaded,
 }: {
   status: ProfileStatusResponse | null
   currentSection: SectionKey | null
   contextData: Record<string, Record<string, unknown>>
   onSectionClick: (section: SectionKey) => void
   onEditSection: (section: string) => void
+  onResumeUploaded: () => void
 }) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
 
@@ -1247,6 +1256,12 @@ function ProfilePanel({
             Go to Dashboard &rarr;
           </a>
         )}
+
+        {/* Resume upload */}
+        <div className="mt-4 pt-4 border-t border-border">
+          <p className="text-xs text-text-muted mb-2">Have a new resume? Upload it so the coach can review and update your profile.</p>
+          <ResumeDropZone onUploaded={onResumeUploaded} compact />
+        </div>
       </div>
     </div>
   )
@@ -1256,8 +1271,10 @@ function ProfilePanel({
 
 function ResumeDropZone({
   onUploaded,
+  compact = false,
 }: {
   onUploaded: () => void
+  compact?: boolean
 }) {
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -1290,11 +1307,11 @@ function ResumeDropZone({
   }
 
   return (
-    <div className="px-4 py-3">
+    <div className={compact ? '' : 'px-4 py-3'}>
       <div
-        className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
-          dragging ? 'border-accent bg-accent/5' : 'border-border hover:border-accent/50'
-        }`}
+        className={`border-2 border-dashed rounded-lg text-center transition-colors cursor-pointer ${
+          compact ? 'p-2.5' : 'p-4'
+        } ${dragging ? 'border-accent bg-accent/5' : 'border-border hover:border-accent/50'}`}
         onDragOver={(e) => {
           e.preventDefault()
           setDragging(true)
@@ -1315,12 +1332,12 @@ function ResumeDropZone({
           onChange={(e) => e.target.files && handleFiles(e.target.files)}
         />
         {uploading ? (
-          <p className="text-sm text-text-muted">Uploading...</p>
+          <p className="text-xs text-text-muted">Uploading...</p>
         ) : (
-          <>
-            <p className="text-sm font-medium text-text">Drop your resume here</p>
-            <p className="text-xs text-text-muted mt-1">PDF, DOC, DOCX, or TXT</p>
-          </>
+          <p className={`${compact ? 'text-xs' : 'text-sm'} text-text-muted`}>
+            {compact ? 'Drop resume or click to upload' : 'Drop your resume here'}
+            {!compact && <span className="block text-xs text-text-muted mt-1">PDF, DOC, DOCX, or TXT</span>}
+          </p>
         )}
       </div>
       {error && <p className="text-xs text-danger mt-1">{error}</p>}
@@ -1371,11 +1388,11 @@ export default function CoachPage() {
   })
   const [input, setInput] = useState('')
   const [currentSection, setCurrentSection] = useState<SectionKey | null>(() => {
-    if (typeof window === 'undefined') return 'experience-library'
+    if (typeof window === 'undefined') return null
     try {
       const saved = localStorage.getItem('coach-section')
-      return (saved as SectionKey) || 'experience-library'
-    } catch { return 'experience-library' }
+      return (saved as SectionKey) || null
+    } catch { return null }
   })
   const [contextStatus, setContextStatus] = useState<ProfileStatusResponse | null>(null)
   // showResumeZone removed — resume upload is always visible
@@ -1466,6 +1483,33 @@ export default function CoachPage() {
 
   // Determine if this is first visit (context empty) or return visit
   const isContextReady = contextStatus?.contextReady ?? false
+
+  // Dynamic subtitle based on state
+  const coachSubtitle = useMemo(() => {
+    if (!contextStatus) return 'Loading...'
+
+    const sections = contextStatus.sections ?? {}
+    const filledCount = Object.values(sections).filter((s) => s.filled).length
+    const totalSections = Object.keys(sections).length || 5
+
+    if (filledCount === 0) return 'Let\u2019s set up your job search profile'
+
+    if (filledCount < totalSections) {
+      const missing = Object.values(sections).filter((s) => !s.filled).map((s) => s.label)
+      return `${filledCount}/${totalSections} profile sections done \u2014 next: ${missing[0]}`
+    }
+
+    // Profile complete — check time-based suggestions
+    const hour = new Date().getHours()
+    const lastBriefingKey = 'coach-last-briefing-date'
+    const today = new Date().toISOString().split('T')[0]
+    const lastBriefing = typeof window !== 'undefined' ? localStorage.getItem(lastBriefingKey) : null
+
+    if (lastBriefing !== today && hour < 12) return 'Good morning \u2014 start with a daily briefing'
+    if (hour >= 17) return 'End of day \u2014 log any updates or run a retro'
+
+    return 'Your job search companion \u2014 ask me anything'
+  }, [contextStatus])
 
   // Spawn coach on mount — ONLY if no saved conversation exists
   useEffect(() => {
@@ -1659,13 +1703,45 @@ export default function CoachPage() {
           <div>
             <h1 className="text-base font-semibold text-text">Career Coach</h1>
             <p className="text-xs text-text-muted">
-              {isContextReady ? 'Your job search companion' : 'Setting up your job search profile'}
+              {coachSubtitle}
             </p>
           </div>
         </div>
 
-        {/* Resume drop zone */}
-        <ResumeDropZone onUploaded={handleResumeUploaded} />
+        {/* Coach skill buttons */}
+        <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 overflow-x-auto">
+          <button
+            onClick={() => {
+              try { localStorage.setItem('coach-last-briefing-date', new Date().toISOString().split('T')[0]) } catch {}
+              sendMessage('Give me my daily briefing. Read pipeline, networking, and interview data to surface deadlines, follow-ups, and priorities for today.')
+            }}
+            disabled={isProcessing}
+            className="px-3 py-1.5 text-xs font-medium border border-accent/30 text-accent rounded-full hover:bg-accent/10 transition-colors whitespace-nowrap disabled:opacity-50"
+          >
+            Daily Briefing
+          </button>
+          <button
+            onClick={() => sendMessage('Do a weekly retro. Analyze my applications, response rates, interview scores, and networking velocity this week.')}
+            disabled={isProcessing}
+            className="px-3 py-1.5 text-xs font-medium border border-border text-text-muted rounded-full hover:bg-bg hover:text-text transition-colors whitespace-nowrap disabled:opacity-50"
+          >
+            Weekly Retro
+          </button>
+          <button
+            onClick={() => sendMessage('Review my pipeline and suggest what I should focus on next.')}
+            disabled={isProcessing}
+            className="px-3 py-1.5 text-xs font-medium border border-border text-text-muted rounded-full hover:bg-bg hover:text-text transition-colors whitespace-nowrap disabled:opacity-50"
+          >
+            What&apos;s Next?
+          </button>
+          <button
+            onClick={() => sendMessage('Review my profile sections and suggest improvements or missing information.')}
+            disabled={isProcessing}
+            className="px-3 py-1.5 text-xs font-medium border border-border text-text-muted rounded-full hover:bg-bg hover:text-text transition-colors whitespace-nowrap disabled:opacity-50"
+          >
+            Profile Review
+          </button>
+        </div>
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
@@ -1763,6 +1839,7 @@ export default function CoachPage() {
           contextData={contextData}
           onSectionClick={handleSectionClick}
           onEditSection={handleEditSection}
+          onResumeUploaded={handleResumeUploaded}
         />
       </div>
 

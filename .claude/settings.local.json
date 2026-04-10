@@ -54,7 +54,16 @@
       "Bash(help with?\", \"Any mutual connections?\", \"Their interests?\":*)",
       "Bash(curl -s -o /dev/null -w \"Blackboard: %{http_code}\\\\n\" http://localhost:8790/state)",
       "Bash(curl -s -o /dev/null -w \"Dashboard: %{http_code}\\\\n\" http://localhost:8791/)",
-      "Bash(curl -s http://localhost:8791/api/networking/contacts)"
+      "Bash(curl -s http://localhost:8791/api/networking/contacts)",
+      "Bash(curl -s http://localhost:8791/finding)",
+      "Bash(curl -s http://localhost:8791/api/finding/intel-status)",
+      "Bash(curl -s http://localhost:8791/api/finding/scored-jds)",
+      "Bash(curl -s http://localhost:8791/api/context/target-companies)",
+      "Bash(curl -s -X POST http://localhost:8791/api/agent/spawn -H 'Content-Type: application/json' -d '{\"\"\"\"agent\"\"\"\":\"\"\"\"coach\"\"\"\",\"\"\"\"directive\"\"\"\":{\"\"\"\"skill\"\"\"\":\"\"\"\"onboarding-coach\"\"\"\",\"\"\"\"text\"\"\"\":\"\"\"\"Hello, just testing\"\"\"\"}}')",
+      "Bash(curl -s http://localhost:8791/api/networking/audit)",
+      "Bash(curl -s http://localhost:8791/api/networking/messages)",
+      "Bash(curl -s http://localhost:8791/api/context/profile-status)",
+      "Bash(curl -s http://localhost:8791/api/context/experience-library)"
     ]
   },
   "enableAllProjectMcpServers": true,

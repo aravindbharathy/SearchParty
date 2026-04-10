@@ -55,9 +55,15 @@ export async function POST() {
     const dispatched: Array<{ agent: string; directive_id: string; spawn_id: string }> = []
 
     for (const [agent, directive] of byAgent) {
-      // Skip if agent is already running
+      // Skip if agent is already running or completed very recently (within 30s)
+      // The cooldown prevents dispatch from stomping on a session that the user's
+      // poll hasn't caught up with yet
       const agentStatus = status.agents[agent]
       if (agentStatus?.status === 'running') continue
+      if (agentStatus?.started_at) {
+        const elapsedMs = Date.now() - new Date(agentStatus.started_at).getTime()
+        if (elapsedMs < 30_000) continue // too recent — let the user's poll catch up
+      }
 
       // Mark directive as in-progress on the blackboard
       try {

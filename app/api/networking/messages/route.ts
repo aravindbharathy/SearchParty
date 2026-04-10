@@ -15,6 +15,7 @@ interface Message {
   status: 'draft' | 'sent' | 'archived'
   createdAt: string
   sentAt?: string
+  batch?: string
 }
 
 interface MessagesStore {
@@ -61,6 +62,28 @@ function importFromAgentFiles(): Message[] {
       const parsed = YAML.parse(content)
       if (!parsed?.messages || !Array.isArray(parsed.messages)) continue
 
+      // Derive a meaningful batch name from file metadata
+      const date = parsed.generated_date || ''
+      const dateStr = date ? ` · ${date}` : ''
+      const count = Array.isArray(parsed.messages) ? parsed.messages.length : 0
+
+      let batchLabel: string
+      if (parsed.strategy_note) {
+        // Extract the focus from strategy note (e.g., "PIVOT: Product Manager focus..." → "PM Outreach")
+        const note = String(parsed.strategy_note)
+        if (note.toLowerCase().includes('product manager') || note.toLowerCase().includes(' pm ')) {
+          batchLabel = `PM Outreach (${count})${dateStr}`
+        } else {
+          batchLabel = `${note.split('.')[0].slice(0, 40)} (${count})${dateStr}`
+        }
+      } else {
+        // Detect from roles in messages
+        const roles = (parsed.messages || []).slice(0, 5).map((m: Record<string, string>) => m.role || '')
+        const isResearch = roles.some((r: string) => /research|ux/i.test(r))
+        const focus = isResearch ? 'UX Research' : 'Outreach'
+        batchLabel = `${focus} (${count})${dateStr}`
+      }
+
       for (const msg of parsed.messages) {
         imported.push({
           id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -72,6 +95,7 @@ function importFromAgentFiles(): Message[] {
           personalization: msg.personalization || '',
           status: 'draft',
           createdAt: parsed.generated_date || new Date().toISOString().split('T')[0],
+          batch: batchLabel,
         })
       }
     } catch { /* skip bad files */ }
@@ -80,16 +104,18 @@ function importFromAgentFiles(): Message[] {
   return imported
 }
 
-// GET — read all messages (imports from agent files if store is empty)
+// GET — read all messages (always checks for new agent files to merge)
 export async function GET() {
   try {
     let store = loadStore()
 
-    // If store is empty but agent files exist, import them
-    if (store.messages.length === 0) {
-      const imported = importFromAgentFiles()
-      if (imported.length > 0) {
-        store.messages = imported
+    // Check agent files for new messages not yet in the store
+    const imported = importFromAgentFiles()
+    if (imported.length > 0) {
+      const existingTexts = new Set(store.messages.map(m => m.text.slice(0, 80)))
+      const newMessages = imported.filter(m => !existingTexts.has(m.text.slice(0, 80)))
+      if (newMessages.length > 0) {
+        store.messages.push(...newMessages)
         saveStore(store)
       }
     }

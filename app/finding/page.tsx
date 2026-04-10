@@ -189,6 +189,14 @@ export default function FindingPage() {
     loadCompanies()
     loadIntelStatus()
     loadVaultJDs()
+
+    // Poll for changes from auto-dispatched agents
+    const interval = setInterval(() => {
+      loadScoredJDs()
+      loadCompanies()
+      loadIntelStatus()
+    }, 30_000)
+    return () => clearInterval(interval)
   }, [loadScoredJDs, loadCompanies, loadIntelStatus, loadVaultJDs])
 
   // ─── Persistence ─────────────────────────────────────────────────────────
