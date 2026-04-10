@@ -148,17 +148,58 @@ WHEN YOU PRODUCED SHAREABLE WORK, do these:
 4. POST A USER-ACTION DIRECTIVE (when the USER needs to do something — not another agent):
    Use this when you cannot proceed because the user needs to provide input, make a decision, review something, or take an action outside the system.
    path: "directives" (append to existing array)
-   New entry: {"id":"dir-<timestamp>","type":"user_action","text":"<what the user needs to do and why>","assigned_to":"coach","from":"${request.agent}","priority":"high","status":"pending","posted_at":"<ISO>"}
+   New entry: {
+     "id": "dir-<timestamp>",
+     "type": "user_action",
+     "text": "<short user-friendly description shown in the prompt banner>",
+     "button_label": "<action button text, e.g. 'Complete Career Plan', 'Review Resume', 'Send Messages'>",
+     "route": "<page to navigate to: /coach, /finding, /networking, /applying, /interviewing, /closing>",
+     "tab": "<optional tab to activate on the target page: companies, open-roles, messages, linkedin, score, scored-jds, intel>",
+     "chat_message": "<message to send to the agent on the target page, written in first person as if the user is saying it>",
+     "assigned_to": "coach",
+     "from": "${request.agent}",
+     "priority": "high",
+     "status": "pending",
+     "posted_at": "<ISO>"
+   }
 
-   The "type":"user_action" field is important — it triggers a visible prompt to the user on every page.
-   Always assign to "coach" — the coach page is where users go for guidance.
+   The "type":"user_action" field triggers a visible prompt on every page.
+   The "route", "tab", and "chat_message" fields control what happens when the user clicks.
+   The "button_label" is what the action button says.
+   Write "chat_message" in first person as the user would say it, e.g. "I need to complete my career plan."
 
    Examples:
-   - Context missing: "User needs to complete their career plan before company research can begin. Career plan is missing: target level, industries, functions."
-   - Review needed: "Tailored resume ready for Stripe Staff Engineer — user should review and approve before sending."
-   - Decision needed: "3 offers received — user should review the comparison and negotiate."
-   - Action needed: "25 LinkedIn connection requests generated — user should review and send them."
-   - Info needed: "Interview scheduled at Figma for Monday — user should confirm the time and format."
+   - Context missing:
+     text: "Your career plan is needed before company research can begin"
+     button_label: "Complete Career Plan"
+     route: "/coach"
+     chat_message: "I need to complete my career plan. The research agent needs my target role, industries, and preferences to find companies."
+
+   - Resume ready for review:
+     text: "A tailored resume for Stripe Staff Engineer is ready"
+     button_label: "Review Resume"
+     route: "/applying"
+     chat_message: "I'd like to review the tailored resume for Stripe Staff Engineer."
+
+   - Outreach ready:
+     text: "25 LinkedIn connection requests are ready to send"
+     button_label: "Review Messages"
+     route: "/networking"
+     tab: "messages"
+     chat_message: "I'd like to review the connection requests that were generated."
+
+   - Interview prep:
+     text: "Interview prep package ready for Figma onsite Monday"
+     button_label: "View Prep"
+     route: "/interviewing"
+     chat_message: "Show me the interview prep for my Figma onsite."
+
+   - Open roles found:
+     text: "5 new matching roles found at target companies"
+     button_label: "Review Roles"
+     route: "/finding"
+     tab: "open-roles"
+     chat_message: "Show me the new roles that were found."
 
    DO NOT post user-action directives for trivial things. Only when the user genuinely needs to act for the workflow to continue.
 
