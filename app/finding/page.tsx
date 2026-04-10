@@ -103,7 +103,6 @@ export default function FindingPage() {
   const [openRoles, setOpenRoles] = useState<OpenRole[]>([])
   const [lastScan, setLastScan] = useState<string | null>(null)
   const [scanStale, setScanStale] = useState(true)
-  const [scanning, setScanning] = useState(false)
   const [roleFilter, setRoleFilter] = useState<'all' | 'new' | 'scored'>('new')
 
   // Score JD form
@@ -210,35 +209,6 @@ export default function FindingPage() {
     } catch { /* ignore */ }
   }, [])
 
-  const handleScanRoles = useCallback(async (force = false) => {
-    setScanning(true)
-    try {
-      await fetch('/api/agent/scan-roles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force }),
-      })
-      // The scan runs async via the agent — poll for results
-      // Set a timer to reload after a reasonable delay
-      setTimeout(() => { loadOpenRoles(); setScanning(false) }, 5000)
-      // Also keep checking
-      const poll = setInterval(() => {
-        loadOpenRoles()
-        fetch('/api/agent/status').then(r => r.json()).then((s: { agents: Record<string, { status: string }> }) => {
-          if (s.agents.research?.status !== 'running') {
-            clearInterval(poll)
-            loadOpenRoles()
-            setScanning(false)
-          }
-        }).catch(() => {})
-      }, 5000)
-      // Safety: stop after 5 min
-      setTimeout(() => { clearInterval(poll); setScanning(false) }, 300_000)
-    } catch {
-      setScanning(false)
-    }
-  }, [loadOpenRoles])
-
   const loadVaultJDs = useCallback(async () => {
     try {
       const res = await fetch('/api/finding/vault-jds')
@@ -307,7 +277,7 @@ export default function FindingPage() {
       agentReset()
       // Conditional refresh based on what action was taken
       const action = lastActionRef.current
-      if (action === 'score') loadScoredJDs()
+      if (action === 'score') { loadScoredJDs(); loadOpenRoles() }
       if (action === 'targets') { loadCompanies(); loadIntelStatus() }
       if (action === 'research') loadIntelStatus()
       lastActionRef.current = 'chat'
@@ -345,6 +315,21 @@ export default function FindingPage() {
 
     }
   }, [agentStatus, spawnAgent])
+
+  const handleScanRoles = useCallback(() => {
+    lastActionRef.current = 'score'
+    setActiveTab('open-roles')
+    sendChatMessage(
+      `Scan for open roles at my target companies that match my career plan.
+
+1. Read search/context/career-plan.yaml for my target level, functions, industries, locations.
+2. Read search/context/target-companies.yaml for high and medium priority companies.
+3. For each high-priority company (up to 10), use WebSearch to find current open roles matching my profile. Search: "{company} careers {target role keywords} {location}". Look for roles posted in the last 10 days.
+4. For each role found, record: company, title, URL, location, posted date, and a fit estimate (0-100).
+5. Write ALL discovered roles to search/pipeline/open-roles.yaml. Preserve existing roles — only add new ones. Deduplicate by URL. Set status: "new" for new roles. Update last_scan timestamp and increment scan_count.
+6. For any role with fit_estimate >= 75, post directives to resume agent ("Tailor resume for {company} {title}") and networking agent ("Check connections at {company} for referral").`
+    )
+  }, [sendChatMessage])
 
   // ─── Action handlers (send through chat) ─────────────────────────────────
 
@@ -590,20 +575,20 @@ export default function FindingPage() {
                       Last scan: {new Date(lastScan).toLocaleDateString()} {new Date(lastScan).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   )}
-                  {scanStale && !scanning && (
+                  {scanStale && !chatProcessing && (
                     <span className="text-xs text-warning font-medium">Stale</span>
                   )}
                   <button
-                    onClick={() => handleScanRoles(true)}
-                    disabled={scanning}
+                    onClick={() => handleScanRoles()}
+                    disabled={chatProcessing}
                     className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   >
-                    {scanning ? 'Scanning...' : 'Scan for Roles'}
+                    {chatProcessing ? 'Scanning...' : 'Scan for Roles'}
                   </button>
                 </div>
               </div>
 
-              {scanning && (
+              {chatProcessing && activeTab === 'open-roles' && (
                 <div className="bg-accent/5 border border-accent/20 rounded-lg p-4 mb-4 flex items-center gap-3">
                   <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                   <div>
@@ -613,13 +598,13 @@ export default function FindingPage() {
                 </div>
               )}
 
-              {openRoles.length === 0 && !scanning ? (
+              {openRoles.length === 0 && !chatProcessing ? (
                 <div className="text-center py-12">
                   <p className="text-text-muted text-lg mb-2">No open roles discovered yet.</p>
                   <p className="text-text-muted text-sm mb-4">Click &quot;Scan for Roles&quot; to search your target companies for matching positions.</p>
                   <button
-                    onClick={() => handleScanRoles(true)}
-                    disabled={scanning}
+                    onClick={() => handleScanRoles()}
+                    disabled={chatProcessing}
                     className="text-sm text-accent hover:text-accent-hover font-medium"
                   >
                     Run First Scan
