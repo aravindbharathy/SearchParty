@@ -188,7 +188,7 @@ export default function NetworkingPage() {
   const auditRequestedRef = useRef(false)
 
   // Agent hook
-  const { spawnAgent, status: agentStatus, output: agentOutput, partialOutput: agentPartial, reset: agentReset } = useAgentEvents('networking-chat')
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('networking-chat')
 
   // ─── Data Loading ───────────────────────────────────────────────────────
 
@@ -1024,17 +1024,10 @@ export default function NetworkingPage() {
           ))}
           {chatProcessing && (
             <div className="flex justify-start">
-              {agentPartial ? (
-                <div className="max-w-[90%] bg-bg rounded-lg px-3.5 py-2.5">
-                  <MarkdownView content={agentPartial} className="text-sm" />
-                  <span className="inline-block w-1.5 h-4 bg-accent/60 animate-pulse ml-0.5 align-text-bottom" />
-                </div>
-              ) : (
-                <div className="bg-bg rounded-lg px-3.5 py-2.5 flex items-center gap-2">
-                  <span className="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm text-text-muted">Agent is thinking...</span>
-                </div>
-              )}
+              <div className="bg-bg rounded-lg px-3.5 py-2.5 flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-text-muted">Agent is thinking...</span>
+              </div>
             </div>
           )}
         </div>

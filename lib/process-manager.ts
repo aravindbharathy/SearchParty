@@ -57,7 +57,6 @@ interface ManagerStatus {
 
 class ProcessManager {
   private processes = new Map<string, ChildProcess>()
-  private partialOutput = new Map<string, string>() // spawnId → accumulated text so far
   private searchDir: string
 
   constructor() {
@@ -155,10 +154,9 @@ WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a
       const model = AGENT_MODELS[request.agent] || DEFAULT_MODEL
       const claudePath = process.env.CLAUDE_PATH || 'claude'
 
-      // Build args: interactive mode with streaming JSON output, MCP blackboard enabled
+      // Build args: interactive mode with JSON output, MCP blackboard enabled
       const args: string[] = [
-        '--output-format', 'stream-json',
-        '--verbose',
+        '--output-format', 'json',
         '--model', model,
         '--dangerously-load-development-channels', 'server:blackboard-channel',
       ]
@@ -200,56 +198,20 @@ WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a
       }
       this.saveSessions(sessions)
 
-      // Capture streaming output — parse stream-json events for partial text
-      this.partialOutput.set(spawnId, '')
-      let stdoutBuffer = ''
-      let finalResult = ''
-      let sessionId = existing?.session_id || ''
+      // Capture output
+      const MAX_OUTPUT = 65536
+      let stdout = ''
 
       child.stdout?.on('data', (data: Buffer) => {
-        stdoutBuffer += data.toString()
-
-        // Parse complete JSON lines from the buffer
-        const lines = stdoutBuffer.split('\n')
-        stdoutBuffer = lines.pop() || '' // keep incomplete last line in buffer
-
-        for (const line of lines) {
-          if (!line.trim()) continue
-          try {
-            const event = JSON.parse(line)
-
-            if (event.type === 'assistant' && event.message?.content) {
-              // Each assistant event contains the FULL content array (not deltas).
-              // Replace partial output with the latest text from all text blocks.
-              let text = ''
-              for (const block of event.message.content) {
-                if (block.type === 'text' && block.text) {
-                  text += block.text
-                }
-              }
-              if (text) {
-                this.partialOutput.set(spawnId, text)
-              }
-            } else if (event.type === 'result') {
-              // Final result — captures the complete response
-              finalResult = event.result || ''
-              sessionId = event.session_id || sessionId
-              console.log(`[process-manager] ${request.agent}: session_id=${sessionId}, turns=${event.num_turns}, cost=$${event.total_cost_usd}`)
-            }
-          } catch {
-            // Skip unparseable lines
-          }
-        }
+        stdout += data.toString()
+        if (stdout.length > MAX_OUTPUT) stdout = stdout.slice(-MAX_OUTPUT)
       })
 
-      child.stderr?.on('data', () => {
-        // Ignore stderr — stream-json puts everything on stdout
-      })
+      child.stderr?.on('data', () => {})
 
       child.on('error', (err: Error) => {
         console.error(`[process-manager] spawn error for ${request.agent}:`, err.message)
         this.processes.delete(spawnId)
-        this.partialOutput.delete(spawnId)
         const errSessions = this.loadSessions()
         if (errSessions.sessions[request.agent]?.spawn_id === spawnId) {
           errSessions.sessions[request.agent].status = 'failed'
@@ -259,14 +221,21 @@ WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a
       })
 
       child.on('close', (code: number | null) => {
-        console.log(`[process-manager] ${request.agent} exited code=${code}`)
+        console.log(`[process-manager] ${request.agent} exited code=${code}, stdout=${stdout.length}b`)
         this.processes.delete(spawnId)
 
-        // Use finalResult from the result event, fall back to accumulated partial output
-        const result = finalResult || this.partialOutput.get(spawnId) || ''
-        this.partialOutput.delete(spawnId)
+        let result = ''
+        let sessionId = existing?.session_id || ''
+        try {
+          const json = JSON.parse(stdout)
+          result = json.result || ''
+          if (json.session_id) sessionId = json.session_id
+          console.log(`[process-manager] ${request.agent}: session_id=${sessionId}, turns=${json.num_turns}, cost=$${json.total_cost_usd}`)
+        } catch {
+          result = stdout
+          console.error(`[process-manager] failed to parse JSON response, using raw output`)
+        }
 
-        // Update session with persistent session_id and result
         const currentSessions = this.loadSessions()
         if (currentSessions.sessions[request.agent]?.spawn_id === spawnId) {
           currentSessions.sessions[request.agent].status = code === 0 ? 'completed' : 'failed'
@@ -298,10 +267,6 @@ WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a
         error: err instanceof Error ? err.message : String(err),
       }
     }
-  }
-
-  getPartialOutput(spawnId: string): string | null {
-    return this.partialOutput.get(spawnId) || null
   }
 
   getStatus(): ManagerStatus {

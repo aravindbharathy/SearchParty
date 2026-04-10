@@ -17,7 +17,6 @@ interface SpawnState {
   result: AgentEvent | null
   error: string | null
   output: string | null
-  partialOutput: string | null
 }
 
 const SPAWN_TIMEOUT_MS = 300_000 // 5 minutes — Claude can take 2-4 min on complex JDs
@@ -28,7 +27,7 @@ export function useAgentEvents(persistKey?: string) {
   const [spawnState, setSpawnState] = useState<SpawnState>(() => {
     // Restore from localStorage if a persistKey is given
     if (typeof window === 'undefined' || !storageKey) {
-      return { status: 'idle', spawnId: null, result: null, error: null, output: null, partialOutput: null }
+      return { status: 'idle', spawnId: null, result: null, error: null, output: null }
     }
     try {
       const saved = localStorage.getItem(storageKey)
@@ -40,7 +39,7 @@ export function useAgentEvents(persistKey?: string) {
         if (parsed.status === 'completed' || parsed.status === 'failed') return parsed
       }
     } catch {}
-    return { status: 'idle', spawnId: null, result: null, error: null, output: null, partialOutput: null }
+    return { status: 'idle', spawnId: null, result: null, error: null, output: null }
   })
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -81,28 +80,18 @@ export function useAgentEvents(persistKey?: string) {
   }, [cleanup])
 
   const pollStatus = useCallback((spawnId: string) => {
-    // Poll every 500ms for responsive streaming, not 2s
     pollRef.current = setInterval(async () => {
       try {
         const res = await fetch(`/api/agent/spawn/${spawnId}`)
         if (!res.ok) return
-        const data = await res.json() as { status: string; output?: string; partial_output?: string }
+        const data = await res.json() as { status: string; output?: string }
 
-        if (data.status === 'running') {
-          // Update partial output for streaming display
-          if (data.partial_output) {
-            setSpawnState((prev) => ({
-              ...prev,
-              partialOutput: data.partial_output || null,
-            }))
-          }
-        } else if (data.status === 'completed') {
+        if (data.status === 'completed') {
           cleanup()
           setSpawnState((prev) => ({
             ...prev,
             status: 'completed',
             output: data.output || null,
-            partialOutput: null,
             result: {
               event: 'agent_complete',
               spawn_id: spawnId,
@@ -131,13 +120,12 @@ export function useAgentEvents(persistKey?: string) {
             status: 'failed',
             error: data.output || 'Agent process failed. Try again.',
             output: null,
-            partialOutput: null,
           }))
         }
       } catch {
         // Polling error — continue
       }
-    }, 500)
+    }, 2000)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleanup])
 
@@ -158,7 +146,6 @@ export function useAgentEvents(persistKey?: string) {
       result: null,
       error: null,
       output: null,
-      partialOutput: null,
     })
 
     try {
@@ -178,8 +165,7 @@ export function useAgentEvents(persistKey?: string) {
           result: null,
           error: data.error || 'Spawn failed',
           output: null,
-          partialOutput: null,
-        })
+            })
         return data.spawn_id
       }
 
@@ -210,8 +196,7 @@ export function useAgentEvents(persistKey?: string) {
         result: null,
         error: err instanceof Error ? err.message : 'Network error',
         output: null,
-        partialOutput: null,
-      })
+        })
       return null
     }
   }, [cleanup, pollStatus])
@@ -226,7 +211,6 @@ export function useAgentEvents(persistKey?: string) {
       result: null,
       error: null,
       output: null,
-      partialOutput: null,
     })
     if (storageKey) {
       try { localStorage.removeItem(storageKey) } catch {}
