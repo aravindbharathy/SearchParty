@@ -146,10 +146,19 @@ export async function POST(req: Request) {
         }
         cleared.push('vault/job-descriptions')
       }
+
+      // Clear intel files (contain embedded profile data from previous sessions)
+      const intelDir = join(searchDir, 'intel')
+      if (existsSync(intelDir)) {
+        for (const f of readdirSync(intelDir)) {
+          try { unlinkSync(join(intelDir, f)) } catch {}
+        }
+        cleared.push('intel')
+      }
     }
 
     const preserved = full
-      ? ['vault/resumes (source files)', 'intel files']
+      ? ['vault/resumes (source files)']
       : ['context files', 'vault source files', 'intel files']
 
     return NextResponse.json({ ok: true, full, cleared, preserved })
