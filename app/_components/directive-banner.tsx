@@ -73,8 +73,8 @@ export function DirectiveBanner({ notifications, onDismiss, onDismissAll, onDisc
         const message = humanize(n.text, n.agent)
 
         return (
-          <div key={n.id} className="flex items-start gap-3 bg-success/5 border border-success/20 rounded-lg px-4 py-3">
-            <span className="text-sm mt-0.5">{icon}</span>
+          <div key={n.id} className="flex items-center gap-3 bg-success/5 border border-success/20 rounded-lg px-4 py-3">
+            <span className="text-sm">{icon}</span>
             <div className="flex-1 min-w-0">
               <p className="text-sm text-text">{message}</p>
               {n.result && (
