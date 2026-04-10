@@ -572,16 +572,15 @@ export default function FindingPage() {
           ))}
         </div>
 
-        {/* Directive notifications */}
-        <DirectiveBanner
-          notifications={notifications}
-          onDismiss={dismissNotification}
-          onDismissAll={dismissAllNotifications}
-          onDiscuss={sendChatMessage}
-        />
-
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
+          {/* Directive notifications */}
+          <DirectiveBanner
+            notifications={notifications}
+            onDismiss={dismissNotification}
+            onDismissAll={dismissAllNotifications}
+            onDiscuss={sendChatMessage}
+          />
           {/* ─── Open Roles Tab ───────────────────────────────────── */}
           {activeTab === 'open-roles' && (
             <div>

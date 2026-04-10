@@ -1770,16 +1770,15 @@ export default function CoachPage() {
           </button>
         </div>
 
-        {/* Directive notifications from all agents */}
-        <DirectiveBanner
-          notifications={notifications}
-          onDismiss={dismissNotification}
-          onDismissAll={dismissAllNotifications}
-          onDiscuss={sendMessage}
-        />
-
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {/* Directive notifications from all agents */}
+          <DirectiveBanner
+            notifications={notifications}
+            onDismiss={dismissNotification}
+            onDismissAll={dismissAllNotifications}
+            onDiscuss={sendMessage}
+          />
           {messages.map((msg, i) => (
             <div
               key={i}

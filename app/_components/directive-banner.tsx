@@ -60,7 +60,7 @@ export function DirectiveBanner({ notifications, onDismiss, onDismissAll, onDisc
   if (notifications.length === 0) return null
 
   return (
-    <div className="mx-5 mt-3 space-y-2">
+    <div className="space-y-2 mb-4">
       {notifications.length > 2 && (
         <div className="flex justify-end">
           <button onClick={onDismissAll} className="text-xs text-text-muted hover:text-text">
