@@ -25,7 +25,7 @@ export function AgentChat({ agentName, initialOutput, skill, onClose, metadata }
   const [isProcessing, setIsProcessing] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const { spawnAgent, status, output, reset } = useAgentEvents()
+  const { spawnAgent, status, output, reset } = useAgentEvents(`agent-chat-${agentName}`)
 
   // Auto-scroll to bottom on new messages
   const scrollToBottom = useCallback(() => {

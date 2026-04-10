@@ -1403,7 +1403,7 @@ export default function CoachPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const { spawnAgent, status: agentStatus, output: agentOutput, partialOutput: agentPartial, reset: agentReset } = useAgentEvents()
+  const { spawnAgent, status: agentStatus, output: agentOutput, partialOutput: agentPartial, reset: agentReset } = useAgentEvents('coach-agent')
 
   // Persist conversation to localStorage
   useEffect(() => {
