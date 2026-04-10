@@ -331,7 +331,7 @@ export default function CommandCenterPage() {
                     </button>
                   )}
                   {pmAgent && !isActive && pmAgent.status === 'failed' && (
-                    <span className="text-xs text-danger">Last run failed</span>
+                    <span className="text-xs text-warning">Failed — click Start to retry</span>
                   )}
                 </div>
               </div>

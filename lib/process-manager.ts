@@ -108,7 +108,7 @@ class ProcessManager {
     const existing = sessions.sessions[request.agent]
 
     // Check if there's a persistent session to resume
-    const hasExistingSession = existing?.session_id && existing.status !== 'failed'
+    const hasExistingSession = existing?.session_id && existing.session_id !== 'pending' && existing.status !== 'failed'
 
     try {
       // Build the message from directive + blackboard postamble
