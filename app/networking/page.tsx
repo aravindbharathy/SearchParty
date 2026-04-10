@@ -172,10 +172,19 @@ export default function NetworkingPage() {
     } catch { return [] }
   })
 
-  // LinkedIn audit state
+  // LinkedIn audit state — only restore if it actually looks like an audit (not a greeting)
   const [auditResult, setAuditResult] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null
-    try { return localStorage.getItem('net-audit-result') || null } catch { return null }
+    try {
+      const saved = localStorage.getItem('net-audit-result')
+      // Don't restore agent greetings — only actual audit results
+      if (saved && (saved.includes('headline') || saved.includes('before') || saved.includes('after') || saved.includes('suggestion'))) {
+        return saved
+      }
+      // Clear stale non-audit content
+      localStorage.removeItem('net-audit-result')
+      return null
+    } catch { return null }
   })
 
   // Clipboard feedback
