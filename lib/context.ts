@@ -98,15 +98,15 @@ export const ExperienceLibrarySchema = z.object({
 
 const ResumePreferencesSchema = z.object({
   format: z.string().default(''),
-  summary_length: z.string().default(''),
+  summary_length: z.union([z.string(), z.number()]).transform(v => String(v)).default(''),
   tone: z.string().default(''),
   avoid_words: z.array(z.string()).default([]),
-})
+}).passthrough()
 
 const AddressingWeaknessSchema = z.object({
   weakness: z.string().default(''),
   mitigation: z.string().default(''),
-})
+}).passthrough()
 
 export const CareerPlanSchema = z.object({
   target: z.object({
@@ -115,9 +115,19 @@ export const CareerPlanSchema = z.object({
     industries: z.array(z.string()).default([]),
     locations: z.array(z.string()).default([]),
     comp_floor: z.number().default(0),
-  }).passthrough().default({ level: '', functions: [], industries: [], locations: [], comp_floor: 0 }),
+  }).passthrough().transform(t => {
+    const e = t as Record<string, unknown>
+    // Normalize comp_floor from nested comp object
+    if (!e.comp_floor && e.comp && typeof e.comp === 'object') {
+      const comp = e.comp as Record<string, unknown>
+      const floor = comp.total_comp_floor ?? comp.comp_floor ?? comp.floor ?? comp.total
+      if (typeof floor === 'number') e.comp_floor = floor
+      else if (typeof floor === 'string') e.comp_floor = parseInt(floor, 10) || 0
+    }
+    return e as typeof t
+  }).default({ level: '', functions: [], industries: [], locations: [], comp_floor: 0 }),
   deal_breakers: z.array(z.string()).default([]),
-  addressing_weaknesses: z.array(AddressingWeaknessSchema).default([]),
+  addressing_weaknesses: z.array(z.union([AddressingWeaknessSchema, z.string()])).default([]),
   resume_preferences: ResumePreferencesSchema.default({ format: '', summary_length: '', tone: '', avoid_words: [] }),
   work_style: z.object({
     environment: z.string().default(''),
@@ -141,7 +151,13 @@ export const CareerPlanSchema = z.object({
     dream_role: z.string().default(''),
     non_negotiables: z.array(z.string()).default([]),
   }).default({ why_searching: '', dream_role: '', non_negotiables: [] }),
-}).passthrough()
+}).passthrough().transform(plan => {
+  const p = plan as Record<string, unknown>
+  // Normalize agent aliases for top-level fields
+  if (!p.what_matters && p.what_matters_most) p.what_matters = p.what_matters_most
+  if (!p.addressing_weaknesses && p.weaknesses) p.addressing_weaknesses = p.weaknesses
+  return p as typeof plan
+})
 
 const CustomQASchema = z.object({
   q: z.string().default(''),

@@ -31,6 +31,17 @@ export async function GET() {
         }
       }
 
+      // Normalize agent field aliases before checking
+      if (name === 'career-plan') {
+        const target = data.target as Record<string, unknown> | undefined
+        if (target && !target.comp_floor && target.comp && typeof target.comp === 'object') {
+          const comp = target.comp as Record<string, unknown>
+          target.comp_floor = comp.total_comp_floor ?? comp.comp_floor ?? comp.floor ?? 0
+        }
+        if (!data.what_matters && data.what_matters_most) data.what_matters = data.what_matters_most
+        if (!data.addressing_weaknesses && data.weaknesses) data.addressing_weaknesses = data.weaknesses
+      }
+
       const status = checkSectionStatus(name, data, schema)
       sections[name] = {
         ...status,
