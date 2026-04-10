@@ -810,14 +810,35 @@ export default function NetworkingPage() {
           {activeTab === 'messages' && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-text-muted">Outreach Messages</h2>
-                <button
-                  onClick={handleGenerateMessages}
-                  disabled={chatProcessing}
-                  className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {chatProcessing ? 'Generating...' : 'Generate Messages'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-text-muted">Outreach Messages</h2>
+                  {parsedMessages.length > 0 && (
+                    <span className="text-xs text-text-muted">
+                      {parsedMessages.filter(m => !m.sent).length} draft · {parsedMessages.filter(m => m.sent).length} sent
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {parsedMessages.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm('Clear all draft messages?')) return
+                        await fetch('/api/networking/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'clear' }) })
+                        loadSavedMessages()
+                      }}
+                      className="px-3 py-1.5 border border-danger/30 text-danger rounded-lg text-xs hover:bg-danger/10 transition-colors"
+                    >
+                      Clear Drafts
+                    </button>
+                  )}
+                  <button
+                    onClick={handleGenerateMessages}
+                    disabled={chatProcessing}
+                    className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {chatProcessing ? 'Generating...' : parsedMessages.length > 0 ? 'Generate More' : 'Generate Messages'}
+                  </button>
+                </div>
               </div>
 
               {parsedMessages.length === 0 ? (
@@ -847,28 +868,48 @@ export default function NetworkingPage() {
                       <div className="bg-bg/80 border border-border/50 rounded-md p-3 mb-3">
                         <p className="text-sm text-text leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                       </div>
-                      {!msg.sent && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleCopyMessage(msg.text, idx)}
-                            className="px-3 py-1.5 border border-border text-text rounded text-xs font-medium hover:bg-bg transition-colors"
-                          >
-                            {copiedIdx === idx ? 'Copied!' : 'Copy to Clipboard'}
-                          </button>
-                          <button
-                            onClick={() => sendChatMessage(`Edit this message for ${msg.recipient}: make it more personal and conversational. Original: "${msg.text}"`)}
-                            className="px-3 py-1.5 border border-border text-text-muted rounded text-xs hover:bg-bg hover:text-text transition-colors"
-                          >
-                            Edit via Agent
-                          </button>
-                          <button
-                            onClick={() => handleMarkSent(idx)}
-                            className="px-3 py-1.5 bg-success/10 text-success border border-success/20 rounded text-xs font-medium hover:bg-success/20 transition-colors"
-                          >
-                            Mark as Sent
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {!msg.sent ? (
+                          <>
+                            <button
+                              onClick={() => handleCopyMessage(msg.text, idx)}
+                              className="px-3 py-1.5 border border-border text-text rounded text-xs font-medium hover:bg-bg transition-colors"
+                            >
+                              {copiedIdx === idx ? 'Copied!' : 'Copy'}
+                            </button>
+                            <button
+                              onClick={() => sendChatMessage(`Revise this message for ${msg.company}. Make it more personal. Original: "${msg.text}"`)}
+                              className="px-3 py-1.5 border border-border text-text-muted rounded text-xs hover:bg-bg hover:text-text transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (msg.id) {
+                                  await fetch('/api/networking/messages', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: msg.id, field: 'status', value: 'sent' }) })
+                                }
+                                handleMarkSent(idx)
+                              }}
+                              className="px-3 py-1.5 bg-success/10 text-success border border-success/20 rounded text-xs font-medium hover:bg-success/20 transition-colors"
+                            >
+                              Mark Sent
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (msg.id) {
+                                  await fetch('/api/networking/messages', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: msg.id }) })
+                                }
+                                setParsedMessages(prev => prev.filter((_, i) => i !== idx))
+                              }}
+                              className="px-3 py-1.5 text-text-muted rounded text-xs hover:text-danger transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-text-muted">Sent {msg.sent ? '✓' : ''}</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
