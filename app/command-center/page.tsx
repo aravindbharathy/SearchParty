@@ -88,17 +88,22 @@ export default function CommandCenterPage() {
     await fetch('http://localhost:8790/write', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'agents', value: {}, log_entry: 'Reset from dashboard' }),
+      body: JSON.stringify({ path: 'agents', value: {} }),
     }).catch(() => {})
     await fetch('http://localhost:8790/write', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'directives', value: [], log_entry: 'Reset: cleared directives' }),
+      body: JSON.stringify({ path: 'directives', value: [] }),
     }).catch(() => {})
     await fetch('http://localhost:8790/write', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'findings', value: {}, log_entry: 'Reset: cleared findings' }),
+      body: JSON.stringify({ path: 'findings', value: {} }),
+    }).catch(() => {})
+    await fetch('http://localhost:8790/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'log', value: [] }),
     }).catch(() => {})
   }
 

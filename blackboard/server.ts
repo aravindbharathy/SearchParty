@@ -67,7 +67,7 @@ const TEMPLATE = join(DIR, 'blackboard.yaml')
 const LIVE = join(DIR, 'blackboard-live.yaml')
 
 // Paths agents are not allowed to overwrite directly
-const PROTECTED_ROOTS = new Set(['log', 'blackboard'])
+const PROTECTED_ROOTS = new Set(['blackboard'])
 
 // --- Helpers ---
 function now(): string {
