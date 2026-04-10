@@ -74,22 +74,8 @@ export function useDirectiveNotifications(agentFilter?: string) {
         })
       }
 
-      // Check findings tagged for this agent (from other agents' work)
-      if (agentFilter) {
-        for (const [key, f] of Object.entries(state.findings ?? {})) {
-          if (f.for !== agentFilter && f.for !== 'all') continue
-          if (dismissedRef.current.has(key)) continue
-
-          newNotifications.push({
-            id: key,
-            agent: agentFilter,
-            from: f.from || 'unknown',
-            text: f.text || '',
-            completedAt: f.timestamp || '',
-          })
-        }
-      }
-
+      // Only show completed directives — findings are informational context,
+      // not user-facing notifications
       setNotifications(newNotifications)
     } catch { /* ignore */ }
   }, [agentFilter])
