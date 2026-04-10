@@ -144,7 +144,7 @@ export default function FindingPage() {
     } catch { return [] }
   })
   const [chatInput, setChatInput] = useState('')
-  const [hasSpawned, setHasSpawned] = useState(false)
+  const hasSpawnedRef = useRef(false)
   const chatScrollRef = useRef<HTMLDivElement>(null)
 
   // Agent hook — single persistent session for all research actions
@@ -255,10 +255,10 @@ export default function FindingPage() {
 
   useEffect(() => { scrollChatToBottom() }, [chatMessages.length, scrollChatToBottom])
 
-  // Spawn agent on first load if no saved chat
+  // Spawn agent on first load if no saved chat — ref survives strict mode
   useEffect(() => {
-    if (hasSpawned) return
-    setHasSpawned(true)
+    if (hasSpawnedRef.current) return
+    hasSpawnedRef.current = true
     if (chatMessages.length > 0) return
 
     spawnAgent('research', {
@@ -1146,7 +1146,7 @@ export default function FindingPage() {
             onClick={() => {
               setChatMessages([])
               localStorage.removeItem('finding-chat-messages')
-              setHasSpawned(false)
+              hasSpawnedRef.current = false
             }}
             className="text-xs text-text-muted hover:text-text"
           >

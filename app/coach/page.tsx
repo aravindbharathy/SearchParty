@@ -1396,7 +1396,7 @@ export default function CoachPage() {
   })
   const [contextStatus, setContextStatus] = useState<ProfileStatusResponse | null>(null)
   // showResumeZone removed — resume upload is always visible
-  const [hasStarted, setHasStarted] = useState(false)
+  const hasStartedRef = useRef(false)
   const [contextData, setContextData] = useState<Record<string, Record<string, unknown>>>({})
   const [editingSection, setEditingSection] = useState<string | null>(null)
   const [editData, setEditData] = useState<Record<string, unknown> | null>(null)
@@ -1512,13 +1512,11 @@ export default function CoachPage() {
   }, [contextStatus])
 
   // Spawn coach on mount — ONLY if no saved conversation exists
+  // Spawn coach on mount — only once, using a ref to survive strict mode double-mount
   useEffect(() => {
-    if (hasStarted) return
-    setHasStarted(true)
-    if (messages.length > 0) {
-      // Restored from localStorage — don't re-spawn
-      return
-    }
+    if (hasStartedRef.current) return
+    hasStartedRef.current = true
+    if (messages.length > 0) return // restored from localStorage
 
     const directive = isContextReady ? COMPANION_DIRECTIVE : ONBOARDING_DIRECTIVE
     spawnAgent('coach', {
@@ -1527,7 +1525,7 @@ export default function CoachPage() {
       text: directive,
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contextStatus])
+  }, [])
 
   // Watch for agent completion
   useEffect(() => {
