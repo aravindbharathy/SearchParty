@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './sidebar'
+import { UserActionBar } from './user-action-bar'
 import { useBlackboard } from '../hooks/use-blackboard'
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
@@ -62,6 +63,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
         activePage={pathname}
       />
       <main className="flex-1 p-6 overflow-y-auto">
+        <UserActionBar />
         {children}
       </main>
     </div>

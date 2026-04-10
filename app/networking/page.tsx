@@ -82,7 +82,7 @@ const NETWORKING_DIRECTIVE = `You are the user's networking specialist. Read sea
 
 IMPORTANT: If career-plan.yaml is empty or target-companies.yaml has no companies, DO NOT ask the user to provide this information. Instead:
 1. Tell them: "Your profile isn't complete yet. Head to the Career Coach (sidebar) to set up your career plan and target companies first — I need those to generate effective outreach."
-2. Post a directive to the coach agent: "User tried to use networking features but career plan or target companies are missing. Prioritize completing these sections."
+2. Post a directive to the blackboard: write_to_blackboard path="directives" — append a new entry with type "user_action", assigned_to "coach", text "User tried to use networking features but career plan or target companies are missing. Prioritize completing these sections.", from "networking", status "pending".
 
 If context is available, greet the user briefly and ask what they'd like help with. You can help with: generating outreach messages, crafting referral requests, auditing LinkedIn, and managing contacts.`
 

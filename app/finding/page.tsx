@@ -85,7 +85,7 @@ const RESEARCH_DIRECTIVE = `You are the user's research specialist. Read search/
 
 IMPORTANT: If career-plan.yaml is empty or missing key fields (level, functions, industries), DO NOT ask the user to provide this information. Instead:
 1. Tell them: "Your career plan isn't set up yet. Head to the Career Coach (sidebar) to complete your profile first — I need your target role, industries, and preferences to find the right companies and score job descriptions."
-2. Post a directive to the coach agent: "User tried to use research features but career plan is incomplete. Prioritize completing the career plan section in the next coaching session."
+2. Post a directive to the blackboard: write_to_blackboard path="directives" — append a new entry with type "user_action", assigned_to "coach", text "User tried to use research features but career plan is incomplete. Prioritize completing the career plan section.", from "research", status "pending".
 
 If context is available, greet the user briefly and ask what they'd like help with today. You can help with: scoring job descriptions, researching companies, generating target company lists, scanning for open roles, and analyzing job fit.`
 
