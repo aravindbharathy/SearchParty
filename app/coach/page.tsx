@@ -230,6 +230,100 @@ function ContextPreviewCompact({ name, data }: { name: string; data: Record<stri
   }
 }
 
+/** Expanded view — shows detail NOT in the KeyInfoLine (avoids repetition) */
+function ContextPreviewExpanded({ name, data }: { name: string; data: Record<string, unknown> }) {
+  switch (name) {
+    case 'experience-library': {
+      const contact = (data.contact || {}) as Record<string, string>
+      const experiences = (data.experiences as Array<Record<string, unknown>>) || []
+      const education = (data.education as Array<Record<string, unknown>>) || []
+      // KeyInfoLine shows: name · N roles · N skills — expanded shows contact details, role list, education
+      const contactDetails = [contact.email, contact.location, contact.linkedin].filter(Boolean)
+      return (
+        <div className="space-y-1.5 text-xs text-text-muted">
+          {contactDetails.length > 0 && <p>{contactDetails.join(' · ')}</p>}
+          {experiences.length > 0 && (
+            <div>
+              {experiences.slice(0, 4).map((exp, i) => (
+                <p key={i}><span className="font-medium text-text">{exp.role as string}</span> at {exp.company as string} <span className="text-text-muted">({exp.dates as string})</span></p>
+              ))}
+              {experiences.length > 4 && <p className="italic">+{experiences.length - 4} more</p>}
+            </div>
+          )}
+          {education.length > 0 && <p>{education.map(ed => `${(ed.degree as string)} ${(ed.field as string)}, ${(ed.institution as string)}`).join(' · ')}</p>}
+        </div>
+      )
+    }
+    case 'career-plan': {
+      const target = (data.target || {}) as Record<string, unknown>
+      const locations = (target.locations as string[]) || []
+      const dealBreakers = (data.deal_breakers as string[]) || []
+      const workStyle = (data.work_style || {}) as Record<string, string>
+      const motivation = (data.motivation || {}) as Record<string, unknown>
+      // KeyInfoLine shows: level · functions · comp — expanded shows locations, deal breakers, work style, motivation
+      return (
+        <div className="space-y-1 text-xs text-text-muted">
+          {locations.length > 0 && <p>Locations: <span className="font-medium text-text">{locations.join(', ')}</span></p>}
+          {dealBreakers.length > 0 && <p>Deal breakers: {dealBreakers.join(', ')}</p>}
+          {workStyle.environment && <p>Environment: {workStyle.environment}</p>}
+          {(motivation.dream_role as string) && <p>Dream role: <span className="font-medium text-text">{motivation.dream_role as string}</span></p>}
+        </div>
+      )
+    }
+    case 'qa-master': {
+      // KeyInfoLine shows: N/4 answered · Missing: X — expanded shows which are set with previews
+      const items = [
+        { label: 'Salary', value: data.salary_expectations as string },
+        { label: 'Why leaving', value: data.why_leaving as string },
+        { label: 'Weakness', value: data.greatest_weakness as string },
+        { label: 'Visa', value: data.visa_status as string },
+      ]
+      const customQA = (data.custom_qa as Array<Record<string, unknown>>) || []
+      return (
+        <div className="text-xs text-text-muted space-y-1">
+          {items.map(item => (
+            <p key={item.label}>
+              {item.label}: {item.value ? <span className="text-text">{item.value.length > 60 ? item.value.slice(0, 60) + '…' : item.value}</span> : <span className="italic">not set</span>}
+            </p>
+          ))}
+          {customQA.length > 0 && <p><Badge>{customQA.length} custom Q&amp;As</Badge></p>}
+        </div>
+      )
+    }
+    case 'target-companies': {
+      // KeyInfoLine shows: N companies — expanded shows top companies by priority
+      const companies = (data.companies as Array<Record<string, unknown>>) || []
+      if (companies.length === 0) return null
+      const top = [...companies].sort((a, b) => {
+        const order: Record<string, number> = { high: 0, medium: 1, low: 2 }
+        return (order[(a.priority as string) || 'low'] || 2) - (order[(b.priority as string) || 'low'] || 2)
+      }).slice(0, 5).map(c => c.name as string)
+      return (
+        <div className="text-xs text-text-muted">
+          <p>Top: <span className="font-medium text-text">{top.join(', ')}</span></p>
+        </div>
+      )
+    }
+    case 'connection-tracker': {
+      // KeyInfoLine shows: N contacts — expanded shows companies and recent contacts
+      const contacts = (data.contacts as Array<Record<string, unknown>>) || []
+      if (contacts.length === 0) return null
+      const companies = [...new Set(contacts.map(c => c.company as string).filter(Boolean))]
+      const recent = contacts.slice(0, 3)
+      return (
+        <div className="text-xs text-text-muted space-y-1">
+          {companies.length > 0 && <p>At: <span className="font-medium text-text">{companies.slice(0, 5).join(', ')}{companies.length > 5 ? ` +${companies.length - 5}` : ''}</span></p>}
+          {recent.map((c, i) => (
+            <p key={i}>{c.name as string} — {c.role as string}{c.company ? `, ${c.company as string}` : ''}</p>
+          ))}
+        </div>
+      )
+    }
+    default:
+      return null
+  }
+}
+
 // ─── Edit Modal Components ─────────────────────────────────────────────────
 
 function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
@@ -891,6 +985,68 @@ function InterviewHistoryViewer({ data, onCancel }: { data: Record<string, unkno
 
 // ─── Field Progress Bar ───────────────────────────────────────────────────
 
+function KeyInfoLine({ sectionKey, data, filled, section }: { sectionKey: string; data?: Record<string, unknown>; filled: boolean; section: ProfileSectionStatus }) {
+  if (!data && !filled) {
+    const missing = Object.values(section.fields || {}).filter(f => f.required && !f.filled).map(f => f.label)
+    if (missing.length > 0) {
+      return <p className="text-sm text-danger truncate">Missing: {missing.slice(0, 3).join(', ')}{missing.length > 3 ? ` +${missing.length - 3}` : ''}</p>
+    }
+    return <p className="text-sm text-text-muted italic">Not started</p>
+  }
+  if (!data) return null
+
+  switch (sectionKey) {
+    case 'experience-library': {
+      const contact = (data.contact || {}) as Record<string, string>
+      const exp = (data.experiences as unknown[]) || []
+      const skills = (data.skills as Record<string, unknown[]>) || {}
+      const parts: string[] = []
+      if (contact.name) parts.push(contact.name)
+      if (exp.length > 0) parts.push(`${exp.length} roles`)
+      const techCount = skills.technical?.length || 0
+      if (techCount > 0) parts.push(`${techCount} skills`)
+      if (parts.length === 0) {
+        const missing = Object.values(section.fields || {}).filter(f => f.required && !f.filled).map(f => f.label)
+        return <p className="text-sm text-danger truncate">Missing: {missing.slice(0, 3).join(', ')}</p>
+      }
+      return <p className="text-sm text-text-muted truncate">{parts.join(' · ')}</p>
+    }
+    case 'career-plan': {
+      const target = (data.target || {}) as Record<string, unknown>
+      const parts: string[] = []
+      if (target.level) parts.push(String(target.level))
+      const funcs = (target.functions as string[]) || []
+      if (funcs.length > 0) parts.push(funcs.join(', '))
+      if (target.comp_floor && Number(target.comp_floor) > 0) parts.push(`$${Number(target.comp_floor).toLocaleString()}+`)
+      if (parts.length === 0) {
+        const missing = Object.values(section.fields || {}).filter(f => f.required && !f.filled).map(f => f.label)
+        return <p className="text-sm text-danger truncate">Missing: {missing.slice(0, 3).join(', ')}</p>
+      }
+      return <p className="text-sm text-text-muted truncate">{parts.join(' · ')}</p>
+    }
+    case 'qa-master': {
+      const fields = ['salary_expectations', 'why_leaving', 'greatest_weakness', 'visa_status'] as const
+      const setCount = fields.filter(f => data[f] && String(data[f]).trim()).length
+      if (setCount === 0) return <p className="text-sm text-text-muted italic">Not started</p>
+      const missing = Object.values(section.fields || {}).filter(f => f.required && !f.filled).map(f => f.label)
+      if (missing.length > 0) return <p className="text-sm text-text-muted">{setCount}/4 answered · <span className="text-danger">Missing: {missing.join(', ')}</span></p>
+      return <p className="text-sm text-text-muted">{setCount}/4 core answers set</p>
+    }
+    case 'target-companies': {
+      const companies = (data.companies as unknown[]) || []
+      if (companies.length === 0) return <p className="text-sm text-text-muted italic">No companies yet</p>
+      return <p className="text-sm text-text-muted">{companies.length} companies</p>
+    }
+    case 'connection-tracker': {
+      const contacts = (data.contacts as unknown[]) || []
+      if (contacts.length === 0) return <p className="text-sm text-text-muted italic">No contacts yet</p>
+      return <p className="text-sm text-text-muted">{contacts.length} contacts</p>
+    }
+    default:
+      return null
+  }
+}
+
 function FieldProgressBar({ section }: { section: ProfileSectionStatus }) {
   if (section.filled) return null
   if (section.required_total === 0) return null
@@ -980,53 +1136,55 @@ function ProfilePanel({
                     : 'border-border/60 bg-bg'
               }`}
             >
-              {/* Compact header — always visible */}
+              {/* Header + key info — always visible */}
               <div
-                className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
+                className="px-4 py-3 cursor-pointer"
                 onClick={() => setExpandedSection(isExpanded ? null : key)}
               >
-                <span className="text-sm">
-                  {isFilled ? '\u2705' : isCurrent ? '\uD83D\uDD35' : '\u26AA'}
-                </span>
-                <span className="text-xs">{meta.icon}</span>
-                <span className="text-sm font-medium text-text flex-1 truncate">{meta.label}</span>
-
-                {/* Brief status on the right */}
-                {!isFilled && sect.required_total > 0 && (
-                  <span className="text-[10px] text-text-muted">{pct}%</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">
+                    {isFilled ? '\u2705' : isCurrent ? '\uD83D\uDD35' : '\u26AA'}
+                  </span>
+                  <span className="text-sm">{meta.icon}</span>
+                  <span className="text-base font-medium text-text">{meta.label}</span>
+                  <div className="ml-auto flex items-center gap-3">
+                    {!isFilled && sect.required_total > 0 && (
+                      <span className="text-xs text-text-muted">{sect.required_filled}/{sect.required_total}</span>
+                    )}
+                    {isFilled ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEditSection(key) }}
+                        className="text-sm text-accent hover:text-accent-hover font-medium px-2 py-0.5 rounded hover:bg-accent/10"
+                      >
+                        Edit
+                      </button>
+                    ) : !isCurrent ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onSectionClick(key) }}
+                        className="text-sm text-accent hover:text-accent-hover px-2 py-0.5 rounded hover:bg-accent/10"
+                      >
+                        {sect.required_filled > 0 ? 'Resume' : 'Start'}
+                      </button>
+                    ) : null}
+                    <span className="text-xs text-text-muted">{isExpanded ? '▲' : '▼'}</span>
+                  </div>
+                </div>
+                {/* Key info line — visible when collapsed */}
+                {!isExpanded && (
+                  <div className="flex gap-2.5 mt-0.5">
+                    <span className="text-base invisible" aria-hidden>.</span>
+                    <span className="text-sm invisible" aria-hidden>.</span>
+                    <KeyInfoLine sectionKey={key} data={contextData[key]} filled={isFilled} section={sect} />
+                  </div>
                 )}
-                {isFilled && sect.lastModified && (
-                  <span className="text-[10px] text-text-muted">{new Date(sect.lastModified).toLocaleDateString()}</span>
-                )}
-
-                {/* Action button */}
-                {isFilled ? (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onEditSection(key) }}
-                    className="text-[10px] text-accent hover:text-accent-hover font-medium cursor-pointer px-1.5 py-0.5 rounded hover:bg-accent/10"
-                  >
-                    Edit
-                  </button>
-                ) : !isCurrent ? (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onSectionClick(key) }}
-                    className="text-[10px] text-accent hover:text-accent-hover cursor-pointer px-1.5 py-0.5 rounded hover:bg-accent/10"
-                  >
-                    {sect.required_filled > 0 ? 'Resume' : 'Start'}
-                  </button>
-                ) : null}
-
-                <span className="text-[10px] text-text-muted">{isExpanded ? '▲' : '▼'}</span>
               </div>
 
               {/* Expanded details */}
               {isExpanded && (
                 <div className="px-3 pb-3 border-t border-border/50 pt-2">
-                  <p className="text-xs text-text-muted mb-2">{meta.description}</p>
-
                   {contextData[key] && (
                     <div className="mb-2">
-                      <ContextPreviewCompact name={key} data={contextData[key]} />
+                      <ContextPreviewExpanded name={key} data={contextData[key]} />
                     </div>
                   )}
 
@@ -1364,11 +1522,19 @@ export default function CoachPage() {
       setIsProcessing(true)
 
       try {
-        await spawnAgent('coach', {
+        const result = await spawnAgent('coach', {
           skill: 'onboarding-coach',
           entry_name: 'onboarding-followup',
           text: text.trim(),
         })
+        // If spawnAgent returned null, the spawn was blocked (concurrent guard)
+        if (result === null) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'coach', content: 'The coach is still processing. Please wait a moment and try again.' },
+          ])
+          setIsProcessing(false)
+        }
       } catch {
         setMessages((prev) => [
           ...prev,
@@ -1396,7 +1562,7 @@ export default function CoachPage() {
         : ''
       sendMessage(`Let's review my ${label} section.${gaps} What's in there, and what should I update?`)
     } else {
-      sendMessage(`Let's work on ${label} now.`)
+      sendMessage(`I'd like to work on my ${label} section.`)
     }
     setCurrentSection(section)
   }

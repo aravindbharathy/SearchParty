@@ -160,6 +160,7 @@ export function useAgentEvents(persistKey?: string) {
       const data = await res.json() as { ok: boolean; spawn_id: string; error?: string }
 
       if (!data.ok) {
+        spawnInProgressRef.current = false
         setSpawnState({
           status: 'failed',
           spawnId: data.spawn_id,
@@ -190,6 +191,7 @@ export function useAgentEvents(persistKey?: string) {
 
       return data.spawn_id
     } catch (err) {
+      spawnInProgressRef.current = false
       setSpawnState({
         status: 'failed',
         spawnId: null,

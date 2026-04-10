@@ -128,6 +128,8 @@ export default function NetworkingPage() {
     if (typeof window === 'undefined') return 'contacts'
     try { return (localStorage.getItem('net-active-tab') as TabKey) || 'contacts' } catch { return 'contacts' }
   })
+  const activeTabRef = useRef(activeTab)
+  useEffect(() => { activeTabRef.current = activeTab }, [activeTab])
 
   // Contact search/sort/expand
   const [searchQuery, setSearchQuery] = useState('')
@@ -172,25 +174,15 @@ export default function NetworkingPage() {
     } catch { return [] }
   })
 
-  // LinkedIn audit state — only restore if it actually looks like an audit (not a greeting)
-  const [auditResult, setAuditResult] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null
-    try {
-      const saved = localStorage.getItem('net-audit-result')
-      // Don't restore agent greetings — only actual audit results
-      if (saved && (saved.includes('headline') || saved.includes('before') || saved.includes('after') || saved.includes('suggestion'))) {
-        return saved
-      }
-      // Clear stale non-audit content
-      localStorage.removeItem('net-audit-result')
-      return null
-    } catch { return null }
-  })
+  // LinkedIn audit state — loaded from the actual audit file
+  const [auditResult, setAuditResult] = useState<string | null>(null)
+  const [auditLoading, setAuditLoading] = useState(false)
 
   // Clipboard feedback
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const [messageSearch, setMessageSearch] = useState('')
   const [auditRequested, setAuditRequested] = useState(false)
+  const auditRequestedRef = useRef(false)
 
   // Agent hook
   const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('networking-chat')
@@ -217,10 +209,23 @@ export default function NetworkingPage() {
     } catch { /* ignore */ }
   }, [])
 
+  const loadAuditFile = useCallback(async () => {
+    setAuditLoading(true)
+    try {
+      const res = await fetch('/api/networking/audit')
+      if (res.ok) {
+        const data = await res.json() as { content: string | null }
+        if (data.content) setAuditResult(data.content)
+      }
+    } catch { /* ignore */ }
+    finally { setAuditLoading(false) }
+  }, [])
+
   useEffect(() => {
     loadContacts()
     loadStats()
     loadSavedMessages()
+    loadAuditFile()
     // Fetch user's LinkedIn URL from experience library
     fetch('/api/context/experience-library').then(r => r.json()).then(data => {
       const linkedin = data?.contact?.linkedin
@@ -229,7 +234,7 @@ export default function NetworkingPage() {
       }
     }).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadContacts, loadStats])
+  }, [loadContacts, loadStats, loadAuditFile])
 
   const loadSavedMessages = useCallback(async () => {
     try {
@@ -260,9 +265,6 @@ export default function NetworkingPage() {
     }
   }, [chatMessages])
   useEffect(() => { try { localStorage.setItem('net-parsed-messages', JSON.stringify(parsedMessages)) } catch {} }, [parsedMessages])
-  useEffect(() => {
-    if (auditResult) { try { localStorage.setItem('net-audit-result', auditResult) } catch {} }
-  }, [auditResult])
 
   // ─── Chat Logic ─────────────────────────────────────────────────────────
 
@@ -304,10 +306,11 @@ export default function NetworkingPage() {
         }
       }
 
-      // Only set audit result when user explicitly requested an audit
-      if (auditRequested) {
-        setAuditResult(agentOutput)
+      // When audit completes, reload the actual audit file (not the agent summary)
+      if (auditRequestedRef.current) {
         setAuditRequested(false)
+        auditRequestedRef.current = false
+        loadAuditFile()
       }
 
       agentReset()
@@ -324,7 +327,7 @@ export default function NetworkingPage() {
       setChatProcessing(false)
       agentReset()
     }
-  }, [agentStatus, agentOutput, agentReset, loadContacts, loadStats])
+  }, [agentStatus, agentOutput, agentReset, loadContacts, loadStats, loadAuditFile])
 
   const sendChatMessage = useCallback(async (text: string) => {
     if (!text.trim() || chatProcessing) return
@@ -429,6 +432,7 @@ export default function NetworkingPage() {
   const handleRunAudit = () => {
     setActiveTab('linkedin')
     setAuditRequested(true)
+    auditRequestedRef.current = true
     sendChatMessage('Audit my LinkedIn profile against my target roles. Read search/context/career-plan.yaml, search/context/experience-library.yaml, and top JDs from search/vault/job-descriptions/ for the analysis. Provide before/after suggestions for each profile section.')
   }
 
@@ -986,7 +990,11 @@ export default function NetworkingPage() {
                   </button>
                 </div>
 
-                {!auditResult ? (
+                {auditLoading ? (
+                  <div className="bg-surface border border-border rounded-lg p-8 text-center">
+                    <p className="text-text-muted">Loading audit results...</p>
+                  </div>
+                ) : !auditResult ? (
                   <div className="bg-surface border border-border rounded-lg p-8 text-center">
                     <p className="text-text-muted text-lg mb-2">No audit results yet.</p>
                     <p className="text-text-muted text-sm">

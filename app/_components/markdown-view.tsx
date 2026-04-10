@@ -1,6 +1,7 @@
 'use client'
 
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
 
 interface MarkdownViewProps {
@@ -87,10 +88,27 @@ const components: Components = {
   ),
 }
 
+/**
+ * Convert unlabeled fenced code blocks that contain markdown formatting
+ * (bold, lists, etc.) into blockquotes so the markdown renders properly.
+ * Code blocks with a language tag (```python, ```yaml) are left as-is.
+ */
+function convertMarkdownCodeBlocks(text: string): string {
+  return text.replace(/```\s*\n([\s\S]*?)```/g, (_match, inner: string) => {
+    // If the block contains markdown formatting, convert to blockquote
+    const hasMarkdown = /\*\*|^- |^#{1,4} /m.test(inner)
+    if (!hasMarkdown) return _match
+    // Convert each line to a blockquote line
+    const lines = inner.trimEnd().split('\n').map((line: string) => `> ${line}`)
+    return lines.join('\n')
+  })
+}
+
 export function MarkdownView({ content, className }: MarkdownViewProps) {
+  const processed = convertMarkdownCodeBlocks(content)
   return (
     <div className={className}>
-      <ReactMarkdown components={components}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{processed}</ReactMarkdown>
     </div>
   )
 }

@@ -220,7 +220,6 @@ async function safeExit(): Promise<void> {
         body: JSON.stringify({
           path: `transports.shim-${actualPort}`,
           value: null,
-          log_entry: `shim-${actualPort} exited`,
         }),
         signal: AbortSignal.timeout(1500),
       }),

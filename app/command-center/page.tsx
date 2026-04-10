@@ -200,9 +200,12 @@ export default function CommandCenterPage() {
 
   // Blackboard-derived data
   const agents = state?.agents ?? {}
-  const directives = state?.directives ?? []
+  const directives = (state?.directives ?? []) as Array<Record<string, string>>
   const pendingDirectives = directives.filter(
     (d) => !d.status || d.status === 'pending' || d.status === 'open'
+  )
+  const completedDirectives = directives.filter(
+    (d) => d.status && d.status !== 'pending' && d.status !== 'open'
   )
   const findings = state?.findings ?? {}
   const findingEntries = Object.entries(findings).sort((a, b) => {
@@ -210,7 +213,10 @@ export default function CommandCenterPage() {
     const tB = b[1].timestamp ?? ''
     return tB.localeCompare(tA)
   })
-  const recentLog = state?.log?.slice(-20).reverse() ?? []
+  const recentLog = (state?.log ?? [])
+    .filter((e: { entry: string }) => !e.entry.match(/^shim[- ]\d+ (exited|started|crashed)/i))
+    .slice(-20)
+    .reverse()
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
@@ -358,47 +364,66 @@ export default function CommandCenterPage() {
         </div>
       )}
 
-      {/* Pending Directives */}
+      {/* Directives */}
       <div className="bg-surface border border-border rounded-lg p-5 mb-8">
-        <h2 className="font-semibold mb-4">Pending Directives</h2>
-        {pendingDirectives.length === 0 ? (
-          <p className="text-sm text-text-muted mb-4">No pending directives.</p>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold">Directives</h2>
+          {directives.length > 0 && (
+            <span className="text-xs text-text-muted">
+              {pendingDirectives.length} pending · {completedDirectives.length} completed
+            </span>
+          )}
+        </div>
+        {directives.length === 0 ? (
+          <p className="text-sm text-text-muted mb-4">No directives yet. Post one below or let agents create them.</p>
         ) : (
-          <div className="space-y-3 mb-4">
-            {pendingDirectives.slice(0, 10).map((d) => (
-              <div key={d.id} className="flex items-start gap-3 border-b border-border/50 pb-3 last:border-0 last:pb-0">
-                <span className="mt-1 w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {d.from && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${agentBadgeColor(d.from)}`}>
-                        {d.from}
-                      </span>
-                    )}
-                    {(d.assigned_to ?? d.assignee) && (
-                      <>
-                        <span className="text-text-muted text-xs">&rarr;</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${agentBadgeColor(d.assigned_to ?? d.assignee ?? '')}`}>
-                          {d.assigned_to ?? d.assignee}
+          <div className="space-y-2 mb-4">
+            {[...pendingDirectives, ...completedDirectives].slice(0, 15).map((d) => {
+              const isPending = !d.status || d.status === 'pending' || d.status === 'open'
+              const statusColor = isPending
+                ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                : d.status === 'done' || d.status === 'completed'
+                  ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                  : 'bg-text-muted/10 text-text-muted border-text-muted/20'
+
+              return (
+                <div key={d.id} className={`flex items-start gap-3 py-2.5 px-3 rounded-lg border ${isPending ? 'border-amber-500/20 bg-amber-500/5' : 'border-border/50'}`}>
+                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isPending ? 'bg-amber-400' : 'bg-green-500'}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {d.from && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded border capitalize ${agentBadgeColor(d.from)}`}>
+                          {d.from}
                         </span>
-                      </>
+                      )}
+                      {(d.assigned_to ?? d.assignee) && (
+                        <>
+                          <span className="text-text-muted text-xs">&rarr;</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded border capitalize ${agentBadgeColor(d.assigned_to ?? d.assignee ?? '')}`}>
+                            {d.assigned_to ?? d.assignee}
+                          </span>
+                        </>
+                      )}
+                      {d.priority && (
+                        <span className={`text-[10px] font-medium uppercase ml-auto ${d.priority === 'high' ? 'text-danger' : d.priority === 'medium' ? 'text-warning' : 'text-text-muted'}`}>
+                          {d.priority}
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-sm mt-1 ${isPending ? '' : 'text-text-muted'}`}>{d.title ?? d.text ?? d.id}</p>
+                    {d.text && d.title && (
+                      <p className="text-xs text-text-muted mt-0.5 truncate">{d.text}</p>
                     )}
-                    {d.priority && (
-                      <span className={`text-xs ml-auto ${d.priority === 'high' ? 'text-danger' : d.priority === 'medium' ? 'text-warning' : 'text-text-muted'}`}>
-                        {d.priority}
-                      </span>
+                    {d.posted_at && (
+                      <div className="text-[10px] text-text-muted mt-1">{d.posted_at}</div>
                     )}
                   </div>
-                  <p className="text-sm mt-1">{d.title ?? d.text ?? d.id}</p>
-                  {d.posted_at && (
-                    <div className="text-xs text-text-muted mt-1">{d.posted_at}</div>
-                  )}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 capitalize ${statusColor}`}>
+                    {d.status ?? 'pending'}
+                  </span>
                 </div>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
-                  {d.status ?? 'pending'}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
