@@ -145,6 +145,23 @@ WHEN YOU PRODUCED SHAREABLE WORK, do these:
    - Interview scheduled → interview: "Prep package needed for {company} {date}"
    - Context file stale → archivist: "Review and update {file}"
 
+4. POST A USER-ACTION DIRECTIVE (when the USER needs to do something — not another agent):
+   Use this when you cannot proceed because the user needs to provide input, make a decision, review something, or take an action outside the system.
+   path: "directives" (append to existing array)
+   New entry: {"id":"dir-<timestamp>","type":"user_action","text":"<what the user needs to do and why>","assigned_to":"coach","from":"${request.agent}","priority":"high","status":"pending","posted_at":"<ISO>"}
+
+   The "type":"user_action" field is important — it triggers a visible prompt to the user on every page.
+   Always assign to "coach" — the coach page is where users go for guidance.
+
+   Examples:
+   - Context missing: "User needs to complete their career plan before company research can begin. Career plan is missing: target level, industries, functions."
+   - Review needed: "Tailored resume ready for Stripe Staff Engineer — user should review and approve before sending."
+   - Decision needed: "3 offers received — user should review the comparison and negotiate."
+   - Action needed: "25 LinkedIn connection requests generated — user should review and send them."
+   - Info needed: "Interview scheduled at Figma for Monday — user should confirm the time and format."
+
+   DO NOT post user-action directives for trivial things. Only when the user genuinely needs to act for the workflow to continue.
+
 WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a conversation — do NOT write to the blackboard. Just answer them.
 ---`
 
