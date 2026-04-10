@@ -655,11 +655,21 @@ export default function FindingPage() {
                           </a>
                         )}
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             setActiveTab('score')
                             setJdCompany(role.company)
                             setJdRole(role.title)
                             setJdUrl(role.url)
+                            // Load JD text from saved file if available
+                            if (role.jd_file) {
+                              try {
+                                const res = await fetch(`/api/vault/read-file?path=${encodeURIComponent(role.jd_file)}`)
+                                if (res.ok) {
+                                  const data = await res.json() as { content: string }
+                                  if (data.content) setJdText(data.content)
+                                }
+                              } catch { /* user can paste manually */ }
+                            }
                           }}
                           className="text-xs text-text-muted hover:text-accent font-medium"
                         >

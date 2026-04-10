@@ -11,13 +11,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'path parameter required' }, { status: 400 })
   }
 
+  // Normalize: strip leading 'search/' if present (agents write full paths)
+  const normalizedPath = path.replace(/^search\//, '')
+
   // Only allow reading from output/ and vault/ directories
-  if (!path.startsWith('output/') && !path.startsWith('vault/')) {
+  if (!normalizedPath.startsWith('output/') && !normalizedPath.startsWith('vault/')) {
     return NextResponse.json({ error: 'Can only read files from output/ or vault/' }, { status: 403 })
   }
 
   const searchDir = getSearchDir()
-  const fullPath = resolve(join(searchDir, path))
+  const fullPath = resolve(join(searchDir, normalizedPath))
 
   // Prevent path traversal
   if (!fullPath.startsWith(resolve(searchDir))) {
