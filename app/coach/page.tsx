@@ -944,6 +944,8 @@ function ProfilePanel({
   onSectionClick: (section: SectionKey) => void
   onEditSection: (section: string) => void
 }) {
+  const [expandedSection, setExpandedSection] = useState<string | null>(null)
+
   if (!status) return null
 
   const sections = status.sections
@@ -954,83 +956,112 @@ function ProfilePanel({
     <div className="flex flex-col h-full">
       <div className="px-5 py-4 border-b border-border">
         <h2 className="text-lg font-semibold text-text">Your Profile</h2>
-        <p className="text-sm text-text-muted mt-1">
-          Context files power every AI feature
-        </p>
+        <p className="text-sm text-text-muted mt-1">{filledCount}/5 complete</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {SECTION_ORDER.map((key) => {
           const sect = sections[key]
           if (!sect) return null
           const meta = { icon: sect.icon || SECTION_META[key]?.icon || '', label: sect.label || SECTION_META[key]?.label || key, description: sect.description || SECTION_META[key]?.description || '' }
           const isCurrent = currentSection === key
           const isFilled = sect.filled
+          const isExpanded = expandedSection === key
+          const pct = sect.required_total > 0 ? Math.round((sect.required_filled / sect.required_total) * 100) : 0
 
           return (
             <div
               key={key}
-              className={`rounded-lg border p-3.5 transition-all cursor-pointer ${
+              className={`rounded-lg border transition-all ${
                 isCurrent
-                  ? 'border-accent bg-accent/5 shadow-sm'
+                  ? 'border-accent bg-accent/5'
                   : isFilled
-                    ? 'border-border bg-surface hover:border-accent/40'
-                    : 'border-border/60 bg-bg hover:border-accent/40'
+                    ? 'border-border bg-surface'
+                    : 'border-border/60 bg-bg'
               }`}
             >
-              <div className="flex items-start gap-2.5">
-                <span className="text-base mt-0.5">
+              {/* Compact header — always visible */}
+              <div
+                className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
+                onClick={() => setExpandedSection(isExpanded ? null : key)}
+              >
+                <span className="text-sm">
                   {isFilled ? '\u2705' : isCurrent ? '\uD83D\uDD35' : '\u26AA'}
                 </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">{meta.icon}</span>
-                    <span className="text-sm font-medium text-text">{meta.label}</span>
-                    <div className="ml-auto flex items-center gap-2">
-                      {isFilled && (
-                        <>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onSectionClick(key) }}
-                            className="text-xs text-text-muted hover:text-accent cursor-pointer"
-                          >
-                            Discuss
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onEditSection(key) }}
-                            className="text-xs text-accent hover:text-accent-hover font-medium cursor-pointer"
-                          >
-                            Edit
-                          </button>
-                        </>
-                      )}
-                      {!isFilled && !isCurrent && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onSectionClick(key) }}
-                          className="text-xs text-accent hover:text-accent-hover cursor-pointer"
-                        >
-                          {sect.required_filled > 0 ? 'Resume' : 'Start'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-xs text-text-muted mt-0.5">{meta.description}</p>
-                  {/* Compact preview */}
+                <span className="text-xs">{meta.icon}</span>
+                <span className="text-sm font-medium text-text flex-1 truncate">{meta.label}</span>
+
+                {/* Brief status on the right */}
+                {!isFilled && sect.required_total > 0 && (
+                  <span className="text-[10px] text-text-muted">{pct}%</span>
+                )}
+                {isFilled && sect.lastModified && (
+                  <span className="text-[10px] text-text-muted">{new Date(sect.lastModified).toLocaleDateString()}</span>
+                )}
+
+                {/* Action button */}
+                {isFilled ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEditSection(key) }}
+                    className="text-[10px] text-accent hover:text-accent-hover font-medium cursor-pointer px-1.5 py-0.5 rounded hover:bg-accent/10"
+                  >
+                    Edit
+                  </button>
+                ) : !isCurrent ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onSectionClick(key) }}
+                    className="text-[10px] text-accent hover:text-accent-hover cursor-pointer px-1.5 py-0.5 rounded hover:bg-accent/10"
+                  >
+                    {sect.required_filled > 0 ? 'Resume' : 'Start'}
+                  </button>
+                ) : null}
+
+                <span className="text-[10px] text-text-muted">{isExpanded ? '▲' : '▼'}</span>
+              </div>
+
+              {/* Expanded details */}
+              {isExpanded && (
+                <div className="px-3 pb-3 border-t border-border/50 pt-2">
+                  <p className="text-xs text-text-muted mb-2">{meta.description}</p>
+
                   {contextData[key] && (
-                    <div className="mt-2">
+                    <div className="mb-2">
                       <ContextPreviewCompact name={key} data={contextData[key]} />
                     </div>
                   )}
-                  {/* Field-level progress (only for incomplete sections) */}
+
                   {!isFilled && <FieldProgressBar section={sect} />}
                   {!isFilled && <MissingFieldsList section={sect} />}
-                  {isFilled && sect.lastModified && (
-                    <p className="text-xs text-text-muted mt-1">
-                      Updated {new Date(sect.lastModified).toLocaleDateString()}
-                    </p>
-                  )}
+
+                  {/* Actions row */}
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
+                    {isFilled && (
+                      <button
+                        onClick={() => onSectionClick(key)}
+                        className="text-xs text-text-muted hover:text-accent cursor-pointer"
+                      >
+                        Discuss with coach
+                      </button>
+                    )}
+                    {isFilled && (
+                      <button
+                        onClick={() => onEditSection(key)}
+                        className="text-xs text-accent hover:text-accent-hover font-medium cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {!isFilled && (
+                      <button
+                        onClick={() => onSectionClick(key)}
+                        className="text-xs text-accent hover:text-accent-hover cursor-pointer"
+                      >
+                        {sect.required_filled > 0 ? 'Resume with coach' : 'Start with coach'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-              {/* "Let's work on this section" removed — "Start" button in header handles this */}
+              )}
             </div>
           )
         })}
