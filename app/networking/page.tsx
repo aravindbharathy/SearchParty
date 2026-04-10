@@ -23,11 +23,23 @@ interface Contact {
   name: string
   company: string
   role: string
-  relationship: 'cold' | 'connected' | 'warm' | 'referred'
+  relationship: 'cold' | 'connected' | 'warm' | 'referred' | 'close' | 'mentor'
   linkedin_url: string
   outreach: Outreach[]
   follow_ups: FollowUp[]
   notes: string
+  how_you_know?: string
+  how_we_met?: string
+  their_team?: string
+  team?: string
+  can_help_with?: string | string[]
+  their_interests?: string | string[]
+  interests?: string | string[]
+  mutual_connections?: string | string[]
+  last_interaction?: string | Record<string, unknown>
+  email?: string
+  linkedin?: string
+  [key: string]: unknown
 }
 
 interface NetworkingStats {
@@ -44,6 +56,8 @@ const RELATIONSHIP_BADGES: Record<string, { label: string; bg: string; text: str
   connected: { label: 'Connected', bg: 'bg-accent/10', text: 'text-accent' },
   warm: { label: 'Warm', bg: 'bg-warning/10', text: 'text-warning' },
   referred: { label: 'Referred', bg: 'bg-success/10', text: 'text-success' },
+  close: { label: 'Close', bg: 'bg-success/20', text: 'text-success' },
+  mentor: { label: 'Mentor', bg: 'bg-accent/20', text: 'text-accent' },
 }
 
 export default function NetworkingPage() {
@@ -71,6 +85,14 @@ export default function NetworkingPage() {
   const [newName, setNewName] = useState('')
   const [newCompany, setNewCompany] = useState('')
   const [newRole, setNewRole] = useState('')
+  const [newRelationship, setNewRelationship] = useState<string>('cold')
+  const [newHowYouKnow, setNewHowYouKnow] = useState('')
+  const [newTheirTeam, setNewTheirTeam] = useState('')
+  const [newCanHelpWith, setNewCanHelpWith] = useState('')
+  const [newTheirInterests, setNewTheirInterests] = useState('')
+  const [newLinkedinUrl, setNewLinkedinUrl] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [newNotes, setNewNotes] = useState('')
 
   const loadContacts = useCallback(async () => {
     try {
@@ -238,12 +260,32 @@ export default function NetworkingPage() {
       const res = await fetch('/api/networking/contacts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName, company: newCompany, role: newRole }),
+        body: JSON.stringify({
+          name: newName,
+          company: newCompany,
+          role: newRole,
+          relationship: newRelationship,
+          how_you_know: newHowYouKnow,
+          their_team: newTheirTeam,
+          can_help_with: newCanHelpWith,
+          their_interests: newTheirInterests,
+          linkedin_url: newLinkedinUrl,
+          email: newEmail,
+          notes: newNotes,
+        }),
       })
       if (res.ok) {
         setNewName('')
         setNewCompany('')
         setNewRole('')
+        setNewRelationship('cold')
+        setNewHowYouKnow('')
+        setNewTheirTeam('')
+        setNewCanHelpWith('')
+        setNewTheirInterests('')
+        setNewLinkedinUrl('')
+        setNewEmail('')
+        setNewNotes('')
         setShowAddForm(false)
         loadContacts()
         loadStats()
@@ -323,6 +365,37 @@ export default function NetworkingPage() {
   }
   pendingFollowUps.sort((a, b) => a.fu.due.localeCompare(b.fu.due))
 
+  // Helper to display a value that may be string, array, or object
+  const displayValue = (val: unknown): string => {
+    if (!val) return ''
+    if (Array.isArray(val)) return val.join(', ')
+    if (typeof val === 'object') return JSON.stringify(val)
+    return String(val)
+  }
+
+  // Unified status bar state
+  const isAnyAgentRunning = connectionBatchStatus === 'running' || linkedinAuditStatus === 'running' || referralStatus === 'running'
+  const isAnyAgentDone = connectionBatchStatus === 'done' || linkedinAuditStatus === 'done' || referralStatus === 'done'
+  const isAnyAgentError = connectionBatchStatus === 'error' || linkedinAuditStatus === 'error' || referralStatus === 'error'
+
+  const getStatusMessage = (): string => {
+    if (connectionBatchStatus === 'running') return 'Networking agent generating connection batch (2-5 min)...'
+    if (linkedinAuditStatus === 'running') return 'Running LinkedIn profile audit...'
+    if (referralStatus === 'running' && referralTarget) return `Generating referral sequence for ${referralTarget.name} at ${referralTarget.company}...`
+    if (connectionBatchStatus === 'done') return 'Connection batch generated.'
+    if (linkedinAuditStatus === 'done') return 'LinkedIn audit complete.'
+    if (referralStatus === 'done' && referralTarget) return `Referral sequence generated for ${referralTarget.name} at ${referralTarget.company}.`
+    if (connectionBatchStatus === 'error') return 'Connection batch generation failed.'
+    if (linkedinAuditStatus === 'error') return 'LinkedIn audit failed.'
+    if (referralStatus === 'error') return 'Referral generation failed.'
+    return ''
+  }
+
+  const handleRetryLastAgent = () => {
+    if (connectionBatchStatus === 'error') { setConnectionBatchStatus('idle'); handleGenerateConnectionBatch() }
+    else if (linkedinAuditStatus === 'error') { setLinkedinAuditStatus('idle'); handleLinkedinAudit() }
+  }
+
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
       <h1 className="text-3xl font-bold mb-2">Networking</h1>
@@ -353,7 +426,7 @@ export default function NetworkingPage() {
       </div>
 
       {/* Action Bar */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-3">
         <button
           onClick={handleGenerateConnectionBatch}
           disabled={connectionBatchStatus === 'running'}
@@ -374,47 +447,72 @@ export default function NetworkingPage() {
         >
           Add Contact
         </button>
-        {connectionBatchStatus === 'running' && (
-          <span className="text-sm text-text-muted flex items-center gap-2">
-            <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-            Networking agent generating batch (2-5 min)...
-          </span>
-        )}
-        {connectionBatchStatus === 'done' && (
-          <span className="text-sm text-success">Batch generated. Check messages below.</span>
-        )}
-        {connectionBatchStatus === 'error' && (
-          <span className="text-sm text-danger">Batch generation failed.</span>
-        )}
-        {linkedinAuditStatus === 'running' && (
-          <span className="text-sm text-text-muted flex items-center gap-2">
-            <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-            Running LinkedIn profile audit...
-          </span>
-        )}
-        {linkedinAuditStatus === 'done' && (
-          <span className="text-sm text-success">LinkedIn audit complete. Check output below.</span>
-        )}
-        {linkedinAuditStatus === 'error' && (
-          <span className="text-sm text-danger">LinkedIn audit failed.</span>
-        )}
       </div>
 
-      {/* Add Contact Form */}
+      {/* Unified Status Bar (Issue 4) */}
+      {(isAnyAgentRunning || isAnyAgentDone || isAnyAgentError) && (
+        <div className={`rounded-lg p-3 mb-3 border text-sm flex items-center gap-2 ${
+          isAnyAgentRunning ? 'bg-surface border-accent/20 text-text-muted'
+          : isAnyAgentError ? 'bg-danger/5 border-danger/20 text-danger'
+          : 'bg-success/5 border-success/20 text-success'
+        }`}>
+          {isAnyAgentRunning && (
+            <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin flex-shrink-0" />
+          )}
+          <span>{getStatusMessage()}</span>
+          {referralStatus === 'done' && referralSaveStatus === 'saving' && (
+            <span className="text-xs text-text-muted flex items-center gap-1 ml-2">
+              <span className="inline-block w-2 h-2 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+              Saving outreach &amp; follow-ups...
+            </span>
+          )}
+          {referralStatus === 'done' && referralSaveStatus === 'saved' && (
+            <span className="text-xs text-success ml-2">Saved 3 outreach entries + 2 follow-ups</span>
+          )}
+          {referralStatus === 'done' && referralSaveStatus === 'error' && (
+            <span className="text-xs text-danger ml-2">Failed to auto-save to contact.</span>
+          )}
+          {isAnyAgentError && (
+            <button onClick={handleRetryLastAgent} className="ml-auto text-xs px-2 py-1 border border-danger/30 rounded hover:bg-danger/10 transition-colors">
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Agent Output (Issue 3: placed right below action bar) */}
+      {latestAgentOutput && (
+        <div className="mb-6">
+          <AgentChat
+            agentName="networking"
+            initialOutput={latestAgentOutput}
+            skill={
+              connectionBatchStatus === 'done' ? 'connection-request'
+              : linkedinAuditStatus === 'done' ? 'linkedin-audit'
+              : 'referral-request'
+            }
+            onClose={() => setLatestAgentOutput(null)}
+            metadata={referralTarget ? { company: referralTarget.company } : undefined}
+          />
+        </div>
+      )}
+
+      {/* Add Contact Form (Issue 1: expanded with all fields) */}
       {showAddForm && (
         <div className="bg-surface border border-border rounded-lg p-5 mb-6">
           <h3 className="font-semibold text-sm mb-3">Add New Contact</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Basic Info */}
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Name"
+              placeholder="Name *"
               className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
             />
             <input
               value={newCompany}
               onChange={(e) => setNewCompany(e.target.value)}
-              placeholder="Company"
+              placeholder="Company *"
               className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
             />
             <input
@@ -422,6 +520,63 @@ export default function NetworkingPage() {
               onChange={(e) => setNewRole(e.target.value)}
               placeholder="Role (optional)"
               className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+            />
+            <select
+              value={newRelationship}
+              onChange={(e) => setNewRelationship(e.target.value)}
+              className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+            >
+              <option value="cold">Cold</option>
+              <option value="connected">Connected</option>
+              <option value="warm">Warm</option>
+              <option value="referred">Referred</option>
+              <option value="close">Close</option>
+              <option value="mentor">Mentor</option>
+            </select>
+            {/* Context */}
+            <input
+              value={newHowYouKnow}
+              onChange={(e) => setNewHowYouKnow(e.target.value)}
+              placeholder="e.g., former colleague at Google"
+              className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+            />
+            <input
+              value={newTheirTeam}
+              onChange={(e) => setNewTheirTeam(e.target.value)}
+              placeholder="e.g., Platform Engineering"
+              className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+            />
+            <input
+              value={newCanHelpWith}
+              onChange={(e) => setNewCanHelpWith(e.target.value)}
+              placeholder="e.g., referral, company intel"
+              className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+            />
+            <input
+              value={newTheirInterests}
+              onChange={(e) => setNewTheirInterests(e.target.value)}
+              placeholder="e.g., distributed systems, hiking"
+              className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+            />
+            {/* Contact Info */}
+            <input
+              value={newLinkedinUrl}
+              onChange={(e) => setNewLinkedinUrl(e.target.value)}
+              placeholder="LinkedIn URL"
+              className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+            />
+            <input
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="Email"
+              className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+            />
+            <textarea
+              value={newNotes}
+              onChange={(e) => setNewNotes(e.target.value)}
+              placeholder="Notes"
+              rows={2}
+              className="md:col-span-2 px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 resize-y"
             />
           </div>
           <div className="flex items-center gap-2 mt-3">
@@ -474,54 +629,7 @@ export default function NetworkingPage() {
         </div>
       )}
 
-      {/* Referral Status */}
-      {referralStatus === 'running' && referralTarget && (
-        <div className="bg-surface border border-accent/20 rounded-lg p-4 mb-6">
-          <p className="text-sm flex items-center gap-2">
-            <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-            Generating referral sequence for {referralTarget.name} at {referralTarget.company}...
-          </p>
-        </div>
-      )}
-      {referralStatus === 'done' && referralTarget && (
-        <div className="bg-surface border border-success/20 rounded-lg p-4 mb-6">
-          <p className="text-sm text-success">Referral sequence generated for {referralTarget.name} at {referralTarget.company}.</p>
-          {/* FIX 5: Show what was saved */}
-          {referralSaveStatus === 'saving' && (
-            <p className="text-xs text-text-muted mt-1 flex items-center gap-1">
-              <span className="inline-block w-2 h-2 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-              Saving outreach &amp; follow-ups to contact...
-            </p>
-          )}
-          {referralSaveStatus === 'saved' && (
-            <div className="text-xs text-success mt-2 space-y-0.5">
-              <p>Saved to {referralTarget.name}:</p>
-              <p>- 3 outreach entries (referral-request, step-2, step-3)</p>
-              <p>- 2 follow-ups scheduled (day 3 and day 7)</p>
-            </div>
-          )}
-          {referralSaveStatus === 'error' && (
-            <p className="text-xs text-danger mt-1">Failed to auto-save to contact. You can manually save below.</p>
-          )}
-        </div>
-      )}
-
-      {/* Agent Output */}
-      {latestAgentOutput && (
-        <div className="mb-6">
-          <AgentChat
-            agentName="networking"
-            initialOutput={latestAgentOutput}
-            skill={
-              connectionBatchStatus === 'done' ? 'connection-request'
-              : linkedinAuditStatus === 'done' ? 'linkedin-audit'
-              : 'referral-request'
-            }
-            onClose={() => setLatestAgentOutput(null)}
-            metadata={referralTarget ? { company: referralTarget.company } : undefined}
-          />
-        </div>
-      )}
+      {/* Referral/Agent status and output are now shown in the unified status bar above */}
 
       {/* Contacts grouped by company */}
       {contacts.length === 0 ? (
@@ -608,18 +716,99 @@ export default function NetworkingPage() {
                                 <option value="connected">Connected</option>
                                 <option value="warm">Warm</option>
                                 <option value="referred">Referred</option>
+                                <option value="close">Close</option>
+                                <option value="mentor">Mentor</option>
                               </select>
                             </div>
+                            {/* Rich fields (Issue 2 + Issue 5) */}
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">How you know {savedContactField === `${contact.id}-how_you_know` && <span className="text-success">- Saved</span>}</div>
+                              <input
+                                defaultValue={String(contact.how_you_know || contact.how_we_met || '')}
+                                onBlur={(e) => { if (e.target.value !== String(contact.how_you_know || contact.how_we_met || '')) handleContactFieldUpdate(contact.id, 'how_you_know', e.target.value) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                placeholder="e.g., former colleague at Google"
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">Team {savedContactField === `${contact.id}-their_team` && <span className="text-success">- Saved</span>}</div>
+                              <input
+                                defaultValue={String(contact.their_team || contact.team || '')}
+                                onBlur={(e) => { if (e.target.value !== String(contact.their_team || contact.team || '')) handleContactFieldUpdate(contact.id, 'their_team', e.target.value) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                placeholder="e.g., Platform Engineering"
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">Can help with {savedContactField === `${contact.id}-can_help_with` && <span className="text-success">- Saved</span>}</div>
+                              <input
+                                defaultValue={displayValue(contact.can_help_with)}
+                                onBlur={(e) => { if (e.target.value !== displayValue(contact.can_help_with)) handleContactFieldUpdate(contact.id, 'can_help_with', e.target.value) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                placeholder="e.g., referral, company intel"
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">Their interests {savedContactField === `${contact.id}-their_interests` && <span className="text-success">- Saved</span>}</div>
+                              <input
+                                defaultValue={displayValue(contact.their_interests || contact.interests)}
+                                onBlur={(e) => { if (e.target.value !== displayValue(contact.their_interests || contact.interests)) handleContactFieldUpdate(contact.id, 'their_interests', e.target.value) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                placeholder="e.g., distributed systems, hiking"
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">Mutual connections {savedContactField === `${contact.id}-mutual_connections` && <span className="text-success">- Saved</span>}</div>
+                              <input
+                                defaultValue={displayValue(contact.mutual_connections)}
+                                onBlur={(e) => { if (e.target.value !== displayValue(contact.mutual_connections)) handleContactFieldUpdate(contact.id, 'mutual_connections', e.target.value) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                placeholder="Mutual connections"
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">Last interaction {savedContactField === `${contact.id}-last_interaction` && <span className="text-success">- Saved</span>}</div>
+                              <input
+                                defaultValue={displayValue(contact.last_interaction)}
+                                onBlur={(e) => { if (e.target.value !== displayValue(contact.last_interaction)) handleContactFieldUpdate(contact.id, 'last_interaction', e.target.value) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                placeholder="Last interaction"
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              />
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-xs text-text-muted mb-0.5">LinkedIn URL {savedContactField === `${contact.id}-linkedin_url` && <span className="text-success">- Saved</span>}</div>
-                            <input
-                              defaultValue={contact.linkedin_url}
-                              onBlur={(e) => { if (e.target.value !== contact.linkedin_url) handleContactFieldUpdate(contact.id, 'linkedin_url', e.target.value) }}
-                              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                              placeholder="https://linkedin.com/in/..."
-                              className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
-                            />
+                          {/* Contact info row */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">Email {savedContactField === `${contact.id}-email` && <span className="text-success">- Saved</span>}</div>
+                              <input
+                                defaultValue={String(contact.email || '')}
+                                onBlur={(e) => { if (e.target.value !== String(contact.email || '')) handleContactFieldUpdate(contact.id, 'email', e.target.value) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                placeholder="Email"
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-xs text-text-muted mb-0.5">
+                                LinkedIn {savedContactField === `${contact.id}-linkedin_url` && <span className="text-success">- Saved</span>}
+                                {(contact.linkedin_url || contact.linkedin) && (
+                                  <a href={String(contact.linkedin_url || contact.linkedin)} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline ml-2">Open</a>
+                                )}
+                              </div>
+                              <input
+                                defaultValue={String(contact.linkedin_url || contact.linkedin || '')}
+                                onBlur={(e) => { if (e.target.value !== String(contact.linkedin_url || contact.linkedin || '')) handleContactFieldUpdate(contact.id, 'linkedin_url', e.target.value) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                placeholder="https://linkedin.com/in/..."
+                                className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
+                              />
+                            </div>
                           </div>
                           <div>
                             <div className="text-xs text-text-muted mb-0.5">Notes {savedContactField === `${contact.id}-notes` && <span className="text-success">- Saved</span>}</div>
