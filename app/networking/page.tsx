@@ -210,25 +210,33 @@ export default function NetworkingPage() {
     }
   }, [agentStatus, agentOutput, loadContacts, loadStats, connectionBatchStatus, linkedinAuditStatus, referralStatus, referralContactId, saveReferralToContact])
 
-  // On mount: if agent completed but output wasn't captured, load from entry file
+  // On mount: always check if networking agent has completed output to show
   useEffect(() => {
-    if ((connectionBatchStatus === 'done' || linkedinAuditStatus === 'done' || referralStatus === 'done') && !latestAgentOutput) {
-      // Try to load the most recent entry for this agent
-      fetch('/api/agent/status')
-        .then(r => r.json())
-        .then(data => {
-          const netAgent = data?.agents?.networking
-          if (netAgent?.spawn_id) {
-            return fetch(`/api/agent/spawn/${netAgent.spawn_id}`)
+    fetch('/api/agent/status')
+      .then(r => r.json())
+      .then(data => {
+        const netAgent = data?.agents?.networking
+        if (netAgent?.status === 'completed' && netAgent?.spawn_id) {
+          return fetch(`/api/agent/spawn/${netAgent.spawn_id}`).then(r => r.json())
+        }
+        if (netAgent?.status === 'running') {
+          // Agent is still running — make sure UI reflects that
+          if (connectionBatchStatus === 'idle' && linkedinAuditStatus === 'idle' && referralStatus === 'idle') {
+            setConnectionBatchStatus('running')
           }
-          return null
-        })
-        .then(r => r?.json())
-        .then(data => {
-          if (data?.output) setLatestAgentOutput(data.output)
-        })
-        .catch(() => {})
-    }
+        }
+        return null
+      })
+      .then(data => {
+        if (data?.output && data?.status === 'completed') {
+          setLatestAgentOutput(data.output)
+          // Figure out which action it was from the entry name
+          if (connectionBatchStatus === 'running' || connectionBatchStatus === 'idle') {
+            setConnectionBatchStatus('done')
+          }
+        }
+      })
+      .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
