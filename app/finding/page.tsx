@@ -92,7 +92,7 @@ export default function FindingPage() {
   // ─── Tab state (persisted) ───────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') return 'score'
-    try { return (localStorage.getItem('finding-active-tab') as TabKey) || 'open-roles' } catch { return 'open-roles' }
+    try { return (localStorage.getItem('finding-active-tab') as TabKey) || 'companies' } catch { return 'companies' }
   })
 
   // ─── Data state ──────────────────────────────────────────────────────────
@@ -542,10 +542,10 @@ CRITICAL: For every role you find, you MUST verify the posting is still active b
         {/* Tab Bar */}
         <div className="flex gap-6 border-b border-border px-5">
           {([
+            { key: 'companies' as TabKey, label: `Companies${companies.length > 0 ? ` (${companies.length})` : ''}` },
             { key: 'open-roles' as TabKey, label: `Open Roles${openRoles.filter(r => r.status === 'new').length > 0 ? ` (${openRoles.filter(r => r.status === 'new').length})` : ''}` },
             { key: 'score' as TabKey, label: 'Score JD' },
             { key: 'scored-jds' as TabKey, label: `Scored JDs${scoredJDs.length > 0 ? ` (${scoredJDs.length})` : ''}` },
-            { key: 'companies' as TabKey, label: `Companies${companies.length > 0 ? ` (${companies.length})` : ''}` },
             { key: 'intel' as TabKey, label: 'Intel' },
           ]).map(tab => (
             <button
