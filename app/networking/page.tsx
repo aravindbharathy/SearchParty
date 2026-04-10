@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { MarkdownView } from '../_components/markdown-view'
 import { useAgentEvents } from '../hooks/use-agent-events'
+import { useDirectiveNotifications } from '../hooks/use-directive-notifications'
+import { DirectiveBanner } from '../_components/directive-banner'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -193,6 +195,8 @@ export default function NetworkingPage() {
 
   // Derived from agent hook — survives tab switches
   const chatProcessing = agentStatus === 'running'
+
+  const { notifications, dismiss: dismissNotification, dismissAll: dismissAllNotifications } = useDirectiveNotifications('networking')
 
   // ─── Data Loading ───────────────────────────────────────────────────────
 
@@ -540,6 +544,14 @@ export default function NetworkingPage() {
             ))}
           </div>
         </div>
+
+        {/* Directive notifications */}
+        <DirectiveBanner
+          notifications={notifications}
+          onDismiss={dismissNotification}
+          onDismissAll={dismissAllNotifications}
+          onDiscuss={sendChatMessage}
+        />
 
         {/* Tab Content - Scrollable */}
         <div className="flex-1 overflow-y-auto px-6 py-4">

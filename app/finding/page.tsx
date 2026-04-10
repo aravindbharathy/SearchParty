@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useAgentEvents } from '../hooks/use-agent-events'
+import { useDirectiveNotifications } from '../hooks/use-directive-notifications'
+import { DirectiveBanner } from '../_components/directive-banner'
 import { MarkdownView } from '../_components/markdown-view'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -153,6 +155,9 @@ export default function FindingPage() {
   // Derived from agent hook — survives tab switches
   const chatProcessing = agentStatus === 'running'
   const actionProcessing = chatProcessing && lastActionRef.current !== 'init' && lastActionRef.current !== 'chat'
+
+  // Directive notifications for research agent
+  const { notifications, dismiss: dismissNotification, dismissAll: dismissAllNotifications } = useDirectiveNotifications('research')
 
   // ─── Auto-detect company from JD text ────────────────────────────────────
   const detectedCompany = useMemo(() => {
@@ -566,6 +571,14 @@ export default function FindingPage() {
             </button>
           ))}
         </div>
+
+        {/* Directive notifications */}
+        <DirectiveBanner
+          notifications={notifications}
+          onDismiss={dismissNotification}
+          onDismissAll={dismissAllNotifications}
+          onDiscuss={sendChatMessage}
+        />
 
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
