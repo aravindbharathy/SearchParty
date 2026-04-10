@@ -55,44 +55,10 @@ export async function POST(req: Request) {
       })
     }
 
-    // Build the scan directive
-    const scanDirective = `Scan for open roles at my target companies that match my career plan.
+    // Build the scan directive — references the skill file for full instructions
+    const scanDirective = `READ the skill file .claude/skills/scan-roles/SKILL.md and follow its instructions to scan for open roles at all high-priority target companies. This is a full automated scan.
 
-INSTRUCTIONS:
-1. Read search/context/career-plan.yaml for my target level, functions, industries, locations, and comp floor.
-2. Read search/context/target-companies.yaml for the list of companies to scan (focus on high and medium priority).
-3. For each high-priority company (up to 10), use WebSearch to find current open roles matching my profile:
-   - Search: "{company name} careers {target role keywords} {location}"
-   - Look for roles posted in the last 10 days
-   - Match against my target level and functions
-4. For each role found, record: company, title, URL, location, posted date, source, and a quick fit estimate (0-100).
-5. For roles with fit_estimate >= 75: use WebFetch to read the job posting URL and extract the full JD text. Save each JD to search/vault/job-descriptions/{company-slug}-{role-slug}.txt with the full text. Set jd_file field to the saved path.
-6. Write ALL discovered roles to search/pipeline/open-roles.yaml using this format:
-   last_scan: "{current ISO timestamp}"
-   scan_count: {increment previous count}
-   roles: [{existing roles} + {new roles with status: "new"}]
-
-   Each role entry:
-   - id: "role-{timestamp}-{random}"
-   - company: "{company name}"
-   - company_slug: "{slug}"
-   - title: "{role title}"
-   - url: "{job posting URL}"
-   - location: "{location}"
-   - posted_date: "{when posted}"
-   - discovered_date: "{today}"
-   - source: "web_search"
-   - fit_estimate: {0-100}
-   - status: "new"
-   - jd_file: "{path to saved JD if fetched}"
-
-7. IMPORTANT: Preserve existing roles in the file — only add new ones. Deduplicate by URL.
-8. After scanning, post findings to blackboard for the daily briefing.
-9. For roles with fit_estimate >= 75 AND a saved JD, post directives:
-   - To research agent (self-directive): "Score JD at {jd_file} for {company} {title}"
-   - To resume agent: "Tailor resume for {company} {title}, JD at {jd_file}"
-   - To networking agent: "Check connections at {company} for {title} referral"
-`
+CRITICAL: For every role you find, you MUST verify the posting is still active by WebFetching the URL and checking for an Apply button. Do NOT add roles where the link is dead, redirects to a generic careers page, or says "position filled". Save the full JD text for verified active roles.`
 
     const result = await processManager.spawn({
       agent: 'research',
