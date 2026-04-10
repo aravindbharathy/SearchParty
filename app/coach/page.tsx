@@ -41,7 +41,7 @@ const SECTION_KEYWORDS: Record<SectionKey, string[]> = {
 
 const ONBOARDING_DIRECTIVE = `You are onboarding a new Search Party user. Your job is to walk them through setting up their complete job search profile.
 
-IMPORTANT: The detailed setup instructions are in the project file .claude/skills/setup/SKILL.md (relative to the project root). Try to Read it. If you cannot access it, follow the phase instructions below — they contain all the essential questions and schemas.
+IMPORTANT: First, run this command: cat .claude/skills/setup/SKILL.md — it contains detailed instructions for each section including what questions to ask, how to push for specifics, what schemas to use, and how to write the YAML files. Follow those instructions closely along with the phase guide below.
 
 ## Onboarding Flow — Start Easy, Go Deep
 
