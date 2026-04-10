@@ -170,12 +170,48 @@ Write to `search/context/qa-master.yaml`.
 
 ## Your Network (`/setup connections`)
 
-Ask conversationally:
-1. "Who do you know at your target companies?"
-2. "Any former colleagues who might refer you?"
-3. "LinkedIn connections in your target industry?"
-4. For each contact: name, company, role, relationship strength
-5. Write to `search/context/connection-tracker.yaml`
+Ask conversationally. The goal is to map the user's real relationships, not just collect names.
+
+### Step 1: Discover Contacts
+1. "Who do you know at your target companies? Think former colleagues, alumni, conference contacts."
+2. "Any former teammates or managers who moved to companies you're interested in?"
+3. "Anyone in your LinkedIn network at these companies?"
+4. "Do you have any mentors or close contacts in the industry who could make introductions?"
+
+### Step 2: For Each Contact, Gather Rich Details
+For EACH person mentioned, ask:
+- **Name and company** (required)
+- **Their role/title** — what team are they on?
+- **How you know them** — "former colleague at Google", "met at QCon 2025", "college alumni"
+- **Relationship strength** — cold (never talked), connected (LinkedIn), warm (have talked), referred (already helping), close (good friend), mentor
+- **What they can help with** — "could refer me", "knows the hiring manager", "can give company intel", "interview tips"
+- **Their interests** — what to mention when reaching out (shared hobbies, technical interests, past projects together)
+- **Mutual connections** — anyone who could introduce you?
+- **Last interaction** — when did you last talk and about what?
+- **LinkedIn URL and/or email** (if known)
+
+### Step 3: Write to Context
+Write to `search/context/connection-tracker.yaml` using this schema:
+
+```yaml
+contacts:
+  - id: conn-001
+    name: "Jane Doe"
+    company: "Stripe"
+    role: "Staff Engineer, Platform"
+    relationship: "warm"
+    how_you_know: "Former colleague at Google Cloud, worked together on Networking team 2021-2023"
+    mutual_connections: "Bob Smith (still at Google)"
+    their_team: "Platform Engineering"
+    can_help_with: "referral, insider view of Stripe eng culture"
+    their_interests: "distributed systems, hiking, Rust programming"
+    last_interaction: "Caught up over coffee Dec 2025, talked about their new team"
+    linkedin_url: "https://linkedin.com/in/janedoe"
+    email: "jane@example.com"
+    notes: "Very responsive, offered to refer me when I'm ready"
+```
+
+Push for specifics — "how do you know them?" is more useful than just a name.
 
 ## Reset (`/setup reset`)
 

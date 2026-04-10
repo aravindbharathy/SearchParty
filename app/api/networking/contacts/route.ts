@@ -28,7 +28,14 @@ interface NewContact {
   company: string
   role?: string
   relationship?: string
+  how_you_know?: string
+  mutual_connections?: string
+  their_team?: string
+  can_help_with?: string
+  their_interests?: string
+  last_interaction?: string
   linkedin_url?: string
+  email?: string
   notes?: string
 }
 
@@ -60,8 +67,15 @@ export async function POST(req: Request) {
         name: body.name,
         company: body.company,
         role: body.role || '',
-        relationship: (body.relationship as 'cold' | 'connected' | 'warm' | 'referred') || 'cold',
+        relationship: body.relationship || 'cold',
+        how_you_know: body.how_you_know || '',
+        mutual_connections: body.mutual_connections || '',
+        their_team: body.their_team || '',
+        can_help_with: body.can_help_with || '',
+        their_interests: body.their_interests || '',
+        last_interaction: body.last_interaction || '',
         linkedin_url: body.linkedin_url || '',
+        email: body.email || '',
         outreach: [],
         follow_ups: [],
         notes: body.notes || '',

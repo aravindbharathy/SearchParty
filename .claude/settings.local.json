@@ -50,11 +50,12 @@
       "Write(search/**)",
       "Edit(search/**)",
       "Read(search/**)",
-      "Read(.claude/**)"
+      "Read(.claude/**)",
+      "Bash(help with?\", \"Any mutual connections?\", \"Their interests?\":*)"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "blackboard-channel"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
