@@ -1711,9 +1711,19 @@ export default function CoachPage() {
         {/* Coach skill buttons */}
         <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 overflow-x-auto">
           <button
-            onClick={() => {
+            onClick={async () => {
               try { localStorage.setItem('coach-last-briefing-date', new Date().toISOString().split('T')[0]) } catch {}
-              sendMessage('Give me my daily briefing. Read pipeline, networking, and interview data to surface deadlines, follow-ups, and priorities for today.')
+              // Trigger role scan if stale before briefing
+              try {
+                const scanRes = await fetch('/api/agent/scan-roles')
+                if (scanRes.ok) {
+                  const scanData = await scanRes.json() as { scan_stale: boolean }
+                  if (scanData.scan_stale) {
+                    fetch('/api/agent/scan-roles', { method: 'POST' }).catch(() => {})
+                  }
+                }
+              } catch {}
+              sendMessage('Give me my daily briefing. Read search/pipeline/applications.yaml, search/pipeline/open-roles.yaml, search/context/connection-tracker.yaml, and search/context/snapshot.yaml. Include: (1) new open roles discovered at target companies, (2) follow-ups due, (3) upcoming interviews, (4) pipeline status, (5) priorities for today.')
             }}
             disabled={isProcessing}
             className="px-3 py-1.5 text-xs font-medium border border-accent/30 text-accent rounded-full hover:bg-accent/10 transition-colors whitespace-nowrap disabled:opacity-50"

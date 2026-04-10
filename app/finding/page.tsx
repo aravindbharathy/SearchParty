@@ -58,7 +58,24 @@ interface ChatMessage {
   content: string
 }
 
-type TabKey = 'score' | 'scored-jds' | 'companies' | 'intel'
+type TabKey = 'open-roles' | 'score' | 'scored-jds' | 'companies' | 'intel'
+
+interface OpenRole {
+  id: string
+  company: string
+  company_slug: string
+  title: string
+  url: string
+  location: string
+  posted_date: string
+  discovered_date: string
+  source: string
+  fit_estimate: number
+  status: 'new' | 'scored' | 'applied' | 'dismissed'
+  score?: number
+  jd_file?: string
+  notes?: string
+}
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -73,7 +90,7 @@ export default function FindingPage() {
   // ─── Tab state (persisted) ───────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
     if (typeof window === 'undefined') return 'score'
-    try { return (localStorage.getItem('finding-active-tab') as TabKey) || 'score' } catch { return 'score' }
+    try { return (localStorage.getItem('finding-active-tab') as TabKey) || 'open-roles' } catch { return 'open-roles' }
   })
 
   // ─── Data state ──────────────────────────────────────────────────────────
@@ -81,6 +98,13 @@ export default function FindingPage() {
   const [companies, setCompanies] = useState<TargetCompany[]>([])
   const [vaultJDs, setVaultJDs] = useState<string[]>([])
   const [intelSlugs, setIntelSlugs] = useState<Set<string>>(new Set())
+
+  // Open roles state
+  const [openRoles, setOpenRoles] = useState<OpenRole[]>([])
+  const [lastScan, setLastScan] = useState<string | null>(null)
+  const [scanStale, setScanStale] = useState(true)
+  const [scanning, setScanning] = useState(false)
+  const [roleFilter, setRoleFilter] = useState<'all' | 'new' | 'scored'>('new')
 
   // Score JD form
   const [jdText, setJdText] = useState('')
@@ -174,6 +198,47 @@ export default function FindingPage() {
     } catch { /* ignore */ }
   }, [])
 
+  const loadOpenRoles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/finding/open-roles')
+      if (res.ok) {
+        const data = await res.json() as { roles: OpenRole[]; last_scan: string | null; scan_stale: boolean }
+        setOpenRoles(data.roles)
+        setLastScan(data.last_scan)
+        setScanStale(data.scan_stale)
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  const handleScanRoles = useCallback(async (force = false) => {
+    setScanning(true)
+    try {
+      await fetch('/api/agent/scan-roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      })
+      // The scan runs async via the agent — poll for results
+      // Set a timer to reload after a reasonable delay
+      setTimeout(() => { loadOpenRoles(); setScanning(false) }, 5000)
+      // Also keep checking
+      const poll = setInterval(() => {
+        loadOpenRoles()
+        fetch('/api/agent/status').then(r => r.json()).then((s: { agents: Record<string, { status: string }> }) => {
+          if (s.agents.research?.status !== 'running') {
+            clearInterval(poll)
+            loadOpenRoles()
+            setScanning(false)
+          }
+        }).catch(() => {})
+      }, 5000)
+      // Safety: stop after 5 min
+      setTimeout(() => { clearInterval(poll); setScanning(false) }, 300_000)
+    } catch {
+      setScanning(false)
+    }
+  }, [loadOpenRoles])
+
   const loadVaultJDs = useCallback(async () => {
     try {
       const res = await fetch('/api/finding/vault-jds')
@@ -189,15 +254,17 @@ export default function FindingPage() {
     loadCompanies()
     loadIntelStatus()
     loadVaultJDs()
+    loadOpenRoles()
 
     // Poll for changes from auto-dispatched agents
     const interval = setInterval(() => {
       loadScoredJDs()
       loadCompanies()
       loadIntelStatus()
+      loadOpenRoles()
     }, 30_000)
     return () => clearInterval(interval)
-  }, [loadScoredJDs, loadCompanies, loadIntelStatus, loadVaultJDs])
+  }, [loadScoredJDs, loadCompanies, loadIntelStatus, loadVaultJDs, loadOpenRoles])
 
   // ─── Persistence ─────────────────────────────────────────────────────────
 
@@ -459,9 +526,9 @@ export default function FindingPage() {
           <h1 className="text-2xl font-bold mb-3">Finding Roles</h1>
           <div className="flex gap-3">
             {[
+              { label: 'New Roles', value: openRoles.filter(r => r.status === 'new').length },
               { label: 'Scored JDs', value: scoredJDs.length },
               { label: 'Apply', value: stats.applyCount },
-              { label: 'Referral', value: stats.referralCount },
               { label: 'Avg Score', value: stats.avgScore || '—' },
               { label: 'Companies', value: companies.length },
               { label: 'Researched', value: intelSlugs.size },
@@ -477,6 +544,7 @@ export default function FindingPage() {
         {/* Tab Bar */}
         <div className="flex gap-6 border-b border-border px-5">
           {([
+            { key: 'open-roles' as TabKey, label: `Open Roles${openRoles.filter(r => r.status === 'new').length > 0 ? ` (${openRoles.filter(r => r.status === 'new').length})` : ''}` },
             { key: 'score' as TabKey, label: 'Score JD' },
             { key: 'scored-jds' as TabKey, label: `Scored JDs${scoredJDs.length > 0 ? ` (${scoredJDs.length})` : ''}` },
             { key: 'companies' as TabKey, label: `Companies${companies.length > 0 ? ` (${companies.length})` : ''}` },
@@ -499,6 +567,145 @@ export default function FindingPage() {
 
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
+          {/* ─── Open Roles Tab ───────────────────────────────────── */}
+          {activeTab === 'open-roles' && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1">
+                    {(['new', 'scored', 'all'] as const).map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setRoleFilter(f)}
+                        className={`text-xs px-3 py-1.5 rounded-md capitalize ${roleFilter === f ? 'bg-accent/10 text-accent font-medium' : 'text-text-muted hover:text-text hover:bg-bg'}`}
+                      >
+                        {f} {f === 'new' ? `(${openRoles.filter(r => r.status === 'new').length})` : f === 'scored' ? `(${openRoles.filter(r => r.status === 'scored').length})` : `(${openRoles.length})`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {lastScan && (
+                    <span className="text-xs text-text-muted">
+                      Last scan: {new Date(lastScan).toLocaleDateString()} {new Date(lastScan).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                  {scanStale && !scanning && (
+                    <span className="text-xs text-warning font-medium">Stale</span>
+                  )}
+                  <button
+                    onClick={() => handleScanRoles(true)}
+                    disabled={scanning}
+                    className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  >
+                    {scanning ? 'Scanning...' : 'Scan for Roles'}
+                  </button>
+                </div>
+              </div>
+
+              {scanning && (
+                <div className="bg-accent/5 border border-accent/20 rounded-lg p-4 mb-4 flex items-center gap-3">
+                  <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                  <div>
+                    <p className="text-sm font-medium">Scanning target companies for open roles...</p>
+                    <p className="text-xs text-text-muted">The research agent is checking career pages at your high-priority companies. This may take a few minutes.</p>
+                  </div>
+                </div>
+              )}
+
+              {openRoles.length === 0 && !scanning ? (
+                <div className="text-center py-12">
+                  <p className="text-text-muted text-lg mb-2">No open roles discovered yet.</p>
+                  <p className="text-text-muted text-sm mb-4">Click &quot;Scan for Roles&quot; to search your target companies for matching positions.</p>
+                  <button
+                    onClick={() => handleScanRoles(true)}
+                    disabled={scanning}
+                    className="text-sm text-accent hover:text-accent-hover font-medium"
+                  >
+                    Run First Scan
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {openRoles
+                    .filter(r => roleFilter === 'all' ? r.status !== 'dismissed' : r.status === roleFilter)
+                    .sort((a, b) => b.fit_estimate - a.fit_estimate)
+                    .map(role => (
+                    <div key={role.id} className={`p-4 rounded-lg border transition-colors ${
+                      role.status === 'new' ? 'border-accent/30 bg-accent/5' : 'border-border'
+                    }`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          {role.status === 'new' && <span className="w-2 h-2 bg-accent rounded-full" />}
+                          <span className="font-medium text-sm">{role.title}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                            role.fit_estimate >= SCORE_APPLY_THRESHOLD ? 'bg-success/10 text-success'
+                              : role.fit_estimate >= SCORE_REFERRAL_THRESHOLD ? 'bg-warning/10 text-warning'
+                                : 'bg-text-muted/10 text-text-muted'
+                          }`}>
+                            {role.fit_estimate}% fit
+                          </span>
+                          {role.score && (
+                            <span className="text-xs text-accent font-medium">Scored: {role.score}/100</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
+                        <span>{role.company}</span>
+                        {role.location && <><span>·</span><span>{role.location}</span></>}
+                        {role.posted_date && <><span>·</span><span>Posted: {role.posted_date}</span></>}
+                        <span>·</span>
+                        <span>Found: {role.discovered_date}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {role.url && (
+                          <a href={role.url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:text-accent-hover font-medium">
+                            View Posting ↗
+                          </a>
+                        )}
+                        <button
+                          onClick={() => {
+                            setActiveTab('score')
+                            setJdCompany(role.company)
+                            setJdRole(role.title)
+                            setJdUrl(role.url)
+                          }}
+                          className="text-xs text-text-muted hover:text-accent font-medium"
+                        >
+                          Score JD
+                        </button>
+                        <button
+                          onClick={() => sendChatMessage(`Research the role "${role.title}" at ${role.company}. Check if this is a good fit based on my experience and career plan. The job posting is at: ${role.url}`)}
+                          disabled={chatProcessing}
+                          className="text-xs text-text-muted hover:text-accent font-medium disabled:opacity-50"
+                        >
+                          Ask Agent
+                        </button>
+                        {role.status === 'new' && (
+                          <button
+                            onClick={async () => {
+                              await fetch('/api/finding/open-roles', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'dismiss', role_id: role.id }),
+                              })
+                              loadOpenRoles()
+                            }}
+                            className="text-xs text-text-muted hover:text-danger font-medium ml-auto"
+                          >
+                            Dismiss
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ─── Score JD Tab ──────────────────────────────────────── */}
           {activeTab === 'score' && (
             <div className="space-y-4 max-w-2xl">
