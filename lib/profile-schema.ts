@@ -52,7 +52,8 @@ export interface SectionStatus {
 let cachedSchema: ProfileSchema | null = null
 
 export function loadProfileSchema(): ProfileSchema {
-  if (cachedSchema) return cachedSchema
+  // Re-read on every call in dev to pick up schema file changes
+  if (cachedSchema && process.env.NODE_ENV === 'production') return cachedSchema
 
   const schemaPath = join(getSearchDir(), 'config', 'profile-schema.yaml')
   if (!existsSync(schemaPath)) {
