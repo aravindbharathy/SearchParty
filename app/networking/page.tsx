@@ -180,6 +180,7 @@ export default function NetworkingPage() {
 
   // Clipboard feedback
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+  const [messageSearch, setMessageSearch] = useState('')
 
   // Agent hook
   const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('networking-chat')
@@ -841,6 +842,18 @@ export default function NetworkingPage() {
                 </div>
               </div>
 
+              {/* Search messages */}
+              {parsedMessages.length > 0 && (
+                <div className="mb-3">
+                  <input
+                    value={messageSearch}
+                    onChange={(e) => setMessageSearch(e.target.value)}
+                    placeholder="Search by company or message text..."
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+                  />
+                </div>
+              )}
+
               {parsedMessages.length === 0 ? (
                 <div className="bg-surface border border-border rounded-lg p-8 text-center">
                   <p className="text-text-muted text-lg mb-2">No messages generated yet.</p>
@@ -851,7 +864,14 @@ export default function NetworkingPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {parsedMessages.map((msg, idx) => (
+                  {parsedMessages.filter(msg => {
+                    if (!messageSearch.trim()) return true
+                    const q = messageSearch.toLowerCase()
+                    return (msg.company || '').toLowerCase().includes(q)
+                      || (msg.recipient || '').toLowerCase().includes(q)
+                      || (msg.text || '').toLowerCase().includes(q)
+                      || (msg.role || '').toLowerCase().includes(q)
+                  }).map((msg, idx) => (
                     <div key={idx} className={`border rounded-lg p-4 transition-all ${
                       msg.sent ? 'border-success/20 bg-success/5 opacity-60' : 'border-border bg-surface'
                     }`}>
