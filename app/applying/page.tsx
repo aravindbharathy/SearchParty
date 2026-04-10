@@ -79,7 +79,7 @@ export default function ApplyingPage() {
   const [viewingResume, setViewingResume] = useState<string | null>(null)
   const [resumeContent, setResumeContent] = useState<string>('')
 
-  const { spawnAgent, status: agentStatus, error: agentError, output: agentOutput, reset: resetAgent } = useAgentEvents()
+  const { spawnAgent, status: agentStatus, error: agentError, output: agentOutput, reset: resetAgent } = useAgentEvents('applying')
 
   const loadApplications = useCallback(async () => {
     try {

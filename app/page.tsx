@@ -56,7 +56,7 @@ export default function Dashboard() {
   const [netStats, setNetStats] = useState<NetworkingStats | null>(null)
   const [briefingContent, setBriefingContent] = useState<string | null>(null)
   const [briefingLoading, setBriefingLoading] = useState(false)
-  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents()
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('dashboard')
 
   useEffect(() => {
     fetch('/api/context/status')

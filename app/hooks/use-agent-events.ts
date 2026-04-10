@@ -21,19 +21,47 @@ interface SpawnState {
 
 const SPAWN_TIMEOUT_MS = 300_000 // 5 minutes — Claude can take 2-4 min on complex JDs
 
-export function useAgentEvents() {
-  const [spawnState, setSpawnState] = useState<SpawnState>({
-    status: 'idle',
-    spawnId: null,
-    result: null,
-    error: null,
-    output: null,
+export function useAgentEvents(persistKey?: string) {
+  const storageKey = persistKey ? `agent-spawn-${persistKey}` : null
+
+  const [spawnState, setSpawnState] = useState<SpawnState>(() => {
+    // Restore from localStorage if a persistKey is given
+    if (typeof window === 'undefined' || !storageKey) {
+      return { status: 'idle', spawnId: null, result: null, error: null, output: null }
+    }
+    try {
+      const saved = localStorage.getItem(storageKey)
+      if (saved) {
+        const parsed = JSON.parse(saved) as SpawnState
+        // If it was running when we left, we'll re-poll on mount
+        if (parsed.status === 'running' && parsed.spawnId) return parsed
+        // If completed/failed, restore the result
+        if (parsed.status === 'completed' || parsed.status === 'failed') return parsed
+      }
+    } catch {}
+    return { status: 'idle', spawnId: null, result: null, error: null, output: null }
   })
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const retriedRef = useRef(false)
   const spawnInProgressRef = useRef(false)
   const lastRequestRef = useRef<{ agent: string; directive: Record<string, unknown> } | null>(null)
+
+  // Persist spawn state to localStorage when it changes
+  useEffect(() => {
+    if (!storageKey) return
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(spawnState))
+    } catch {}
+  }, [spawnState, storageKey])
+
+  // On mount: if restored state was "running", resume polling
+  useEffect(() => {
+    if (spawnState.status === 'running' && spawnState.spawnId && !pollRef.current) {
+      pollStatus(spawnState.spawnId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const cleanup = useCallback(() => {
     if (pollRef.current) {
@@ -184,7 +212,10 @@ export function useAgentEvents() {
       error: null,
       output: null,
     })
-  }, [cleanup])
+    if (storageKey) {
+      try { localStorage.removeItem(storageKey) } catch {}
+    }
+  }, [cleanup, storageKey])
 
   return {
     spawnAgent,

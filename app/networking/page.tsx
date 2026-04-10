@@ -64,14 +64,29 @@ export default function NetworkingPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [stats, setStats] = useState<NetworkingStats | null>(null)
   const [expandedContact, setExpandedContact] = useState<string | null>(null)
-  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents()
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('networking')
 
-  // Agent action state
-  const [connectionBatchStatus, setConnectionBatchStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
-  const [referralTarget, setReferralTarget] = useState<{ name: string; company: string } | null>(null)
-  const [referralStatus, setReferralStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
-  const [latestAgentOutput, setLatestAgentOutput] = useState<string | null>(null)
-  const [linkedinAuditStatus, setLinkedinAuditStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  // Agent action state — persisted to localStorage
+  const [connectionBatchStatus, setConnectionBatchStatus] = useState<'idle' | 'running' | 'done' | 'error'>(() => {
+    if (typeof window === 'undefined') return 'idle'
+    try { return (JSON.parse(localStorage.getItem('net-batch-status') || '"idle"')) } catch { return 'idle' }
+  })
+  const [referralTarget, setReferralTarget] = useState<{ name: string; company: string } | null>(() => {
+    if (typeof window === 'undefined') return null
+    try { return JSON.parse(localStorage.getItem('net-referral-target') || 'null') } catch { return null }
+  })
+  const [referralStatus, setReferralStatus] = useState<'idle' | 'running' | 'done' | 'error'>(() => {
+    if (typeof window === 'undefined') return 'idle'
+    try { return JSON.parse(localStorage.getItem('net-referral-status') || '"idle"') } catch { return 'idle' }
+  })
+  const [latestAgentOutput, setLatestAgentOutput] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    try { return JSON.parse(localStorage.getItem('net-agent-output') || 'null') } catch { return null }
+  })
+  const [linkedinAuditStatus, setLinkedinAuditStatus] = useState<'idle' | 'running' | 'done' | 'error'>(() => {
+    if (typeof window === 'undefined') return 'idle'
+    try { return JSON.parse(localStorage.getItem('net-audit-status') || '"idle"') } catch { return 'idle' }
+  })
 
   // FIX 5: Track referral contact ID for auto-save
   const [referralContactId, setReferralContactId] = useState<string | null>(null)
@@ -118,6 +133,13 @@ export default function NetworkingPage() {
     loadContacts()
     loadStats()
   }, [loadContacts, loadStats])
+
+  // Persist page state to localStorage
+  useEffect(() => { try { localStorage.setItem('net-batch-status', JSON.stringify(connectionBatchStatus)) } catch {} }, [connectionBatchStatus])
+  useEffect(() => { try { localStorage.setItem('net-referral-target', JSON.stringify(referralTarget)) } catch {} }, [referralTarget])
+  useEffect(() => { try { localStorage.setItem('net-referral-status', JSON.stringify(referralStatus)) } catch {} }, [referralStatus])
+  useEffect(() => { try { localStorage.setItem('net-agent-output', JSON.stringify(latestAgentOutput)) } catch {} }, [latestAgentOutput])
+  useEffect(() => { try { localStorage.setItem('net-audit-status', JSON.stringify(linkedinAuditStatus)) } catch {} }, [linkedinAuditStatus])
 
   // FIX 5: Auto-save referral messages to contact
   const saveReferralToContact = useCallback(async (contactId: string, output: string) => {

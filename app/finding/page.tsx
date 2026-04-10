@@ -62,7 +62,7 @@ export default function FindingPage() {
   const [vaultJDs, setVaultJDs] = useState<string[]>([])
   const [selectedJD, setSelectedJD] = useState<ScoredJD | null>(null)
   const [jdContent, setJdContent] = useState('')
-  const { spawnAgent, status, error, output, reset } = useAgentEvents()
+  const { spawnAgent, status, error, output, reset } = useAgentEvents('finding')
   const [latestOutput, setLatestOutput] = useState<string | null>(null)
 
   // Company research state
