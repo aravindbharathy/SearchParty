@@ -16,6 +16,13 @@ READ `search/context/career-plan.yaml` first. If it's empty or missing key field
 
 Do NOT ask the user to provide this information directly. The Career Coach is designed to gather it properly.
 
+THEN you MUST post a user-action directive to the blackboard. Use write_to_blackboard:
+1. First read_blackboard to get the current directives array
+2. Then write_to_blackboard with path "directives" and value = existing array + this new entry:
+   {"id":"dir-ua-targets","type":"user_action","text":"Your career plan is needed before company research can begin","button_label":"Complete Career Plan","route":"/coach","chat_message":"I need to complete my career plan. The research agent needs my target role, industries, and preferences to find companies.","assigned_to":"coach","from":"research","priority":"high","status":"pending","posted_at":"<current ISO timestamp>"}
+
+This directive triggers a visible prompt on every page so the user knows what to do.
+
 ## Context Files
 
 1. `search/context/career-plan.yaml` — REQUIRED: target level, functions, industries, locations, comp floor, work style, what matters
