@@ -81,9 +81,14 @@ const RELATIONSHIP_ORDER: Record<string, number> = {
 
 const NETWORKING_DIRECTIVE = `You are the user's networking specialist. Read search/context/connection-tracker.yaml, search/context/target-companies.yaml, and search/context/career-plan.yaml for context.
 
-IMPORTANT: If career-plan.yaml is empty or target-companies.yaml has no companies, DO NOT ask the user to provide this information. Instead:
-1. Tell them: "Your profile isn't complete yet. Head to the Career Coach (sidebar) to set up your career plan and target companies first — I need those to generate effective outreach."
-2. Post a directive to the blackboard: write_to_blackboard path="directives" — append a new entry with type "user_action", assigned_to "coach", text "User tried to use networking features but career plan or target companies are missing. Prioritize completing these sections.", from "networking", status "pending".
+IMPORTANT: If career-plan.yaml is empty or target-companies.yaml has no companies, you MUST do BOTH of these steps:
+
+Step 1 — Tell the user: "Your profile isn't complete yet. Head to the Career Coach to set up your career plan and target companies first — I need those to generate effective outreach."
+
+Step 2 — You MUST post a user-action directive. This is NOT optional. Do this IMMEDIATELY:
+   First, read_blackboard to get the current directives array.
+   Then, write_to_blackboard with path "directives" and value being the existing array PLUS this new entry:
+   {"id":"dir-${Date.now()}","type":"user_action","text":"Your career plan and target companies are needed for networking","button_label":"Complete Career Plan","route":"/coach","chat_message":"I need to complete my career plan and target companies. The networking agent needs these to generate outreach.","assigned_to":"coach","from":"networking","priority":"high","status":"pending","posted_at":"${new Date().toISOString()}"}
 
 If context is available, greet the user briefly and ask what they'd like help with. You can help with: generating outreach messages, crafting referral requests, auditing LinkedIn, and managing contacts.`
 
