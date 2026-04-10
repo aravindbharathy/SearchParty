@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { MarkdownView } from '../_components/markdown-view'
 import { useAgentEvents } from '../hooks/use-agent-events'
 
@@ -77,6 +77,10 @@ const RELATIONSHIP_ORDER: Record<string, number> = {
 }
 
 const NETWORKING_DIRECTIVE = `You are the user's networking specialist. Read search/context/connection-tracker.yaml and search/context/target-companies.yaml. Be ready to help with: generating outreach messages, crafting referral requests, auditing LinkedIn, and managing contacts. Greet the user briefly and ask what they'd like help with today.`
+
+const INPUT_CLASS = 'px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40'
+
+const RELATIONSHIP_OPTIONS = Object.entries(RELATIONSHIP_BADGES).map(([key, badge]) => ({ value: key, label: badge.label }))
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -181,7 +185,6 @@ export default function NetworkingPage() {
   // Clipboard feedback
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const [messageSearch, setMessageSearch] = useState('')
-  const [auditRequested, setAuditRequested] = useState(false)
   const auditRequestedRef = useRef(false)
 
   // Agent hook
@@ -244,10 +247,10 @@ export default function NetworkingPage() {
         if (data.messages.length > 0) {
           setParsedMessages(prev => {
             // Merge: keep any existing sent status, add new ones
-            const existing = new Map(prev.map(m => [m.text.slice(0, 50), m]))
+            const existing = new Map(prev.map(m => [m.id, m]))
             const merged = data.messages.map(m => ({
               ...m,
-              sent: existing.get(m.text.slice(0, 50))?.sent || false,
+              sent: existing.get(m.id)?.sent || false,
             }))
             return merged
           })
@@ -308,7 +311,6 @@ export default function NetworkingPage() {
 
       // When audit completes, reload the actual audit file (not the agent summary)
       if (auditRequestedRef.current) {
-        setAuditRequested(false)
         auditRequestedRef.current = false
         loadAuditFile()
       }
@@ -392,26 +394,11 @@ export default function NetworkingPage() {
     } catch {}
   }
 
-  const handleDismissFollowUp = async (contactId: string, followUpIdx: number) => {
+  const handleUpdateFollowUpStatus = async (contactId: string, followUpIdx: number, status: 'dismissed' | 'skipped') => {
     const contact = contacts.find(c => c.id === contactId)
     if (!contact) return
     const updatedFollowUps = [...contact.follow_ups]
-    updatedFollowUps[followUpIdx] = { ...updatedFollowUps[followUpIdx], status: 'dismissed' }
-    try {
-      await fetch('/api/networking/contacts', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: contactId, field: 'follow_ups', value: updatedFollowUps }),
-      })
-      loadContacts(); loadStats()
-    } catch {}
-  }
-
-  const handleSkipFollowUp = async (contactId: string, followUpIdx: number) => {
-    const contact = contacts.find(c => c.id === contactId)
-    if (!contact) return
-    const updatedFollowUps = [...contact.follow_ups]
-    updatedFollowUps[followUpIdx] = { ...updatedFollowUps[followUpIdx], status: 'skipped' }
+    updatedFollowUps[followUpIdx] = { ...updatedFollowUps[followUpIdx], status }
     try {
       await fetch('/api/networking/contacts', {
         method: 'PUT',
@@ -431,7 +418,6 @@ export default function NetworkingPage() {
 
   const handleRunAudit = () => {
     setActiveTab('linkedin')
-    setAuditRequested(true)
     auditRequestedRef.current = true
     sendChatMessage('Audit my LinkedIn profile against my target roles. Read search/context/career-plan.yaml, search/context/experience-library.yaml, and top JDs from search/vault/job-descriptions/ for the analysis. Provide before/after suggestions for each profile section.')
   }
@@ -453,26 +439,27 @@ export default function NetworkingPage() {
 
   // ─── Filtered & Sorted Contacts ─────────────────────────────────────────
 
-  const filteredContacts = contacts.filter(c => {
-    if (!searchQuery) return true
-    const q = searchQuery.toLowerCase()
-    return (
-      c.name.toLowerCase().includes(q) ||
-      c.company.toLowerCase().includes(q) ||
-      c.role.toLowerCase().includes(q) ||
-      c.relationship.toLowerCase().includes(q) ||
-      displayValue(c.can_help_with).toLowerCase().includes(q)
-    )
-  })
+  const sortedContacts = useMemo(() => {
+    const filtered = contacts.filter(c => {
+      if (!searchQuery) return true
+      const q = searchQuery.toLowerCase()
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.company.toLowerCase().includes(q) ||
+        c.role.toLowerCase().includes(q) ||
+        c.relationship.toLowerCase().includes(q) ||
+        displayValue(c.can_help_with).toLowerCase().includes(q)
+      )
+    })
+    return filtered.sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name)
+      if (sortBy === 'company') return a.company.localeCompare(b.company)
+      if (sortBy === 'relationship') return (RELATIONSHIP_ORDER[a.relationship] ?? 5) - (RELATIONSHIP_ORDER[b.relationship] ?? 5)
+      return 0
+    })
+  }, [contacts, searchQuery, sortBy])
 
-  const sortedContacts = [...filteredContacts].sort((a, b) => {
-    if (sortBy === 'name') return a.name.localeCompare(b.name)
-    if (sortBy === 'company') return a.company.localeCompare(b.company)
-    if (sortBy === 'relationship') return (RELATIONSHIP_ORDER[a.relationship] ?? 5) - (RELATIONSHIP_ORDER[b.relationship] ?? 5)
-    return 0
-  })
-
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -567,35 +554,22 @@ export default function NetworkingPage() {
                 <div className="bg-surface border border-border rounded-lg p-4 mb-4">
                   <h3 className="font-semibold text-sm mb-3">Add New Contact</h3>
                   <div className="grid grid-cols-2 gap-3">
-                    <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Name *"
-                      className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
-                    <input value={newCompany} onChange={e => setNewCompany(e.target.value)} placeholder="Company *"
-                      className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
-                    <input value={newRole} onChange={e => setNewRole(e.target.value)} placeholder="Role"
-                      className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
-                    <select value={newRelationship} onChange={e => setNewRelationship(e.target.value)}
-                      className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40">
-                      <option value="cold">Cold</option>
-                      <option value="connected">Connected</option>
-                      <option value="warm">Warm</option>
-                      <option value="referred">Referred</option>
-                      <option value="close">Close</option>
-                      <option value="mentor">Mentor</option>
+                    <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Name *" className={INPUT_CLASS} />
+                    <input value={newCompany} onChange={e => setNewCompany(e.target.value)} placeholder="Company *" className={INPUT_CLASS} />
+                    <input value={newRole} onChange={e => setNewRole(e.target.value)} placeholder="Role" className={INPUT_CLASS} />
+                    <select value={newRelationship} onChange={e => setNewRelationship(e.target.value)} className={INPUT_CLASS}>
+                      {RELATIONSHIP_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
                     </select>
-                    <input value={newHowYouKnow} onChange={e => setNewHowYouKnow(e.target.value)} placeholder="How you know them"
-                      className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
-                    <input value={newTheirTeam} onChange={e => setNewTheirTeam(e.target.value)} placeholder="Their team"
-                      className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
-                    <input value={newCanHelpWith} onChange={e => setNewCanHelpWith(e.target.value)} placeholder="Can help with (e.g., referral, intel)"
-                      className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
-                    <input value={newTheirInterests} onChange={e => setNewTheirInterests(e.target.value)} placeholder="Their interests"
-                      className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
-                    <input value={newLinkedinUrl} onChange={e => setNewLinkedinUrl(e.target.value)} placeholder="LinkedIn URL"
-                      className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
-                    <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email"
-                      className="px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40" />
+                    <input value={newHowYouKnow} onChange={e => setNewHowYouKnow(e.target.value)} placeholder="How you know them" className={INPUT_CLASS} />
+                    <input value={newTheirTeam} onChange={e => setNewTheirTeam(e.target.value)} placeholder="Their team" className={INPUT_CLASS} />
+                    <input value={newCanHelpWith} onChange={e => setNewCanHelpWith(e.target.value)} placeholder="Can help with (e.g., referral, intel)" className={INPUT_CLASS} />
+                    <input value={newTheirInterests} onChange={e => setNewTheirInterests(e.target.value)} placeholder="Their interests" className={INPUT_CLASS} />
+                    <input value={newLinkedinUrl} onChange={e => setNewLinkedinUrl(e.target.value)} placeholder="LinkedIn URL" className={INPUT_CLASS} />
+                    <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="Email" className={INPUT_CLASS} />
                     <textarea value={newNotes} onChange={e => setNewNotes(e.target.value)} placeholder="Notes" rows={2}
-                      className="col-span-2 px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 resize-y" />
+                      className={`col-span-2 ${INPUT_CLASS} resize-y`} />
                   </div>
                   <div className="flex items-center gap-2 mt-3">
                     <button onClick={handleAddContact} disabled={!newName.trim() || !newCompany.trim()}
@@ -699,12 +673,9 @@ export default function NetworkingPage() {
                                     onChange={e => handleContactFieldUpdate(contact.id, 'relationship', e.target.value)}
                                     className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
                                   >
-                                    <option value="cold">Cold</option>
-                                    <option value="connected">Connected</option>
-                                    <option value="warm">Warm</option>
-                                    <option value="referred">Referred</option>
-                                    <option value="close">Close</option>
-                                    <option value="mentor">Mentor</option>
+                                    {RELATIONSHIP_OPTIONS.map(opt => (
+                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
                                   </select>
                                 </div>
                                 <div>
@@ -782,11 +753,11 @@ export default function NetworkingPage() {
                                             <span className="text-text-muted capitalize">{fu.type.replace(/-/g, ' ')}</span>
                                           </div>
                                           <div className="flex items-center gap-1">
-                                            <button onClick={() => handleDismissFollowUp(contact.id, i)}
+                                            <button onClick={() => handleUpdateFollowUpStatus(contact.id, i, 'dismissed')}
                                               className="text-text-muted hover:text-text px-1.5 py-0.5 rounded border border-border">
                                               Dismiss
                                             </button>
-                                            <button onClick={() => handleSkipFollowUp(contact.id, i)}
+                                            <button onClick={() => handleUpdateFollowUpStatus(contact.id, i, 'skipped')}
                                               className="text-text-muted hover:text-text px-1.5 py-0.5 rounded border border-border">
                                               Skip
                                             </button>
@@ -962,8 +933,6 @@ export default function NetworkingPage() {
           {/* ─── LinkedIn Tab ──────────────────────────────────────── */}
           {activeTab === 'linkedin' && (() => {
             // Find LinkedIn URL from experience library contact info
-            const expData = contacts.length > 0 ? null : null // contacts don't have user's own LinkedIn
-            // Check experience library for user's LinkedIn
             const userLinkedIn = typeof window !== 'undefined' ? localStorage.getItem('user-linkedin-url') : null
             return (
               <div>

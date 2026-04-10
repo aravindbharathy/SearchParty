@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useAgentEvents } from '../hooks/use-agent-events'
-import { AgentChat } from '../_components/agent-chat'
 import { MarkdownView } from '../_components/markdown-view'
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface ScoredJD {
   filename: string
@@ -52,45 +53,89 @@ interface CompanyIntel {
   }
 }
 
+interface ChatMessage {
+  role: 'user' | 'agent'
+  content: string
+}
+
+type TabKey = 'score' | 'scored-jds' | 'companies' | 'intel'
+
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+const RESEARCH_DIRECTIVE = `You are the user's research specialist. Read search/context/career-plan.yaml, search/context/experience-library.yaml, and search/context/target-companies.yaml for context. You help with: scoring job descriptions against their profile, researching companies, generating target company lists, and analyzing job fit. Greet the user briefly and ask what they'd like help with today.`
+
+const SCORE_APPLY_THRESHOLD = 75
+const SCORE_REFERRAL_THRESHOLD = 60
+
+// ─── Component ──────────────────────────────────────────────────────────────
+
 export default function FindingPage() {
+  // ─── Tab state (persisted) ───────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    if (typeof window === 'undefined') return 'score'
+    try { return (localStorage.getItem('finding-active-tab') as TabKey) || 'score' } catch { return 'score' }
+  })
+
+  // ─── Data state ──────────────────────────────────────────────────────────
+  const [scoredJDs, setScoredJDs] = useState<ScoredJD[]>([])
+  const [companies, setCompanies] = useState<TargetCompany[]>([])
+  const [vaultJDs, setVaultJDs] = useState<string[]>([])
+  const [intelSlugs, setIntelSlugs] = useState<Set<string>>(new Set())
+
+  // Score JD form
   const [jdText, setJdText] = useState('')
   const [jdCompany, setJdCompany] = useState('')
   const [jdRole, setJdRole] = useState('')
   const [jdUrl, setJdUrl] = useState('')
-  const [scoredJDs, setScoredJDs] = useState<ScoredJD[]>([])
-  const [companies, setCompanies] = useState<TargetCompany[]>([])
-  const [vaultJDs, setVaultJDs] = useState<string[]>([])
-  const [selectedJD, setSelectedJD] = useState<ScoredJD | null>(null)
-  const [jdContent, setJdContent] = useState('')
-  const { spawnAgent, status, error, output, reset } = useAgentEvents('finding')
-  const [latestOutput, setLatestOutput] = useState<string | null>(null)
 
-  // Company research state
-  const [researchCompany, setResearchCompany] = useState('')
-  const [researchStatus, setResearchStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
-  const [generateTargetsStatus, setGenerateTargetsStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
-
-  // Intel modal state
-  const [selectedIntelSlug, setSelectedIntelSlug] = useState<string | null>(null)
-  const [intelData, setIntelData] = useState<CompanyIntel | null>(null)
-  const [intelLoading, setIntelLoading] = useState(false)
-
-  // Track which companies have intel
-  const [intelSlugs, setIntelSlugs] = useState<Set<string>>(new Set())
-
-  // FIX 1: Add-to-pipeline state
-  const [pipelineMsg, setPipelineMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-
-  // FIX 7: Scored JDs filter/sort state
+  // Scored JDs search/sort
   const [jdSearch, setJdSearch] = useState('')
   const [jdSort, setJdSort] = useState<'score' | 'date'>('score')
 
-  // FIX 4: Auto-detect company from JD text
+  // Selected JD detail
+  const [selectedJD, setSelectedJD] = useState<ScoredJD | null>(null)
+  const [jdContent, setJdContent] = useState('')
+
+  // Company search
+  const [companySearch, setCompanySearch] = useState('')
+  const [researchInput, setResearchInput] = useState('')
+
+  // Intel viewer
+  const [selectedIntelSlug, setSelectedIntelSlug] = useState<string | null>(null)
+  const [intelData, setIntelData] = useState<CompanyIntel | null>(null)
+  const [intelRaw, setIntelRaw] = useState<string | null>(null)
+  const [intelLoading, setIntelLoading] = useState(false)
+
+  // Pipeline feedback
+  const [pipelineMsg, setPipelineMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Track last action type for conditional data refresh
+  const lastActionRef = useRef<'score' | 'research' | 'targets' | 'chat'>('chat')
+
+  // ─── Chat state (persisted) ──────────────────────────────────────────────
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem('finding-chat-messages')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+  const [chatInput, setChatInput] = useState('')
+  const [chatProcessing, setChatProcessing] = useState(false)
+  const [hasSpawned, setHasSpawned] = useState(false)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+
+  // Agent hook — single persistent session for all research actions
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('finding-chat')
+
+  // ─── Auto-detect company from JD text ────────────────────────────────────
   const detectedCompany = useMemo(() => {
     if (!jdText.trim()) return null
     const lower = jdText.toLowerCase()
     return companies.find((c) => lower.includes(c.name.toLowerCase())) || null
   }, [jdText, companies])
+
+  // ─── Data loading ────────────────────────────────────────────────────────
 
   const loadScoredJDs = useCallback(async () => {
     try {
@@ -107,19 +152,21 @@ export default function FindingPage() {
       const res = await fetch('/api/context/target-companies')
       if (res.ok) {
         const data = await res.json()
-        const comps: TargetCompany[] = data?.companies || []
-        setCompanies(comps)
+        setCompanies(data?.companies || [])
+      }
+    } catch { /* ignore */ }
+  }, [])
 
-        // Check intel status for each company
-        const slugs = new Set<string>()
-        for (const c of comps) {
-          if (!c.slug) continue
-          try {
-            const r = await fetch(`/api/finding/intel/${encodeURIComponent(c.slug)}`)
-            if (r.ok) slugs.add(c.slug)
-          } catch { /* ignore */ }
-        }
-        setIntelSlugs(slugs)
+  const loadIntelStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/finding/intel-status')
+      if (res.ok) {
+        const data = await res.json() as { slugs: string[] }
+        const sorted = data.slugs.sort().join(',')
+        setIntelSlugs(prev => {
+          const prevSorted = [...prev].sort().join(',')
+          return prevSorted === sorted ? prev : new Set(data.slugs)
+        })
       }
     } catch { /* ignore */ }
   }, [])
@@ -137,127 +184,150 @@ export default function FindingPage() {
   useEffect(() => {
     loadScoredJDs()
     loadCompanies()
+    loadIntelStatus()
     loadVaultJDs()
-  }, [loadScoredJDs, loadCompanies, loadVaultJDs])
+  }, [loadScoredJDs, loadCompanies, loadIntelStatus, loadVaultJDs])
 
+  // ─── Persistence ─────────────────────────────────────────────────────────
+
+  useEffect(() => { try { localStorage.setItem('finding-active-tab', activeTab) } catch {} }, [activeTab])
   useEffect(() => {
-    if (status === 'completed') {
-      loadScoredJDs()
-      loadCompanies()
-      if (output) setLatestOutput(output)
+    if (chatMessages.length > 0) {
+      try { localStorage.setItem('finding-chat-messages', JSON.stringify(chatMessages)) } catch {}
     }
-  }, [status, output, loadScoredJDs, loadCompanies])
+  }, [chatMessages])
 
-  const handleScoreJD = async () => {
+  // ─── Chat logic ──────────────────────────────────────────────────────────
+
+  const scrollChatToBottom = useCallback(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
+    }
+  }, [])
+
+  useEffect(() => { scrollChatToBottom() }, [chatMessages, chatProcessing, scrollChatToBottom])
+
+  // Spawn agent on first load if no saved chat
+  useEffect(() => {
+    if (hasSpawned) return
+    setHasSpawned(true)
+    if (chatMessages.length > 0) return
+    setChatProcessing(true)
+    spawnAgent('research', {
+      skill: 'research-chat',
+      entry_name: 'research-session',
+      text: RESEARCH_DIRECTIVE,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Watch agent completions
+  useEffect(() => {
+    if (agentStatus === 'completed' && agentOutput) {
+      setChatMessages(prev => [...prev, { role: 'agent', content: agentOutput }])
+      setChatProcessing(false)
+      agentReset()
+      // Conditional refresh based on what action was taken
+      const action = lastActionRef.current
+      if (action === 'score') loadScoredJDs()
+      if (action === 'targets') { loadCompanies(); loadIntelStatus() }
+      if (action === 'research') loadIntelStatus()
+      lastActionRef.current = 'chat'
+    }
+    if (agentStatus === 'failed') {
+      setChatMessages(prev => [...prev, { role: 'agent', content: 'Something went wrong. Please try again.' }])
+      setChatProcessing(false)
+      agentReset()
+    }
+    if (agentStatus === 'timeout') {
+      setChatMessages(prev => [...prev, { role: 'agent', content: 'Request timed out. Please try again.' }])
+      setChatProcessing(false)
+      agentReset()
+    }
+  }, [agentStatus, agentOutput, agentReset, loadScoredJDs, loadCompanies, loadIntelStatus])
+
+  const sendChatMessage = useCallback(async (text: string) => {
+    if (!text.trim() || chatProcessing) return
+    setChatMessages(prev => [...prev, { role: 'user', content: text.trim() }])
+    setChatInput('')
+    setChatProcessing(true)
+
+    try {
+      const result = await spawnAgent('research', {
+        skill: 'research-chat',
+        entry_name: 'research-followup',
+        text: text.trim(),
+      })
+      if (result === null) {
+        setChatMessages(prev => [...prev, { role: 'agent', content: 'The agent is still processing. Please wait a moment.' }])
+        setChatProcessing(false)
+      }
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'agent', content: 'Failed to reach agent. Please try again.' }])
+      setChatProcessing(false)
+    }
+  }, [chatProcessing, spawnAgent])
+
+  // ─── Action handlers (send through chat) ─────────────────────────────────
+
+  const handleScoreJD = () => {
     if (!jdText.trim()) return
-    reset()
-
-    // Use provided company/role or auto-detected
+    lastActionRef.current = 'score'
     const company = jdCompany.trim() || detectedCompany?.name || ''
     const role = jdRole.trim() || ''
 
-    // Build a slug for the entry filename: company-role-date
-    const slug = [company, role].filter(Boolean).join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unknown'
+    // Save JD to vault
+    fetch('/api/vault/save-jd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company: company || 'unknown', role: role || 'unknown', url: jdUrl.trim(), text: jdText.trim() }),
+    }).catch(() => {})
 
-    // Save the raw JD to vault/job-descriptions/ so it can be reused (tailor resume, etc.)
-    let jdPath = ''
-    try {
-      const saveRes = await fetch('/api/vault/save-jd', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company: company || 'unknown',
-          role: role || 'unknown',
-          url: jdUrl.trim(),
-          text: jdText.trim(),
-        }),
-      })
-      if (saveRes.ok) {
-        const saveData = await saveRes.json() as { path: string }
-        jdPath = saveData.path
-      }
-    } catch { /* ignore — scoring still works without saving JD */ }
+    setActiveTab('scored-jds')
+    sendChatMessage(
+      `Score this job description against my profile. Read search/context/experience-library.yaml and search/context/career-plan.yaml for context. Write the scored result to search/entries/ with frontmatter containing Company, Role, URL, Date, and JD File fields.\n\nCompany: ${company}\nRole: ${role}\n${jdUrl.trim() ? `URL: ${jdUrl.trim()}\n` : ''}\nJob Description:\n${jdText.trim()}`
+    )
 
-    await spawnAgent('research', {
-      skill: 'score-jd',
-      entry_name: slug,
-      metadata: { company, role, url: jdUrl.trim(), jd_file: jdPath },
-      text: `Score this job description against my profile. Read my experience library and career plan from search/context/ for the analysis.\n\nCompany: ${company}\nRole: ${role}\n\nJob Description:\n${jdText}`,
-    })
+    // Clear form
+    setJdText('')
+    setJdCompany('')
+    setJdRole('')
+    setJdUrl('')
   }
 
-  const handleResearchCompany = async () => {
-    if (!researchCompany.trim()) return
-    setResearchStatus('running')
-
-    const companySlug = researchCompany.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-
-    try {
-      await spawnAgent('research', {
-        skill: 'company-research',
-        entry_name: companySlug,
-        metadata: { company: researchCompany.trim() },
-        write_to: `intel/${companySlug}.yaml`,
-        text: `Research "${researchCompany.trim()}" and produce structured company intel. Read search/context/career-plan.yaml and search/context/target-companies.yaml for candidate context.`,
-      })
-      setResearchStatus('done')
-      setResearchCompany('')
-      setTimeout(() => { loadCompanies(); setResearchStatus('idle') }, 2000)
-    } catch {
-      setResearchStatus('error')
-    }
+  const handleResearchCompany = (companyName: string) => {
+    lastActionRef.current = 'research'
+    setActiveTab('intel')
+    sendChatMessage(
+      `Research "${companyName}" and produce structured company intel. Write to search/intel/${companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.yaml with structure: company, slug, industry, hq, size, stage, website, careers_url, culture (values, engineering_culture, remote_policy), interview (stages, timeline, tips), comp (currency, bands, notes). Read search/context/career-plan.yaml for context.`
+    )
   }
 
-  const handleGenerateTargets = async () => {
-    setGenerateTargetsStatus('running')
-
-    try {
-      await spawnAgent('research', {
-        skill: 'generate-targets',
-        write_to: 'context/target-companies.yaml',
-        text: `Generate a ranked list of target companies for my job search. Read search/context/career-plan.yaml for my target level, functions, industries, and compensation floor.`,
-      })
-      setGenerateTargetsStatus('done')
-      setTimeout(() => { loadCompanies(); setGenerateTargetsStatus('idle') }, 2000)
-    } catch {
-      setGenerateTargetsStatus('error')
-    }
+  const handleGenerateTargets = () => {
+    lastActionRef.current = 'targets'
+    setActiveTab('companies')
+    sendChatMessage(
+      'Generate a ranked list of target companies for my job search. Read search/context/career-plan.yaml for my target level, functions, industries, and compensation floor. Write the results to search/context/target-companies.yaml.'
+    )
   }
 
-  const viewCompanyIntel = async (slug: string) => {
-    setSelectedIntelSlug(slug)
-    setIntelLoading(true)
-    try {
-      const res = await fetch(`/api/finding/intel/${encodeURIComponent(slug)}`)
-      if (res.ok) {
-        const data = await res.json() as { intel: CompanyIntel }
-        setIntelData(data.intel)
-      } else {
-        setIntelData(null)
-      }
-    } catch {
-      setIntelData(null)
-    }
-    setIntelLoading(false)
+  const handleScoreVaultJD = (filename: string) => {
+    lastActionRef.current = 'score'
+    setActiveTab('scored-jds')
+    sendChatMessage(
+      `Score the job description from file search/vault/job-descriptions/${filename} against my profile. Read search/context/experience-library.yaml and search/context/career-plan.yaml for context. Write the scored result to search/entries/.`
+    )
   }
 
-  const deleteScoredJD = async (filename: string) => {
-    if (!confirm('Delete this scored JD?')) return
-    try {
-      const res = await fetch('/api/finding/scored-jds', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename }),
-      })
-      if (res.ok) {
-        setScoredJDs((prev) => prev.filter((jd) => jd.filename !== filename))
-        if (selectedJD?.filename === filename) {
-          setSelectedJD(null)
-          setJdContent('')
-        }
-      }
-    } catch { /* ignore */ }
+  const prefillScoreJDForCompany = (companyName: string) => {
+    setActiveTab('score')
+    setJdCompany(companyName)
+    setJdRole('')
+    setJdUrl('')
+    setJdText('')
   }
+
+  // ─── JD detail ───────────────────────────────────────────────────────────
 
   const viewScoredJD = async (jd: ScoredJD) => {
     setSelectedJD(jd)
@@ -272,600 +342,646 @@ export default function FindingPage() {
     }
   }
 
-  // FIX 1: Add scored JD to pipeline
+  const deleteScoredJD = async (filename: string) => {
+    if (!confirm('Delete this scored JD?')) return
+    try {
+      const res = await fetch('/api/finding/scored-jds', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename }),
+      })
+      if (res.ok) {
+        setScoredJDs(prev => prev.filter(jd => jd.filename !== filename))
+        if (selectedJD?.filename === filename) {
+          setSelectedJD(null)
+          setJdContent('')
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
   const addToPipeline = async (company: string, role: string, fitScore: number, jdFile?: string) => {
     setPipelineMsg(null)
     try {
       const res = await fetch('/api/pipeline/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company,
-          role,
-          status: 'researching',
-          fit_score: fitScore,
-          jd_source: jdFile || 'scored',
-        }),
+        body: JSON.stringify({ company, role, status: 'researching', fit_score: fitScore, jd_source: jdFile || 'scored' }),
       })
       if (res.ok) {
         setPipelineMsg({ type: 'success', text: `Added ${company} - ${role} to pipeline` })
         setTimeout(() => setPipelineMsg(null), 4000)
       } else {
         const data = await res.json().catch(() => ({}))
-        setPipelineMsg({ type: 'error', text: (data as { error?: string }).error || 'Failed to add to pipeline' })
+        setPipelineMsg({ type: 'error', text: (data as { error?: string }).error || 'Failed to add' })
       }
     } catch {
       setPipelineMsg({ type: 'error', text: 'Failed to add to pipeline' })
     }
   }
 
-  // FIX 1: Parse company/role from latest output
-  const parseScoreResult = (text: string): { company: string; role: string; score: number } | null => {
-    const companyMatch = text.match(/(?:company|employer|organization)[:\s]+([^\n]+)/i)
-    const roleMatch = text.match(/(?:role|position|title)[:\s]+([^\n]+)/i)
-    const scoreMatch = text.match(/(?:overall|fit|total)\s*(?:score|rating)?[:\s]+(\d+)/i)
-    if (!companyMatch && !roleMatch) return null
-    return {
-      company: companyMatch?.[1]?.trim() || 'Unknown',
-      role: roleMatch?.[1]?.trim() || 'Unknown',
-      score: scoreMatch ? parseInt(scoreMatch[1], 10) : 0,
-    }
-  }
+  // ─── Intel viewer ────────────────────────────────────────────────────────
 
-  // FIX 4: Pre-fill JD textarea for a company
-  const prefillScoreJDForCompany = (companyName: string) => {
-    setSelectedIntelSlug(null)
+  const viewIntel = async (slug: string) => {
+    setActiveTab('intel')
+    setSelectedIntelSlug(slug)
+    setIntelLoading(true)
     setIntelData(null)
-    setJdCompany(companyName)
-    setJdRole('')
-    setJdUrl('')
-    setJdText('')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setIntelRaw(null)
+    try {
+      const res = await fetch(`/api/finding/intel/${encodeURIComponent(slug)}`)
+      if (res.ok) {
+        const data = await res.json() as { intel: CompanyIntel; raw: string }
+        setIntelData(data.intel)
+        setIntelRaw(data.raw)
+      }
+    } catch { /* ignore */ }
+    setIntelLoading(false)
   }
 
-  // FIX 7: Filtered & sorted scored JDs
+  // ─── Computed ────────────────────────────────────────────────────────────
+
   const filteredScoredJDs = useMemo(() => {
     let list = [...scoredJDs]
     if (jdSearch.trim()) {
       const q = jdSearch.toLowerCase()
-      list = list.filter(
-        (jd) => jd.company.toLowerCase().includes(q) || jd.role.toLowerCase().includes(q),
-      )
+      list = list.filter(jd => jd.company.toLowerCase().includes(q) || jd.role.toLowerCase().includes(q))
     }
-    if (jdSort === 'score') {
-      list.sort((a, b) => b.score - a.score)
-    } else {
-      // By date: filenames typically have timestamps; reverse alphabetical ~ newest first
-      list.sort((a, b) => b.filename.localeCompare(a.filename))
-    }
+    if (jdSort === 'score') list.sort((a, b) => b.score - a.score)
+    else list.sort((a, b) => b.filename.localeCompare(a.filename))
     return list
   }, [scoredJDs, jdSearch, jdSort])
 
-  const getIntelStatus = (company: TargetCompany): { label: string; color: string } => {
-    if (intelSlugs.has(company.slug)) {
-      return { label: 'Researched', color: 'bg-success/10 text-success' }
+  const filteredCompanies = useMemo(() => {
+    let list = [...companies]
+    if (companySearch.trim()) {
+      const q = companySearch.toLowerCase()
+      list = list.filter(c => c.name.toLowerCase().includes(q) || c.notes?.toLowerCase().includes(q))
     }
-    return { label: 'No intel', color: 'bg-text-muted/10 text-text-muted' }
-  }
+    // Sort: high priority first, then by fit score
+    const pOrder: Record<string, number> = { high: 0, medium: 1, low: 2 }
+    list.sort((a, b) => (pOrder[a.priority] ?? 2) - (pOrder[b.priority] ?? 2) || (b.fit_score || 0) - (a.fit_score || 0))
+    return list
+  }, [companies, companySearch])
+
+  // ─── Stats ───────────────────────────────────────────────────────────────
+
+  const stats = useMemo(() => {
+    let applyCount = 0, referralCount = 0, totalScore = 0
+    for (const j of scoredJDs) {
+      totalScore += j.score
+      if (j.score >= SCORE_APPLY_THRESHOLD) applyCount++
+      else if (j.score >= SCORE_REFERRAL_THRESHOLD) referralCount++
+    }
+    const avgScore = scoredJDs.length > 0 ? Math.round(totalScore / scoredJDs.length) : 0
+    return { applyCount, referralCount, avgScore }
+  }, [scoredJDs])
+
+  // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-2">Finding Roles</h1>
-      <p className="text-text-muted mb-8">Score job descriptions, research companies, and discover opportunities.</p>
+    <div className="flex h-[calc(100vh-64px)]">
+      {/* ─── Left Panel: Tabs (65%) ────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col overflow-hidden border-r border-border">
+        {/* Stats bar */}
+        <div className="px-5 pt-5 pb-3">
+          <h1 className="text-2xl font-bold mb-3">Finding Roles</h1>
+          <div className="flex gap-3">
+            {[
+              { label: 'Scored JDs', value: scoredJDs.length },
+              { label: 'Apply', value: stats.applyCount },
+              { label: 'Referral', value: stats.referralCount },
+              { label: 'Avg Score', value: stats.avgScore || '—' },
+              { label: 'Companies', value: companies.length },
+              { label: 'Researched', value: intelSlugs.size },
+            ].map(s => (
+              <div key={s.label} className="flex-1 bg-surface border border-border rounded-lg px-3 py-2">
+                <div className="text-xs text-text-muted">{s.label}</div>
+                <div className="text-lg font-bold">{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column: Score JD + Research + Scored list */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Score JD Action */}
-          <div className="bg-surface border border-border rounded-lg p-5">
-            <h2 className="font-semibold mb-3">Score a Job Description</h2>
+        {/* Tab Bar */}
+        <div className="flex gap-6 border-b border-border px-5">
+          {([
+            { key: 'score' as TabKey, label: 'Score JD' },
+            { key: 'scored-jds' as TabKey, label: `Scored JDs${scoredJDs.length > 0 ? ` (${scoredJDs.length})` : ''}` },
+            { key: 'companies' as TabKey, label: `Companies${companies.length > 0 ? ` (${companies.length})` : ''}` },
+            { key: 'intel' as TabKey, label: 'Intel' },
+          ]).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`pb-2.5 text-sm font-medium transition-colors relative ${
+                activeTab === tab.key ? 'text-text' : 'text-text-muted hover:text-text'
+              }`}
+            >
+              {tab.label}
+              {activeTab === tab.key && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
 
-            {/* Company + Role row */}
-            <div className="grid grid-cols-2 gap-3 mb-3">
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {/* ─── Score JD Tab ──────────────────────────────────────── */}
+          {activeTab === 'score' && (
+            <div className="space-y-4 max-w-2xl">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">Company name</label>
+                  <input
+                    value={jdCompany}
+                    onChange={e => setJdCompany(e.target.value)}
+                    placeholder={detectedCompany?.name || 'e.g. Stripe'}
+                    className="w-full px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">Role title</label>
+                  <input
+                    value={jdRole}
+                    onChange={e => setJdRole(e.target.value)}
+                    placeholder="e.g. Staff Engineer"
+                    className="w-full px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">Company name</label>
+                <label className="block text-xs font-medium text-text-muted mb-1">Job posting URL <span className="font-normal">(optional)</span></label>
                 <input
-                  value={jdCompany}
-                  onChange={(e) => setJdCompany(e.target.value)}
-                  placeholder={detectedCompany?.name || 'e.g. Stripe'}
+                  value={jdUrl}
+                  onChange={e => setJdUrl(e.target.value)}
+                  placeholder="https://jobs.stripe.com/..."
                   className="w-full px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
                 />
               </div>
+
               <div>
-                <label className="block text-xs font-medium text-text-muted mb-1">Role title</label>
-                <input
-                  value={jdRole}
-                  onChange={(e) => setJdRole(e.target.value)}
-                  placeholder="e.g. Staff Engineer"
-                  className="w-full px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+                <label className="block text-xs font-medium text-text-muted mb-1">Job description</label>
+                <textarea
+                  value={jdText}
+                  onChange={e => setJdText(e.target.value)}
+                  placeholder="Paste the full job description here..."
+                  className="w-full h-48 p-3 border border-border rounded-md bg-bg text-text text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent/40"
                 />
               </div>
-            </div>
 
-            {/* Job URL (optional) */}
-            <div className="mb-3">
-              <label className="block text-xs font-medium text-text-muted mb-1">Job posting URL <span className="text-text-muted font-normal">(optional)</span></label>
-              <input
-                value={jdUrl}
-                onChange={(e) => setJdUrl(e.target.value)}
-                placeholder="https://jobs.stripe.com/..."
-                className="w-full px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
-              />
-            </div>
+              {!jdCompany && detectedCompany && (
+                <div className="text-xs text-accent flex items-center gap-1">
+                  <span>Detected:</span>
+                  <button onClick={() => setJdCompany(detectedCompany.name)} className="font-medium underline hover:no-underline">
+                    {detectedCompany.name}
+                  </button>
+                </div>
+              )}
 
-            {/* JD text */}
-            <div className="mb-1">
-              <label className="block text-xs font-medium text-text-muted mb-1">Job description</label>
-              <textarea
-                value={jdText}
-                onChange={(e) => setJdText(e.target.value)}
-                placeholder="Paste the full job description here..."
-                className="w-full h-40 p-3 border border-border rounded-md bg-bg text-text text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent/40"
-              />
-            </div>
-            {/* Auto-detect company from JD text */}
-            {!jdCompany && detectedCompany && (
-              <div className="mb-2 text-xs text-accent flex items-center gap-1">
-                <span>Detected target company:</span>
-                <button
-                  onClick={() => setJdCompany(detectedCompany.name)}
-                  className="font-medium underline hover:no-underline"
-                >
-                  {detectedCompany.name}
-                </button>
-                <span className="text-text-muted">— click to use</span>
-              </div>
-            )}
-            <div className="flex items-center gap-3 mt-2">
               <button
                 onClick={handleScoreJD}
-                disabled={!jdText.trim() || status === 'running'}
-                className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                disabled={!jdText.trim() || chatProcessing}
+                className="px-5 py-2.5 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {status === 'running' ? 'Scoring...' : 'Score JD'}
+                {chatProcessing ? 'Scoring...' : 'Score JD'}
               </button>
-              {status === 'running' && (
-                <span className="text-sm text-text-muted flex items-center gap-2">
-                  <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                  Research agent scoring JD...
-                </span>
-              )}
-              {status === 'completed' && (
-                <span className="text-sm text-success">Score complete -- see results below</span>
-              )}
-              {status === 'failed' && (
-                <span className="text-sm text-danger">{error || 'Scoring failed'}</span>
-              )}
-              {status === 'timeout' && (
-                <span className="text-sm text-danger">Scoring timed out. Try again.</span>
-              )}
-            </div>
 
-            {latestOutput && status === 'completed' && (() => {
-              const parsed = parseScoreResult(latestOutput)
-              return (
-                <div className="mt-4 p-4 bg-bg border border-border rounded-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold">Score Result</h3>
-                    <button
-                      onClick={() => setLatestOutput(null)}
-                      className="text-xs text-text-muted hover:text-text"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                  <AgentChat
-                    agentName="research"
-                    initialOutput={latestOutput}
-                    skill="score-jd"
-                    onClose={() => setLatestOutput(null)}
-                    metadata={{ company: jdCompany || 'unknown' }}
-                  />
-                  {/* FIX 1: Add to Pipeline button on inline result */}
-                  <button
-                    onClick={() => {
-                      if (parsed) {
-                        addToPipeline(parsed.company, parsed.role, parsed.score)
-                      }
-                    }}
-                    className="mt-3 px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover transition-colors"
-                  >
-                    Add to Pipeline{parsed ? ` (${parsed.company})` : ''}
-                  </button>
-                  {pipelineMsg && (
-                    <span className={`ml-3 text-sm ${pipelineMsg.type === 'success' ? 'text-success' : 'text-danger'}`}>
-                      {pipelineMsg.text}
-                    </span>
-                  )}
-                </div>
-              )
-            })()}
-          </div>
-
-          {/* Research Company Action */}
-          <div className="bg-surface border border-border rounded-lg p-5">
-            <h2 className="font-semibold mb-3">Research a Company</h2>
-            <p className="text-text-muted text-xs mb-3">Get structured intel: interview format, comp bands, culture, and tips.</p>
-            <div className="flex items-center gap-3">
-              <input
-                value={researchCompany}
-                onChange={(e) => setResearchCompany(e.target.value)}
-                placeholder="Enter company name..."
-                className="flex-1 px-3 py-2 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
-                onKeyDown={(e) => { if (e.key === 'Enter') handleResearchCompany() }}
-              />
-              <button
-                onClick={handleResearchCompany}
-                disabled={!researchCompany.trim() || researchStatus === 'running'}
-                className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {researchStatus === 'running' ? 'Researching...' : 'Research'}
-              </button>
-            </div>
-            {researchStatus === 'running' && (
-              <p className="text-sm text-text-muted mt-2 flex items-center gap-2">
-                <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                Research agent gathering intel...
-              </p>
-            )}
-            {researchStatus === 'done' && (
-              <p className="text-sm text-success mt-2">Research complete. Intel file created.</p>
-            )}
-            {researchStatus === 'error' && (
-              <p className="text-sm text-danger mt-2">Research failed. Try again.</p>
-            )}
-          </div>
-
-          {/* Scored JDs List */}
-          <div className="bg-surface border border-border rounded-lg p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">Scored JDs</h2>
-              {scoredJDs.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setJdSort('score')}
-                    className={`text-xs px-2 py-1 rounded ${jdSort === 'score' ? 'bg-accent/10 text-accent font-medium' : 'text-text-muted hover:text-text'}`}
-                  >
-                    By Score
-                  </button>
-                  <button
-                    onClick={() => setJdSort('date')}
-                    className={`text-xs px-2 py-1 rounded ${jdSort === 'date' ? 'bg-accent/10 text-accent font-medium' : 'text-text-muted hover:text-text'}`}
-                  >
-                    By Date
-                  </button>
-                </div>
-              )}
-            </div>
-            {/* FIX 7: Search input */}
-            {scoredJDs.length > 0 && (
-              <input
-                value={jdSearch}
-                onChange={(e) => setJdSearch(e.target.value)}
-                placeholder="Filter by company or role..."
-                className="w-full px-3 py-2 mb-3 border border-border rounded-md bg-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
-              />
-            )}
-            {/* FIX 1: Pipeline message */}
-            {pipelineMsg && (
-              <div className={`mb-3 text-sm ${pipelineMsg.type === 'success' ? 'text-success' : 'text-danger'}`}>
-                {pipelineMsg.text}
-              </div>
-            )}
-            {scoredJDs.length === 0 ? (
-              <p className="text-text-muted text-sm">No scored JDs yet. Paste a job description above to get started.</p>
-            ) : filteredScoredJDs.length === 0 ? (
-              <p className="text-text-muted text-sm">No scored JDs match your filter.</p>
-            ) : (
-              <div className="space-y-2">
-                {filteredScoredJDs.map((jd) => (
-                  <div
-                    key={jd.filename}
-                    className={`p-3 rounded-md border transition-colors ${
-                      selectedJD?.filename === jd.filename
-                        ? 'border-accent bg-accent/5'
-                        : 'border-border hover:bg-bg'
-                    }`}
-                  >
-                    <button
-                      onClick={() => viewScoredJD(jd)}
-                      className="w-full text-left"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-medium text-sm truncate">{jd.company}</span>
-                            {jd.url && (
-                              <a
-                                href={jd.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-accent hover:text-accent-hover flex-shrink-0"
-                                title="Open job posting"
-                              >
-                                ↗
-                              </a>
-                            )}
-                          </div>
-                          <div className="text-text-muted text-xs">{jd.role}{jd.date ? ` · ${jd.date}` : ''}</div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                            jd.score >= 75
-                              ? 'bg-success/10 text-success'
-                              : jd.score >= 60
-                                ? 'bg-warning/10 text-warning'
-                                : 'bg-danger/10 text-danger'
-                          }`}>
-                            {jd.score}/100
-                          </span>
-                          <span className={`text-xs ${
-                            jd.recommendation === 'Apply'
-                              ? 'text-success'
-                              : jd.recommendation === 'Referral Only'
-                                ? 'text-warning'
-                                : 'text-danger'
-                          }`}>
-                            Recommendation: {jd.recommendation}
-                          </span>
-                        </div>
+              {/* Vault JDs */}
+              {vaultJDs.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-border">
+                  <h3 className="text-sm font-semibold mb-2">Unscored JDs from Vault</h3>
+                  <p className="text-xs text-text-muted mb-3">Files in vault/job-descriptions/</p>
+                  <div className="space-y-1">
+                    {vaultJDs.map(file => (
+                      <div key={file} className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-bg border border-transparent hover:border-border">
+                        <span className="text-sm truncate">{file}</span>
+                        <button
+                          onClick={() => handleScoreVaultJD(file)}
+                          disabled={chatProcessing}
+                          className="text-xs text-accent hover:text-accent-hover font-medium shrink-0 ml-2"
+                        >
+                          Score
+                        </button>
                       </div>
-                    </button>
-                    {/* FIX 1: Add to Pipeline per scored JD card */}
-                    <div className="mt-2 flex items-center gap-2">
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── Scored JDs Tab ────────────────────────────────────── */}
+          {activeTab === 'scored-jds' && (
+            <div>
+              {/* Pipeline feedback */}
+              {pipelineMsg && (
+                <div className={`mb-3 text-sm ${pipelineMsg.type === 'success' ? 'text-success' : 'text-danger'}`}>
+                  {pipelineMsg.text}
+                </div>
+              )}
+
+              {scoredJDs.length > 0 && (
+                <div className="flex items-center gap-3 mb-4">
+                  <input
+                    value={jdSearch}
+                    onChange={e => setJdSearch(e.target.value)}
+                    placeholder="Search by company or role..."
+                    className="flex-1 px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+                  />
+                  <div className="flex gap-1">
+                    {(['score', 'date'] as const).map(s => (
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          addToPipeline(jd.company, jd.role, jd.score, jd.jd_file)
-                        }}
-                        className="text-xs px-2 py-1 bg-accent/10 text-accent rounded hover:bg-accent/20 transition-colors"
+                        key={s}
+                        onClick={() => setJdSort(s)}
+                        className={`text-xs px-3 py-1.5 rounded-md ${jdSort === s ? 'bg-accent/10 text-accent font-medium' : 'text-text-muted hover:text-text hover:bg-bg'}`}
+                      >
+                        {s === 'score' ? 'By Score' : 'By Date'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {scoredJDs.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-text-muted text-lg mb-2">No scored JDs yet.</p>
+                  <p className="text-text-muted text-sm mb-4">Paste a job description in the Score JD tab to get started.</p>
+                  <button onClick={() => setActiveTab('score')} className="text-sm text-accent hover:text-accent-hover font-medium">
+                    Go to Score JD
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredScoredJDs.map(jd => (
+                    <div
+                      key={jd.filename}
+                      className={`p-3 rounded-lg border transition-colors ${
+                        selectedJD?.filename === jd.filename ? 'border-accent bg-accent/5' : 'border-border hover:bg-bg'
+                      }`}
+                    >
+                      <button onClick={() => viewScoredJD(jd)} className="w-full text-left">
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{jd.company}</span>
+                              {jd.url && (
+                                <a href={jd.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-accent hover:text-accent-hover text-xs">
+                                  Open ↗
+                                </a>
+                              )}
+                            </div>
+                            <div className="text-text-muted text-xs mt-0.5">{jd.role}{jd.date ? ` · ${jd.date}` : ''}</div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-3">
+                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                              jd.score >= SCORE_APPLY_THRESHOLD ? 'bg-success/10 text-success' : jd.score >= SCORE_REFERRAL_THRESHOLD ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger'
+                            }`}>
+                              {jd.score}/100
+                            </span>
+                            <span className={`text-xs ${
+                              jd.recommendation === 'Apply' ? 'text-success' : jd.recommendation === 'Referral Only' ? 'text-warning' : 'text-danger'
+                            }`}>
+                              {jd.recommendation}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          onClick={e => { e.stopPropagation(); addToPipeline(jd.company, jd.role, jd.score, jd.jd_file) }}
+                          className="text-xs px-2.5 py-1 bg-accent/10 text-accent rounded-md hover:bg-accent/20 transition-colors"
+                        >
+                          Add to Pipeline
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); deleteScoredJD(jd.filename) }}
+                          className="text-xs px-2.5 py-1 text-text-muted hover:text-danger hover:bg-danger/10 rounded-md transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* JD Detail View */}
+              {selectedJD && jdContent && (
+                <div className="mt-4 bg-surface border border-border rounded-lg p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold">{selectedJD.company} — {selectedJD.role}</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => addToPipeline(selectedJD.company, selectedJD.role, selectedJD.score, selectedJD.jd_file)}
+                        className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover"
                       >
                         Add to Pipeline
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteScoredJD(jd.filename)
-                        }}
-                        className="text-xs px-2 py-1 bg-danger/10 text-danger rounded hover:bg-danger/20 transition-colors"
+                        onClick={() => { setSelectedJD(null); setJdContent('') }}
+                        className="text-xs text-text-muted hover:text-text"
                       >
-                        Delete
+                        Close
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <div className="bg-bg p-4 rounded-md border border-border overflow-auto max-h-[60vh]">
+                    <MarkdownView content={jdContent} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* JD Detail View */}
-          {selectedJD && (
-            <div className="bg-surface border border-border rounded-lg p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold">
-                  {selectedJD.company} -- {selectedJD.role}
-                </h2>
-                <div className="flex items-center gap-2">
-                  {/* FIX 1: Add to Pipeline from detail view */}
+          {/* ─── Companies Tab ─────────────────────────────────────── */}
+          {activeTab === 'companies' && (
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  value={companySearch}
+                  onChange={e => setCompanySearch(e.target.value)}
+                  placeholder="Search companies..."
+                  className="flex-1 px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+                />
+                <button
+                  onClick={handleGenerateTargets}
+                  disabled={chatProcessing}
+                  className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                >
+                  {chatProcessing ? 'Generating...' : 'Generate Targets'}
+                </button>
+              </div>
+
+              {companies.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-text-muted text-lg mb-2">No target companies yet.</p>
+                  <p className="text-text-muted text-sm mb-4">Generate from your career plan or add manually.</p>
                   <button
-                    onClick={() => addToPipeline(selectedJD.company, selectedJD.role, selectedJD.score, selectedJD.jd_file)}
-                    className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover transition-colors"
+                    onClick={handleGenerateTargets}
+                    disabled={chatProcessing}
+                    className="text-sm text-accent hover:text-accent-hover font-medium"
                   >
-                    Add to Pipeline
-                  </button>
-                  <button
-                    onClick={() => { setSelectedJD(null); setJdContent('') }}
-                    className="text-text-muted text-sm hover:text-text"
-                  >
-                    Close
+                    Generate Target List
                   </button>
                 </div>
-              </div>
-              <div className="bg-bg p-4 rounded-md border border-border overflow-auto max-h-96">
-                <MarkdownView content={jdContent} />
-              </div>
-            </div>
-          )}
-
-          {/* Vault JDs */}
-          {vaultJDs.length > 0 && (
-            <div className="bg-surface border border-border rounded-lg p-5">
-              <h2 className="font-semibold mb-3">New JDs from Vault</h2>
-              <p className="text-text-muted text-xs mb-3">Files detected in vault/job-descriptions/</p>
-              <div className="space-y-1">
-                {vaultJDs.map((file) => (
-                  <div key={file} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-bg">
-                    <span className="text-sm">{file}</span>
-                    <span className="text-xs text-text-muted">Unscored</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right column: Target Companies */}
-        <div className="space-y-6">
-          <div className="bg-surface border border-border rounded-lg p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">Target Companies</h2>
-              <button
-                onClick={handleGenerateTargets}
-                disabled={generateTargetsStatus === 'running'}
-                className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {generateTargetsStatus === 'running' ? 'Generating...' : 'Generate Targets'}
-              </button>
-            </div>
-            {generateTargetsStatus === 'running' && (
-              <p className="text-xs text-text-muted mb-3 flex items-center gap-2">
-                <span className="inline-block w-2 h-2 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                Research agent generating target list...
-              </p>
-            )}
-            {generateTargetsStatus === 'done' && (
-              <p className="text-xs text-success mb-3">Target list generated.</p>
-            )}
-            {companies.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-text-muted text-sm mb-3">No target companies yet.</p>
-                <p className="text-text-muted text-xs">Click &quot;Generate Targets&quot; to auto-generate from your career plan.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {companies.map((company) => {
-                  const intel = getIntelStatus(company)
-                  return (
-                    <button
-                      key={company.slug}
-                      onClick={() => intelSlugs.has(company.slug) ? viewCompanyIntel(company.slug) : undefined}
-                      className={`w-full text-left p-3 rounded-md border border-border hover:bg-bg transition-colors ${
-                        intelSlugs.has(company.slug) ? 'cursor-pointer' : 'cursor-default'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{company.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${intel.color}`}>
-                            {intel.label}
-                          </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            company.priority === 'high'
-                              ? 'bg-danger/10 text-danger'
-                              : company.priority === 'medium'
-                                ? 'bg-warning/10 text-warning'
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filteredCompanies.map(company => {
+                    const hasIntel = intelSlugs.has(company.slug)
+                    return (
+                      <div key={company.slug} className="p-3 rounded-lg border border-border hover:bg-bg transition-colors">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-sm">{company.name}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                            company.priority === 'high' ? 'bg-danger/10 text-danger'
+                              : company.priority === 'medium' ? 'bg-warning/10 text-warning'
                                 : 'bg-bg text-text-muted'
                           }`}>
                             {company.priority}
                           </span>
                         </div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs text-text-muted capitalize">{company.status}</span>
+                          {company.fit_score > 0 && (
+                            <span className="text-xs text-accent font-medium">{company.fit_score}/100</span>
+                          )}
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${hasIntel ? 'bg-success/10 text-success' : 'bg-text-muted/10 text-text-muted'}`}>
+                            {hasIntel ? 'Researched' : 'No intel'}
+                          </span>
+                        </div>
+                        {company.notes && <p className="text-xs text-text-muted mb-2 line-clamp-2">{company.notes}</p>}
+                        <div className="flex items-center gap-2">
+                          {hasIntel ? (
+                            <button onClick={() => viewIntel(company.slug)} className="text-xs text-accent hover:text-accent-hover font-medium">
+                              View Intel
+                            </button>
+                          ) : (
+                            <button onClick={() => handleResearchCompany(company.name)} disabled={chatProcessing} className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">
+                              Research
+                            </button>
+                          )}
+                          <span className="text-border">·</span>
+                          <button onClick={() => prefillScoreJDForCompany(company.name)} className="text-xs text-text-muted hover:text-accent">
+                            Score JD
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-text-muted capitalize">{company.status}</span>
-                        {company.fit_score > 0 && (
-                          <span className="text-xs text-accent font-medium">{company.fit_score}/100</span>
-                        )}
-                      </div>
-                      {company.notes && (
-                        <p className="text-xs text-text-muted mt-1">{company.notes}</p>
-                      )}
-                      {/* FIX 4: Score JD link per company */}
-                      <div
-                        className="mt-2"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={() => prefillScoreJDForCompany(company.name)}
-                          className="text-xs text-accent hover:text-accent-hover hover:underline"
-                        >
-                          Score JD
-                        </button>
-                      </div>
-                    </button>
-                  )
-                })}
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── Intel Tab ─────────────────────────────────────────── */}
+          {activeTab === 'intel' && (
+            <div>
+              {/* Company selector */}
+              <div className="flex items-center gap-3 mb-4">
+                <select
+                  value={selectedIntelSlug || ''}
+                  onChange={e => { if (e.target.value) viewIntel(e.target.value) }}
+                  className="flex-1 px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
+                >
+                  <option value="">Select a company...</option>
+                  {companies.filter(c => intelSlugs.has(c.slug)).map(c => (
+                    <option key={c.slug} value={c.slug}>{c.name}</option>
+                  ))}
+                </select>
+                <input
+                  value={researchInput}
+                  onChange={e => setResearchInput(e.target.value)}
+                  placeholder="Research new company..."
+                  className="px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 w-48"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && researchInput.trim()) {
+                      handleResearchCompany(researchInput.trim())
+                      setResearchInput('')
+                    }
+                  }}
+                />
               </div>
-            )}
-          </div>
+
+              {intelLoading ? (
+                <div className="text-center py-8">
+                  <span className="inline-block w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin mr-2" />
+                  <span className="text-text-muted">Loading intel...</span>
+                </div>
+              ) : intelData ? (
+                <div className="space-y-5">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold">{intelData.company}</h2>
+                      <p className="text-sm text-text-muted">
+                        {[intelData.industry, intelData.hq, intelData.size].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {intelData.website && (
+                        <a href={intelData.website} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">
+                          Website ↗
+                        </a>
+                      )}
+                      {intelData.careers_url && (
+                        <a href={intelData.careers_url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline">
+                          Careers ↗
+                        </a>
+                      )}
+                      <button onClick={() => prefillScoreJDForCompany(intelData.company)} className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover">
+                        Score JD
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Culture */}
+                  {intelData.culture && (
+                    <div className="bg-surface border border-border rounded-lg p-4">
+                      <h3 className="font-semibold text-sm mb-2">Culture</h3>
+                      {intelData.culture.engineering_culture && <p className="text-sm text-text-muted mb-2">{intelData.culture.engineering_culture}</p>}
+                      {intelData.culture.remote_policy && <p className="text-sm text-text-muted mb-2">Remote: {intelData.culture.remote_policy}</p>}
+                      {intelData.culture.values?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {intelData.culture.values.map((v, i) => (
+                            <span key={i} className="text-xs bg-bg px-2 py-0.5 rounded-full border border-border">{v}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Interview */}
+                  {intelData.interview && (
+                    <div className="bg-surface border border-border rounded-lg p-4">
+                      <h3 className="font-semibold text-sm mb-2">Interview Process</h3>
+                      {intelData.interview.timeline && <p className="text-xs text-text-muted mb-3">Timeline: {intelData.interview.timeline}</p>}
+                      <div className="space-y-1.5">
+                        {intelData.interview.stages?.map((s, i) => (
+                          <div key={i} className="text-sm flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-accent/10 text-accent text-xs flex items-center justify-center font-medium shrink-0">{i + 1}</span>
+                            <span className="font-medium">{s.name}</span>
+                            <span className="text-text-muted text-xs">({s.duration}, {s.format})</span>
+                          </div>
+                        ))}
+                      </div>
+                      {intelData.interview.tips?.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <h4 className="text-xs font-semibold text-text-muted mb-1">Tips</h4>
+                          <ul className="text-xs text-text-muted space-y-0.5">
+                            {intelData.interview.tips.map((t, i) => <li key={i}>• {t}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Compensation */}
+                  {intelData.comp?.bands?.length > 0 && (
+                    <div className="bg-surface border border-border rounded-lg p-4">
+                      <h3 className="font-semibold text-sm mb-2">Compensation</h3>
+                      <div className="space-y-1.5">
+                        {intelData.comp.bands.map((b, i) => (
+                          <div key={i} className="text-sm flex items-center justify-between">
+                            <span className="font-medium">{b.level}</span>
+                            <span className="text-text-muted text-xs">Base: {b.base} · Total: {b.total}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {intelData.comp.notes && <p className="text-xs text-text-muted mt-2">{intelData.comp.notes}</p>}
+                    </div>
+                  )}
+                </div>
+              ) : !selectedIntelSlug ? (
+                <div className="text-center py-12">
+                  <p className="text-text-muted text-lg mb-2">Select a company to view intel.</p>
+                  <p className="text-text-muted text-sm">
+                    {intelSlugs.size > 0 ? `${intelSlugs.size} companies researched` : 'No companies researched yet — use the Companies tab to start.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-text-muted">No intel available for this company.</p>
+                  <button
+                    onClick={() => { if (selectedIntelSlug) handleResearchCompany(selectedIntelSlug) }}
+                    disabled={chatProcessing}
+                    className="mt-2 text-sm text-accent hover:text-accent-hover font-medium"
+                  >
+                    Research Now
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Intel Detail Modal */}
-      {selectedIntelSlug && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setSelectedIntelSlug(null); setIntelData(null) }}>
-          <div
-            className="bg-surface border border-border rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {intelLoading ? (
-              <p className="text-text-muted">Loading intel...</p>
-            ) : intelData ? (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-xl font-bold">{intelData.company}</h2>
-                    <p className="text-sm text-text-muted">{intelData.industry} | {intelData.hq} | {intelData.size}</p>
-                  </div>
-                  <button
-                    onClick={() => { setSelectedIntelSlug(null); setIntelData(null) }}
-                    className="text-text-muted hover:text-text text-sm"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                {/* Culture */}
-                <div className="mb-4">
-                  <h3 className="font-semibold text-sm mb-2">Culture</h3>
-                  <p className="text-sm text-text-muted mb-1">{intelData.culture?.engineering_culture}</p>
-                  <p className="text-sm text-text-muted">Remote: {intelData.culture?.remote_policy}</p>
-                  {intelData.culture?.values?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {intelData.culture.values.map((v, i) => (
-                        <span key={i} className="text-xs bg-bg px-2 py-0.5 rounded-full">{v}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Interview */}
-                <div className="mb-4">
-                  <h3 className="font-semibold text-sm mb-2">Interview Process</h3>
-                  <p className="text-xs text-text-muted mb-2">Timeline: {intelData.interview?.timeline}</p>
-                  <div className="space-y-1">
-                    {intelData.interview?.stages?.map((s, i) => (
-                      <div key={i} className="text-sm flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-accent/10 text-accent text-xs flex items-center justify-center font-medium">{i + 1}</span>
-                        <span className="font-medium">{s.name}</span>
-                        <span className="text-text-muted text-xs">({s.duration}, {s.format})</span>
-                      </div>
-                    ))}
-                  </div>
-                  {intelData.interview?.tips?.length > 0 && (
-                    <div className="mt-3">
-                      <h4 className="text-xs font-semibold text-text-muted mb-1">Tips</h4>
-                      <ul className="text-xs text-text-muted space-y-1">
-                        {intelData.interview.tips.map((t, i) => (
-                          <li key={i}>- {t}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {/* Compensation */}
-                <div className="mb-4">
-                  <h3 className="font-semibold text-sm mb-2">Compensation</h3>
-                  <div className="space-y-1">
-                    {intelData.comp?.bands?.map((b, i) => (
-                      <div key={i} className="text-sm flex items-center justify-between">
-                        <span className="font-medium">{b.level}</span>
-                        <span className="text-text-muted text-xs">Base: {b.base} | Total: {b.total}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {intelData.comp?.notes && (
-                    <p className="text-xs text-text-muted mt-2">{intelData.comp.notes}</p>
-                  )}
-                </div>
-
-                {/* FIX 4: Score a JD for this company */}
-                <div className="pt-3 border-t border-border">
-                  <button
-                    onClick={() => prefillScoreJDForCompany(intelData.company)}
-                    className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover transition-colors"
-                  >
-                    Score a JD for {intelData.company}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <p className="text-text-muted">No intel available for this company.</p>
-            )}
+      {/* ─── Right Panel: Agent Chat (35%) ────────────────────────────── */}
+      <div className="w-[35%] flex flex-col bg-surface">
+        {/* Chat Header */}
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${chatProcessing ? 'bg-accent animate-pulse' : 'bg-success'}`} />
+            <span className="text-sm font-semibold">Research Agent</span>
           </div>
+          <button
+            onClick={() => {
+              setChatMessages([])
+              localStorage.removeItem('finding-chat-messages')
+              setHasSpawned(false)
+            }}
+            className="text-xs text-text-muted hover:text-text"
+          >
+            Clear
+          </button>
         </div>
-      )}
+
+        {/* Chat Messages */}
+        <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+          {chatMessages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[90%] rounded-lg px-3.5 py-2.5 ${
+                msg.role === 'user' ? 'bg-accent/10 text-text' : 'bg-bg text-text'
+              }`}>
+                {msg.role === 'agent' ? (
+                  <MarkdownView content={msg.content} className="text-sm" />
+                ) : (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                )}
+              </div>
+            </div>
+          ))}
+          {chatProcessing && (
+            <div className="flex justify-start">
+              <div className="bg-bg rounded-lg px-3.5 py-2.5 flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-text-muted">Research agent is thinking...</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Chat Input */}
+        <div className="border-t border-border p-3 flex items-center gap-2">
+          <input
+            value={chatInput}
+            onChange={e => setChatInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(chatInput) } }}
+            placeholder="Ask the research agent..."
+            disabled={chatProcessing}
+            className="flex-1 px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
+          />
+          <button
+            onClick={() => sendChatMessage(chatInput)}
+            disabled={!chatInput.trim() || chatProcessing}
+            className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Send
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
