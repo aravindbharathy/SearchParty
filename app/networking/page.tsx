@@ -164,7 +164,6 @@ export default function NetworkingPage() {
     } catch { return [] }
   })
   const [chatInput, setChatInput] = useState('')
-  const [chatProcessing, setChatProcessing] = useState(false)
   const [hasSpawned, setHasSpawned] = useState(false)
   const chatScrollRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLInputElement>(null)
@@ -189,6 +188,9 @@ export default function NetworkingPage() {
 
   // Agent hook
   const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('networking-chat')
+
+  // Derived from agent hook — survives tab switches
+  const chatProcessing = agentStatus === 'running'
 
   // ─── Data Loading ───────────────────────────────────────────────────────
 
@@ -286,7 +288,7 @@ export default function NetworkingPage() {
     if (hasSpawned) return
     setHasSpawned(true)
     if (chatMessages.length > 0) return // restored from localStorage
-    setChatProcessing(true)
+
     spawnAgent('networking', {
       skill: 'networking-specialist',
       entry_name: 'networking-session',
@@ -299,7 +301,7 @@ export default function NetworkingPage() {
   useEffect(() => {
     if (agentStatus === 'completed' && agentOutput) {
       setChatMessages(prev => [...prev, { role: 'agent', content: agentOutput }])
-      setChatProcessing(false)
+
 
       // Check if the output contains messages to parse
       if (agentOutput.includes('##') && (agentOutput.toLowerCase().includes('connection') || agentOutput.toLowerCase().includes('message') || agentOutput.toLowerCase().includes('outreach'))) {
@@ -321,12 +323,12 @@ export default function NetworkingPage() {
     }
     if (agentStatus === 'failed') {
       setChatMessages(prev => [...prev, { role: 'agent', content: 'Something went wrong. Please try again.' }])
-      setChatProcessing(false)
+
       agentReset()
     }
     if (agentStatus === 'timeout') {
       setChatMessages(prev => [...prev, { role: 'agent', content: 'Request timed out. Please try again.' }])
-      setChatProcessing(false)
+
       agentReset()
     }
   }, [agentStatus, agentOutput, agentReset, loadContacts, loadStats, loadAuditFile])
@@ -335,7 +337,7 @@ export default function NetworkingPage() {
     if (!text.trim() || chatProcessing) return
     setChatMessages(prev => [...prev, { role: 'user', content: text.trim() }])
     setChatInput('')
-    setChatProcessing(true)
+
 
     try {
       await spawnAgent('networking', {
@@ -345,9 +347,9 @@ export default function NetworkingPage() {
       })
     } catch {
       setChatMessages(prev => [...prev, { role: 'agent', content: 'Failed to reach agent. Please try again.' }])
-      setChatProcessing(false)
+
     }
-  }, [chatProcessing, spawnAgent])
+  }, [agentStatus, spawnAgent])
 
   const handleChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

@@ -121,14 +121,14 @@ export default function FindingPage() {
     } catch { return [] }
   })
   const [chatInput, setChatInput] = useState('')
-  const [chatProcessing, setChatProcessing] = useState(false)
   const [hasSpawned, setHasSpawned] = useState(false)
   const chatScrollRef = useRef<HTMLDivElement>(null)
 
   // Agent hook — single persistent session for all research actions
   const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('finding-chat')
 
-  // Only disable action buttons during user-initiated actions (not initial greeting or free chat)
+  // Derived from agent hook — survives tab switches
+  const chatProcessing = agentStatus === 'running'
   const actionProcessing = chatProcessing && lastActionRef.current !== 'init' && lastActionRef.current !== 'chat'
 
   // ─── Auto-detect company from JD text ────────────────────────────────────
@@ -215,7 +215,7 @@ export default function FindingPage() {
     if (hasSpawned) return
     setHasSpawned(true)
     if (chatMessages.length > 0) return
-    setChatProcessing(true)
+
     spawnAgent('research', {
       skill: 'research-chat',
       entry_name: 'research-session',
@@ -228,7 +228,7 @@ export default function FindingPage() {
   useEffect(() => {
     if (agentStatus === 'completed' && agentOutput) {
       setChatMessages(prev => [...prev, { role: 'agent', content: agentOutput }])
-      setChatProcessing(false)
+
       agentReset()
       // Conditional refresh based on what action was taken
       const action = lastActionRef.current
@@ -239,12 +239,12 @@ export default function FindingPage() {
     }
     if (agentStatus === 'failed') {
       setChatMessages(prev => [...prev, { role: 'agent', content: 'Something went wrong. Please try again.' }])
-      setChatProcessing(false)
+
       agentReset()
     }
     if (agentStatus === 'timeout') {
       setChatMessages(prev => [...prev, { role: 'agent', content: 'Request timed out. Please try again.' }])
-      setChatProcessing(false)
+
       agentReset()
     }
   }, [agentStatus, agentOutput, agentReset, loadScoredJDs, loadCompanies, loadIntelStatus])
@@ -253,7 +253,7 @@ export default function FindingPage() {
     if (!text.trim() || chatProcessing) return
     setChatMessages(prev => [...prev, { role: 'user', content: text.trim() }])
     setChatInput('')
-    setChatProcessing(true)
+
 
     try {
       const result = await spawnAgent('research', {
@@ -263,13 +263,13 @@ export default function FindingPage() {
       })
       if (result === null) {
         setChatMessages(prev => [...prev, { role: 'agent', content: 'The agent is still processing. Please wait a moment.' }])
-        setChatProcessing(false)
+  
       }
     } catch {
       setChatMessages(prev => [...prev, { role: 'agent', content: 'Failed to reach agent. Please try again.' }])
-      setChatProcessing(false)
+
     }
-  }, [chatProcessing, spawnAgent])
+  }, [agentStatus, spawnAgent])
 
   // ─── Action handlers (send through chat) ─────────────────────────────────
 
