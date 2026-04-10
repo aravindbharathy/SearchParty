@@ -255,17 +255,30 @@ export default function FindingPage() {
 
   useEffect(() => { scrollChatToBottom() }, [chatMessages.length, scrollChatToBottom])
 
-  // Spawn agent on first load if no saved chat — ref survives strict mode
+  // Spawn agent on first load — wait for blackboard to be ready
   useEffect(() => {
     if (hasSpawnedRef.current) return
     hasSpawnedRef.current = true
     if (chatMessages.length > 0) return
 
-    spawnAgent('research', {
-      skill: 'research-chat',
-      entry_name: 'research-session',
-      text: RESEARCH_DIRECTIVE,
-    })
+    let cancelled = false
+    const waitAndSpawn = async () => {
+      for (let i = 0; i < 5; i++) {
+        try {
+          const res = await fetch('http://localhost:8790/state', { signal: AbortSignal.timeout(2000) })
+          if (res.ok) break
+        } catch { /* retry */ }
+        await new Promise(r => setTimeout(r, 1000))
+      }
+      if (cancelled) return
+      spawnAgent('research', {
+        skill: 'research-chat',
+        entry_name: 'research-session',
+        text: RESEARCH_DIRECTIVE,
+      })
+    }
+    waitAndSpawn()
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

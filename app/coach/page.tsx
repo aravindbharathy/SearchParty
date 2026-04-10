@@ -1512,18 +1512,32 @@ export default function CoachPage() {
   }, [contextStatus])
 
   // Spawn coach on mount — ONLY if no saved conversation exists
-  // Spawn coach on mount — only once, using a ref to survive strict mode double-mount
+  // Spawn coach on mount — wait for blackboard to be ready first
   useEffect(() => {
     if (hasStartedRef.current) return
     hasStartedRef.current = true
     if (messages.length > 0) return // restored from localStorage
 
-    const directive = isContextReady ? COMPANION_DIRECTIVE : ONBOARDING_DIRECTIVE
-    spawnAgent('coach', {
-      skill: 'onboarding-coach',
-      entry_name: 'onboarding-session',
-      text: directive,
-    })
+    let cancelled = false
+    const waitAndSpawn = async () => {
+      // Wait for blackboard to be reachable (handles post-reset race)
+      for (let i = 0; i < 5; i++) {
+        try {
+          const res = await fetch('http://localhost:8790/state', { signal: AbortSignal.timeout(2000) })
+          if (res.ok) break
+        } catch { /* retry */ }
+        await new Promise(r => setTimeout(r, 1000))
+      }
+      if (cancelled) return
+      const directive = isContextReady ? COMPANION_DIRECTIVE : ONBOARDING_DIRECTIVE
+      spawnAgent('coach', {
+        skill: 'onboarding-coach',
+        entry_name: 'onboarding-session',
+        text: directive,
+      })
+    }
+    waitAndSpawn()
+    return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

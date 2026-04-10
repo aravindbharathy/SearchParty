@@ -295,17 +295,30 @@ export default function NetworkingPage() {
     scrollChatToBottom()
   }, [chatMessages.length, scrollChatToBottom])
 
-  // Spawn agent on first load if no saved chat — ref survives strict mode
+  // Spawn agent on first load — wait for blackboard to be ready
   useEffect(() => {
     if (hasSpawnedRef.current) return
     hasSpawnedRef.current = true
     if (chatMessages.length > 0) return // restored from localStorage
 
-    spawnAgent('networking', {
-      skill: 'networking-specialist',
-      entry_name: 'networking-session',
-      text: NETWORKING_DIRECTIVE,
-    })
+    let cancelled = false
+    const waitAndSpawn = async () => {
+      for (let i = 0; i < 5; i++) {
+        try {
+          const res = await fetch('http://localhost:8790/state', { signal: AbortSignal.timeout(2000) })
+          if (res.ok) break
+        } catch { /* retry */ }
+        await new Promise(r => setTimeout(r, 1000))
+      }
+      if (cancelled) return
+      spawnAgent('networking', {
+        skill: 'networking-specialist',
+        entry_name: 'networking-session',
+        text: NETWORKING_DIRECTIVE,
+      })
+    }
+    waitAndSpawn()
+    return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
