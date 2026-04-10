@@ -163,8 +163,8 @@ export default function NetworkingPage() {
   const chatScrollRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLInputElement>(null)
 
-  // Messages tab state (parsed from agent output)
-  const [parsedMessages, setParsedMessages] = useState<Array<{ recipient: string; company: string; text: string; sent?: boolean }>>(() => {
+  // Messages tab state — loaded from API + agent output
+  const [parsedMessages, setParsedMessages] = useState<Array<{ id?: string; recipient: string; company: string; role?: string; text: string; charCount?: number; personalization?: string; sent?: boolean }>>(() => {
     if (typeof window === 'undefined') return []
     try {
       const saved = localStorage.getItem('net-parsed-messages')
@@ -209,7 +209,30 @@ export default function NetworkingPage() {
   useEffect(() => {
     loadContacts()
     loadStats()
+    // Load messages from saved files
+    loadSavedMessages()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadContacts, loadStats])
+
+  const loadSavedMessages = useCallback(async () => {
+    try {
+      const res = await fetch('/api/networking/messages')
+      if (res.ok) {
+        const data = await res.json() as { messages: Array<{ id: string; recipient: string; company: string; role?: string; text: string; charCount: number; personalization?: string }> }
+        if (data.messages.length > 0) {
+          setParsedMessages(prev => {
+            // Merge: keep any existing sent status, add new ones
+            const existing = new Map(prev.map(m => [m.text.slice(0, 50), m]))
+            const merged = data.messages.map(m => ({
+              ...m,
+              sent: existing.get(m.text.slice(0, 50))?.sent || false,
+            }))
+            return merged
+          })
+        }
+      }
+    } catch {}
+  }, [])
 
   // ─── Persistence ────────────────────────────────────────────────────────
 
