@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { MarkdownView } from '../_components/markdown-view'
 import { useAgentEvents } from '../hooks/use-agent-events'
 import { useDirectiveNotifications } from '../hooks/use-directive-notifications'
+import { usePendingAction } from '../hooks/use-pending-action'
 import { DirectiveBanner } from '../_components/directive-banner'
 import type { ProfileStatusResponse, ProfileSectionStatus } from '../types/context'
 
@@ -1666,6 +1667,9 @@ export default function CoachPage() {
     },
     [agentStatus, spawnAgent],
   )
+
+  // Pick up pending action from user-action bar navigation
+  usePendingAction(sendMessage)
 
   const handleSectionClick = (section: SectionKey) => {
     if (isProcessing) return

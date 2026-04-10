@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useAgentEvents } from '../hooks/use-agent-events'
 import { useDirectiveNotifications } from '../hooks/use-directive-notifications'
+import { usePendingAction } from '../hooks/use-pending-action'
 import { DirectiveBanner } from '../_components/directive-banner'
 import { MarkdownView } from '../_components/markdown-view'
 
@@ -349,6 +350,9 @@ export default function FindingPage() {
 CRITICAL: For every role you find, you MUST verify the posting is still active by WebFetching the URL and checking for an Apply button. Do NOT add roles where the link is dead, redirects to a generic careers page, or says "position filled". Save the full JD text for verified active roles.`
     )
   }, [sendChatMessage])
+
+  // Pick up pending action from user-action bar navigation
+  usePendingAction(sendChatMessage, setActiveTab as (tab: string) => void)
 
   // ─── Action handlers (send through chat) ─────────────────────────────────
 
