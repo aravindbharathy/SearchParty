@@ -59,6 +59,20 @@ export async function POST(req: Request) {
     writeFileSync(join(agentsDir, 'sessions.yaml'), '{}\n')
     cleared.push('agent sessions')
 
+    // Reset blackboard file (the on-disk copy that survives in-memory clears)
+    const bbPath = join(searchDir, 'blackboard-live.yaml')
+    if (existsSync(bbPath)) {
+      writeFileSync(bbPath, YAML.stringify({
+        blackboard: { project: 'search', description: 'Shared state' },
+        agents: {},
+        directives: [],
+        log: [],
+        findings: {},
+        transports: {},
+      }))
+      cleared.push('blackboard file')
+    }
+
     // Reset vault manifest (keep actual files)
     writeFileSync(join(searchDir, 'vault', '.manifest.yaml'), 'files: []\n')
     cleared.push('vault manifest')
