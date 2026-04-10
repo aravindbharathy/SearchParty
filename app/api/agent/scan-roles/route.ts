@@ -66,7 +66,8 @@ INSTRUCTIONS:
    - Look for roles posted in the last 10 days
    - Match against my target level and functions
 4. For each role found, record: company, title, URL, location, posted date, source, and a quick fit estimate (0-100).
-5. Write ALL discovered roles to search/pipeline/open-roles.yaml using this format:
+5. For roles with fit_estimate >= 75: use WebFetch to read the job posting URL and extract the full JD text. Save each JD to search/vault/job-descriptions/{company-slug}-{role-slug}.txt with the full text. Set jd_file field to the saved path.
+6. Write ALL discovered roles to search/pipeline/open-roles.yaml using this format:
    last_scan: "{current ISO timestamp}"
    scan_count: {increment previous count}
    roles: [{existing roles} + {new roles with status: "new"}]
@@ -83,11 +84,13 @@ INSTRUCTIONS:
    - source: "web_search"
    - fit_estimate: {0-100}
    - status: "new"
+   - jd_file: "{path to saved JD if fetched}"
 
-6. IMPORTANT: Preserve existing roles in the file — only add new ones. Deduplicate by URL.
-7. After scanning, post findings to blackboard for the daily briefing.
-8. For any role with fit_estimate >= 75, post directives:
-   - To resume agent: "Tailor resume for {company} {title}"
+7. IMPORTANT: Preserve existing roles in the file — only add new ones. Deduplicate by URL.
+8. After scanning, post findings to blackboard for the daily briefing.
+9. For roles with fit_estimate >= 75 AND a saved JD, post directives:
+   - To research agent (self-directive): "Score JD at {jd_file} for {company} {title}"
+   - To resume agent: "Tailor resume for {company} {title}, JD at {jd_file}"
    - To networking agent: "Check connections at {company} for {title} referral"
 `
 

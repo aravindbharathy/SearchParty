@@ -326,8 +326,12 @@ export default function FindingPage() {
 2. Read search/context/target-companies.yaml for high and medium priority companies.
 3. For each high-priority company (up to 10), use WebSearch to find current open roles matching my profile. Search: "{company} careers {target role keywords} {location}". Look for roles posted in the last 10 days.
 4. For each role found, record: company, title, URL, location, posted date, and a fit estimate (0-100).
-5. Write ALL discovered roles to search/pipeline/open-roles.yaml. Preserve existing roles — only add new ones. Deduplicate by URL. Set status: "new" for new roles. Update last_scan timestamp and increment scan_count.
-6. For any role with fit_estimate >= 75, post directives to resume agent ("Tailor resume for {company} {title}") and networking agent ("Check connections at {company} for referral").`
+5. For roles with fit_estimate >= 75: use WebFetch to read the job posting URL and extract the full JD text. Save each JD to search/vault/job-descriptions/{company-slug}-{role-slug}.txt with the full text. Set jd_file field to the saved path.
+6. Write ALL discovered roles to search/pipeline/open-roles.yaml. Preserve existing roles — only add new ones. Deduplicate by URL. Set status: "new" for new roles. Update last_scan timestamp and increment scan_count.
+7. For roles with fit_estimate >= 75 AND a saved JD, post directives:
+   - To research agent (yourself): "Score JD at {jd_file} for {company} {title}" (so it gets a proper score)
+   - To resume agent: "Tailor resume for {company} {title}, JD at {jd_file}"
+   - To networking agent: "Check connections at {company} for {title} referral"`
     )
   }, [sendChatMessage])
 
