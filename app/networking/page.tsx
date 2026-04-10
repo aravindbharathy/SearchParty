@@ -181,6 +181,7 @@ export default function NetworkingPage() {
   // Clipboard feedback
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const [messageSearch, setMessageSearch] = useState('')
+  const [auditRequested, setAuditRequested] = useState(false)
 
   // Agent hook
   const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('networking-chat')
@@ -210,8 +211,14 @@ export default function NetworkingPage() {
   useEffect(() => {
     loadContacts()
     loadStats()
-    // Load messages from saved files
     loadSavedMessages()
+    // Fetch user's LinkedIn URL from experience library
+    fetch('/api/context/experience-library').then(r => r.json()).then(data => {
+      const linkedin = data?.contact?.linkedin
+      if (linkedin) {
+        try { localStorage.setItem('user-linkedin-url', linkedin) } catch {}
+      }
+    }).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadContacts, loadStats])
 
@@ -288,9 +295,10 @@ export default function NetworkingPage() {
         }
       }
 
-      // Check if it looks like a LinkedIn audit
-      if (agentOutput.toLowerCase().includes('linkedin') && (agentOutput.toLowerCase().includes('audit') || agentOutput.toLowerCase().includes('profile'))) {
+      // Only set audit result when user explicitly requested an audit
+      if (auditRequested) {
         setAuditResult(agentOutput)
+        setAuditRequested(false)
       }
 
       agentReset()
@@ -411,6 +419,7 @@ export default function NetworkingPage() {
 
   const handleRunAudit = () => {
     setActiveTab('linkedin')
+    setAuditRequested(true)
     sendChatMessage('Audit my LinkedIn profile against my target roles. Read search/context/career-plan.yaml, search/context/experience-library.yaml, and top JDs from search/vault/job-descriptions/ for the analysis. Provide before/after suggestions for each profile section.')
   }
 
@@ -938,34 +947,52 @@ export default function NetworkingPage() {
           )}
 
           {/* ─── LinkedIn Tab ──────────────────────────────────────── */}
-          {activeTab === 'linkedin' && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-text-muted">LinkedIn Profile Audit</h2>
-                <button
-                  onClick={handleRunAudit}
-                  disabled={chatProcessing}
-                  className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {chatProcessing ? 'Auditing...' : 'Run Audit'}
-                </button>
-              </div>
+          {activeTab === 'linkedin' && (() => {
+            // Find LinkedIn URL from experience library contact info
+            const expData = contacts.length > 0 ? null : null // contacts don't have user's own LinkedIn
+            // Check experience library for user's LinkedIn
+            const userLinkedIn = typeof window !== 'undefined' ? localStorage.getItem('user-linkedin-url') : null
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-sm font-semibold text-text-muted">LinkedIn Profile Audit</h2>
+                    {userLinkedIn && (
+                      <a
+                        href={userLinkedIn}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-accent hover:text-accent-hover flex items-center gap-1"
+                      >
+                        View Profile ↗
+                      </a>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleRunAudit}
+                    disabled={chatProcessing}
+                    className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {chatProcessing ? 'Auditing...' : 'Run Audit'}
+                  </button>
+                </div>
 
-              {!auditResult ? (
-                <div className="bg-surface border border-border rounded-lg p-8 text-center">
-                  <p className="text-text-muted text-lg mb-2">No audit results yet.</p>
-                  <p className="text-text-muted text-sm">
-                    Click &quot;Run Audit&quot; to get profile improvement suggestions
-                    based on your target roles.
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-surface border border-border rounded-lg p-5">
-                  <MarkdownView content={auditResult} />
-                </div>
-              )}
-            </div>
-          )}
+                {!auditResult ? (
+                  <div className="bg-surface border border-border rounded-lg p-8 text-center">
+                    <p className="text-text-muted text-lg mb-2">No audit results yet.</p>
+                    <p className="text-text-muted text-sm">
+                      Click &quot;Run Audit&quot; to get profile improvement suggestions
+                      based on your target roles.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-surface border border-border rounded-lg p-5">
+                    <MarkdownView content={auditResult} />
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
       </div>
 
