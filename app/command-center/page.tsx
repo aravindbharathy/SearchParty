@@ -207,11 +207,11 @@ export default function CommandCenterPage() {
   // Blackboard-derived data
   const agents = state?.agents ?? {}
   const directives = (state?.directives ?? []) as Array<Record<string, string>>
-  const pendingDirectives = directives.filter(
-    (d) => !d.status || d.status === 'pending' || d.status === 'open'
+  const activeDirectives = directives.filter(
+    (d) => !d.status || d.status === 'pending' || d.status === 'open' || d.status === 'in-progress'
   )
   const completedDirectives = directives.filter(
-    (d) => d.status && d.status !== 'pending' && d.status !== 'open'
+    (d) => d.status === 'done' || d.status === 'completed'
   )
   const findings = state?.findings ?? {}
   const findingEntries = Object.entries(findings).sort((a, b) => {
@@ -376,7 +376,7 @@ export default function CommandCenterPage() {
           <h2 className="font-semibold">Directives</h2>
           {directives.length > 0 && (
             <span className="text-xs text-text-muted">
-              {pendingDirectives.length} pending · {completedDirectives.length} completed
+              {activeDirectives.length} pending · {completedDirectives.length} completed
             </span>
           )}
         </div>
@@ -384,17 +384,17 @@ export default function CommandCenterPage() {
           <p className="text-sm text-text-muted mb-4">No directives yet. Post one below or let agents create them.</p>
         ) : (
           <div className="space-y-2 mb-4">
-            {[...pendingDirectives, ...completedDirectives].slice(0, 15).map((d) => {
-              const isPending = !d.status || d.status === 'pending' || d.status === 'open'
-              const statusColor = isPending
+            {[...activeDirectives, ...completedDirectives].slice(0, 15).map((d) => {
+              const isActive = !d.status || d.status === 'pending' || d.status === 'open' || d.status === 'in-progress'
+              const statusColor = isActive
                 ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                 : d.status === 'done' || d.status === 'completed'
                   ? 'bg-green-500/10 text-green-600 border-green-500/20'
                   : 'bg-text-muted/10 text-text-muted border-text-muted/20'
 
               return (
-                <div key={d.id} className={`flex items-start gap-3 py-2.5 px-3 rounded-lg border ${isPending ? 'border-amber-500/20 bg-amber-500/5' : 'border-border/50'}`}>
-                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isPending ? 'bg-amber-400' : 'bg-green-500'}`} />
+                <div key={d.id} className={`flex items-start gap-3 py-2.5 px-3 rounded-lg border ${isActive ? 'border-amber-500/20 bg-amber-500/5' : 'border-border/50'}`}>
+                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isActive ? 'bg-amber-400' : 'bg-green-500'}`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       {d.from && (
@@ -416,7 +416,7 @@ export default function CommandCenterPage() {
                         </span>
                       )}
                     </div>
-                    <p className={`text-sm mt-1 ${isPending ? '' : 'text-text-muted'}`}>{d.title ?? d.text ?? d.id}</p>
+                    <p className={`text-sm mt-1 ${isActive ? '' : 'text-text-muted'}`}>{d.title ?? d.text ?? d.id}</p>
                     {d.text && d.title && (
                       <p className="text-xs text-text-muted mt-0.5 truncate">{d.text}</p>
                     )}
@@ -632,9 +632,9 @@ export default function CommandCenterPage() {
               ) : (
                 <div className="space-y-2">
                   {directives.map((d, i) => {
-                    const isPending = !d.status || d.status === 'pending' || d.status === 'open'
+                    const isActive = !d.status || d.status === 'pending' || d.status === 'open' || d.status === 'in-progress'
                     return (
-                      <div key={d.id || i} className={`bg-bg border rounded-md p-3 text-xs ${isPending ? 'border-amber-500/30' : 'border-border/60'}`}>
+                      <div key={d.id || i} className={`bg-bg border rounded-md p-3 text-xs ${isActive ? 'border-amber-500/30' : 'border-border/60'}`}>
                         <div className="flex items-center gap-2 mb-1">
                           {d.from && <span className={`px-1.5 py-0.5 rounded border capitalize ${agentBadgeColor(d.from)}`}>{d.from}</span>}
                           {(d.assigned_to || d.assignee) && (
@@ -643,7 +643,7 @@ export default function CommandCenterPage() {
                               <span className={`px-1.5 py-0.5 rounded border capitalize ${agentBadgeColor(d.assigned_to || d.assignee || '')}`}>{d.assigned_to || d.assignee}</span>
                             </>
                           )}
-                          <span className={`ml-auto font-medium ${isPending ? 'text-amber-500' : 'text-success'}`}>{d.status || 'pending'}</span>
+                          <span className={`ml-auto font-medium ${isActive ? 'text-amber-500' : 'text-success'}`}>{d.status || 'pending'}</span>
                           {d.priority && <span className={`${d.priority === 'high' ? 'text-danger' : d.priority === 'medium' ? 'text-warning' : 'text-text-muted'}`}>{d.priority}</span>}
                         </div>
                         <p className="text-text mt-1">{d.title || d.text || d.id}</p>
