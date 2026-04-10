@@ -114,10 +114,29 @@ export async function POST(req: Request) {
         },
       }
 
+      // Write known schema files and delete any extras
+      const knownContextFiles = new Set(Object.keys(emptySchemas).map(n => `${n}.yaml`))
       for (const [name, schema] of Object.entries(emptySchemas)) {
         writeFileSync(join(contextDir, `${name}.yaml`), YAML.stringify(schema))
       }
+      // Remove stale context files not in schema (network.yaml, preferences.yaml, resume-master.yaml, etc.)
+      if (existsSync(contextDir)) {
+        for (const f of readdirSync(contextDir)) {
+          if (f.endsWith('.yaml') && !knownContextFiles.has(f)) {
+            try { unlinkSync(join(contextDir, f)) } catch {}
+          }
+        }
+      }
       cleared.push('context files')
+
+      // Clear root-level search state files
+      for (const f of ['board.md', 'decisions.yaml', 'snapshot.yaml', 'lessons.md']) {
+        const fp = join(searchDir, f)
+        if (existsSync(fp)) {
+          writeFileSync(fp, '')
+        }
+      }
+      cleared.push('search state files')
 
       // Clear vault JD files (user-saved JDs from scoring)
       const jdDir = join(searchDir, 'vault', 'job-descriptions')
