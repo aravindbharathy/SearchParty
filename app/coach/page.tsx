@@ -32,11 +32,11 @@ const SECTION_ORDER: SectionKey[] = [
 
 // Keywords ordered from most specific to least — matched in section order (first wins)
 const SECTION_KEYWORDS: Record<SectionKey, string[]> = {
-  'experience-library': ['your background', 'experience library', 'experience entries', 'work history', 'let\'s start with experience', 'start with your experience', 'parse your resume', 'star stor', 'each role'],
-  'career-plan': ['what you\'re looking for', 'career plan', 'career targets', 'target level', 'what level', 'deal breaker', 'comp floor', 'minimum comp'],
-  'qa-master': ['your story', 'q&a master', 'q&a prep', 'salary expectation', 'why are you leaving', 'greatest weakness', 'visa status', 'tough interview question'],
-  'target-companies': ['target companies', 'company list', 'which companies', 'companies you want'],
-  'connection-tracker': ['your network', 'connection tracker', 'existing contacts', 'contacts at target', 'know anyone at'],
+  'experience-library': ['section 1:', 'phase 1:', 'your background section', 'let\'s start with your background', 'parse your resume', 'work through your experience', 'saving to experience-library'],
+  'career-plan': ['section 2:', 'phase 2:', 'career plan section', 'let\'s work on what you\'re looking for', 'career planning section', 'saving to career-plan'],
+  'qa-master': ['section 3:', 'phase 3:', 'your story section', 'interview prep answers', 'salary expectation', 'why are you leaving', 'saving to qa-master'],
+  'target-companies': ['section 4:', 'phase 5:', 'target companies section', 'generate target companies', 'company list section'],
+  'connection-tracker': ['section 5:', 'network section', 'connection tracker', 'contacts at target'],
 }
 
 const ONBOARDING_DIRECTIVE = `You are onboarding a new Search Party user. Your job is to walk them through setting up their complete job search profile.
@@ -48,20 +48,25 @@ IMPORTANT: First, run this command: cat .claude/skills/setup/SKILL.md — it con
 Start with quick, easy questions to build momentum. Save the deep-dive for later.
 
 ### Phase 1: Quick Setup (5 min) — get the basics locked in fast
-Start with a brief, warm greeting — introduce yourself as their career coach and explain you'll help build their profile. Keep it to 2-3 sentences max, then immediately get to work. Check search/vault/resumes/ for resume files.
+Start with a warm greeting — introduce yourself as their career coach. Check search/vault/resumes/ for resume files.
 
-IF A RESUME EXISTS: Parse it IMMEDIATELY using the Read tool. Extract name, email, phone, LinkedIn, location, and a summary of roles. Then present what you found and ask the user to CONFIRM:
-"I found your resume and extracted these details — let me know if anything needs correcting:
-- Name: {extracted}
-- Email: {extracted}
-- Phone: {extracted}
-- LinkedIn: {extracted}
-- Location: {extracted}
-- Current/recent role: {extracted}"
+IF A RESUME EXISTS: Do NOT parse it yet. First greet and ASK:
+"Welcome! I'm your career coach. I found a resume in your vault ({filename}). Would you like me to use it to pre-fill your profile, or would you prefer to start from scratch?"
 
-WRITE the extracted contact info to search/context/experience-library.yaml right away (don't wait for confirmation — user can correct later).
+Wait for the user to respond. If they say yes/use resume:
+- Parse it using the Read tool
+- Extract name, email, phone, LinkedIn, location, current role
+- Present what you found and ask them to confirm
+- WRITE the extracted contact info to search/context/experience-library.yaml
+- Then move to career plan questions
 
-Then move to the career plan questions:
+If they say no/start fresh, ask the basics ONE at a time:
+1. "What's your full name?"
+2. "Email and phone number?"
+3. "LinkedIn URL?"
+4. "Where are you based?"
+
+Either way, then move to the career plan questions:
 1. "What role are you targeting? (e.g., Senior PM, Staff Engineer, Research Manager)"
 2. "What level? (e.g., Senior, Staff, Principal, Manager)"
 3. "What industries interest you?" (give examples: SaaS, FinTech, AI/ML, DevTools)
