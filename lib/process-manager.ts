@@ -123,7 +123,17 @@ class ProcessManager {
 
 ---
 BLACKBOARD PROTOCOL (use write_to_blackboard):
-The blackboard is a shared knowledge store. Other agents read it to coordinate. Only write when you produced something worth sharing — a scored JD, research intel, a generated artifact, a status change, or work another agent needs to pick up. Do NOT write for casual Q&A, explanations, or conversational replies.
+The blackboard is a shared knowledge store. Other agents read it to coordinate.
+
+WHEN YOU CANNOT PROCEED because context files are empty or missing required data:
+You MUST post a user-action directive so the user sees a prompt to fix it.
+Do this EXACT sequence:
+  Step A: Call read_blackboard
+  Step B: Get the "directives" array from the response
+  Step C: Call write_to_blackboard with path "directives" and value = the existing array + your new entry:
+    {"id":"dir-<timestamp>","type":"user_action","text":"<what's missing and why>","button_label":"<e.g. Complete Career Plan>","route":"<e.g. /coach>","chat_message":"<first person message for the target page agent>","assigned_to":"coach","from":"${request.agent}","priority":"high","status":"pending","posted_at":"<ISO>"}
+  IMPORTANT: Write to path "directives", NOT "findings". Only directives with type "user_action" trigger the user prompt.
+  Then STOP — tell the user what's missing and where to go.
 
 WHEN YOU PRODUCED SHAREABLE WORK, do these:
 
@@ -144,64 +154,6 @@ WHEN YOU PRODUCED SHAREABLE WORK, do these:
    - Company intel created → networking: "Generate outreach for {company}"
    - Interview scheduled → interview: "Prep package needed for {company} {date}"
    - Context file stale → archivist: "Review and update {file}"
-
-4. POST A USER-ACTION DIRECTIVE (when the USER needs to do something — not another agent):
-   Use this when you cannot proceed because the user needs to provide input, make a decision, review something, or take an action outside the system.
-   path: "directives" (append to existing array)
-   New entry: {
-     "id": "dir-<timestamp>",
-     "type": "user_action",
-     "text": "<short user-friendly description shown in the prompt banner>",
-     "button_label": "<action button text, e.g. 'Complete Career Plan', 'Review Resume', 'Send Messages'>",
-     "route": "<page to navigate to: /coach, /finding, /networking, /applying, /interviewing, /closing>",
-     "tab": "<optional tab to activate on the target page: companies, open-roles, messages, linkedin, score, scored-jds, intel>",
-     "chat_message": "<message to send to the agent on the target page, written in first person as if the user is saying it>",
-     "assigned_to": "coach",
-     "from": "${request.agent}",
-     "priority": "high",
-     "status": "pending",
-     "posted_at": "<ISO>"
-   }
-
-   The "type":"user_action" field triggers a visible prompt on every page.
-   The "route", "tab", and "chat_message" fields control what happens when the user clicks.
-   The "button_label" is what the action button says.
-   Write "chat_message" in first person as the user would say it, e.g. "I need to complete my career plan."
-
-   Examples:
-   - Context missing:
-     text: "Your career plan is needed before company research can begin"
-     button_label: "Complete Career Plan"
-     route: "/coach"
-     chat_message: "I need to complete my career plan. The research agent needs my target role, industries, and preferences to find companies."
-
-   - Resume ready for review:
-     text: "A tailored resume for Stripe Staff Engineer is ready"
-     button_label: "Review Resume"
-     route: "/applying"
-     chat_message: "I'd like to review the tailored resume for Stripe Staff Engineer."
-
-   - Outreach ready:
-     text: "25 LinkedIn connection requests are ready to send"
-     button_label: "Review Messages"
-     route: "/networking"
-     tab: "messages"
-     chat_message: "I'd like to review the connection requests that were generated."
-
-   - Interview prep:
-     text: "Interview prep package ready for Figma onsite Monday"
-     button_label: "View Prep"
-     route: "/interviewing"
-     chat_message: "Show me the interview prep for my Figma onsite."
-
-   - Open roles found:
-     text: "5 new matching roles found at target companies"
-     button_label: "Review Roles"
-     route: "/finding"
-     tab: "open-roles"
-     chat_message: "Show me the new roles that were found."
-
-   DO NOT post user-action directives for trivial things. Only when the user genuinely needs to act for the workflow to continue.
 
 WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a conversation — do NOT write to the blackboard. Just answer them.
 ---`
