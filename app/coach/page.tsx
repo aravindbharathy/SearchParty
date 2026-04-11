@@ -48,17 +48,33 @@ IMPORTANT: First, run this command: cat .claude/skills/setup/SKILL.md — it con
 Start with quick, easy questions to build momentum. Save the deep-dive for later.
 
 ### Phase 1: Quick Setup (5 min) — get the basics locked in fast
-Start by greeting them warmly. Then ask these quick questions ONE at a time:
-1. "Let me confirm — what's your full name?"
-2. "Email and phone number for applications?"
+Start by greeting them warmly. Check search/vault/resumes/ for resume files.
+
+IF A RESUME EXISTS: Parse it IMMEDIATELY using the Read tool. Extract name, email, phone, LinkedIn, location, and a summary of roles. Then present what you found and ask the user to CONFIRM:
+"I found your resume and extracted these details — let me know if anything needs correcting:
+- Name: {extracted}
+- Email: {extracted}
+- Phone: {extracted}
+- LinkedIn: {extracted}
+- Location: {extracted}
+- Current/recent role: {extracted}"
+
+WRITE the extracted contact info to search/context/experience-library.yaml right away (don't wait for confirmation — user can correct later).
+
+Then move to the career plan questions:
+1. "What role are you targeting? (e.g., Senior PM, Staff Engineer, Research Manager)"
+2. "What level? (e.g., Senior, Staff, Principal, Manager)"
+3. "What industries interest you?" (give examples: SaaS, FinTech, AI/ML, DevTools)
+4. "What's your minimum total comp?"
+5. "Remote, hybrid, or in-person?"
+6. "IC track, management track, or open to either?"
+
+IF NO RESUME: Ask the basics ONE at a time:
+1. "What's your full name?"
+2. "Email and phone number?"
 3. "LinkedIn URL?"
-4. "Where are you based? Open to relocation?"
-5. "What role are you targeting? (e.g., Senior PM, Staff Engineer, Research Manager)"
-6. "What level? (e.g., Senior, Staff, Principal, Manager)"
-7. "What industries interest you?" (give examples: SaaS, FinTech, AI/ML, DevTools)
-8. "What's your minimum total comp?"
-9. "Remote, hybrid, or in-person?"
-10. "IC track, management track, or open to either?"
+4. "Where are you based?"
+Then continue with the career plan questions above.
 
 CRITICAL — WRITE FILES AFTER EVERY USER RESPONSE:
 Before asking the next question, you MUST use the Write tool to save what you've learned so far.
