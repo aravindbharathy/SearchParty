@@ -430,10 +430,20 @@ export default function InterviewingPage() {
           {/* ─── Prep Tab ──────────────────────────────────────── */}
           {activeTab === 'prep' && (
             <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-text-muted">Prep Packages</h2>
+                <button
+                  onClick={() => sendChatMessage('Run this command first: cat .claude/skills/interview-prep/SKILL.md — then help me create a prep package. Ask me which company and interview round to prepare for.')}
+                  disabled={chatProcessing}
+                  className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Create Prep Package
+                </button>
+              </div>
               {prepPackages.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-text-muted text-lg mb-2">No prep packages yet.</p>
-                  <p className="text-text-muted text-sm">Use &quot;Prep for This&quot; on an upcoming interview, or ask the agent to create one.</p>
+                  <p className="text-text-muted text-sm">Click &quot;Create Prep Package&quot; above, or use &quot;Prep for This&quot; on an upcoming interview.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -465,6 +475,13 @@ export default function InterviewingPage() {
           {/* ─── History Tab ───────────────────────────────────── */}
           {activeTab === 'history' && (
             <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-text-muted">Interview History</h2>
+                <button onClick={handleDebrief} disabled={chatProcessing}
+                  className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50">
+                  Debrief an Interview
+                </button>
+              </div>
               {patterns.total_interviews > 0 && (
                 <div className="bg-surface border border-border rounded-lg p-4 mb-4">
                   <h3 className="text-sm font-semibold mb-2">Patterns</h3>

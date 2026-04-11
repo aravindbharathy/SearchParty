@@ -854,9 +854,10 @@ export default function FindingPage() {
               {scoredJDs.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-text-muted text-lg mb-2">No scored JDs yet.</p>
-                  <p className="text-text-muted text-sm mb-4">Paste a job description in the Score JD tab to get started.</p>
-                  <button onClick={() => setActiveTab('score')} className="text-sm text-accent hover:text-accent-hover font-medium">
-                    Go to Score JD
+                  <p className="text-text-muted text-sm mb-4">Score a job description to see how well it matches your profile.</p>
+                  <button onClick={() => setActiveTab('score')}
+                    className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover">
+                    Score a JD
                   </button>
                 </div>
               ) : (
@@ -1141,20 +1142,24 @@ export default function FindingPage() {
                 </div>
               ) : !selectedIntelSlug ? (
                 <div className="text-center py-12">
-                  <p className="text-text-muted text-lg mb-2">Select a company to view intel.</p>
-                  <p className="text-text-muted text-sm">
-                    {intelSlugs.size > 0 ? `${intelSlugs.size} companies researched` : 'No companies researched yet — use the Companies tab to start.'}
+                  <p className="text-text-muted text-lg mb-2">No company selected.</p>
+                  <p className="text-text-muted text-sm mb-4">
+                    {intelSlugs.size > 0 ? `Select from ${intelSlugs.size} researched companies above, or research a new one.` : 'No companies researched yet. Research a company to get structured intel on culture, interview process, and compensation.'}
                   </p>
+                  <button onClick={() => setActiveTab('companies')}
+                    className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover">
+                    Go to Companies
+                  </button>
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <p className="text-text-muted">No intel available for this company.</p>
+                  <p className="text-text-muted mb-4">No intel available for this company yet.</p>
                   <button
                     onClick={() => { if (selectedIntelSlug) handleResearchCompany(selectedIntelSlug) }}
                     disabled={actionProcessing}
-                    className="mt-2 text-sm text-accent hover:text-accent-hover font-medium"
+                    className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
                   >
-                    Research Now
+                    Research This Company
                   </button>
                 </div>
               )}
