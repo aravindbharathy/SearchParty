@@ -1,858 +1,491 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useAgentEvents } from '../hooks/use-agent-events'
-import { AgentChat } from '../_components/agent-chat'
+import { useDirectiveNotifications } from '../hooks/use-directive-notifications'
+import { usePendingAction } from '../hooks/use-pending-action'
+import { DirectiveBanner } from '../_components/directive-banner'
 import { MarkdownView } from '../_components/markdown-view'
 
-interface FollowUp {
-  due: string
-  type: string
-  status: string
-  message_summary: string
-}
+// ─── Types ──────────────────────────────────────────────────────────────────
 
-interface Application {
-  id: string
+interface Resume {
+  filename: string
+  title: string
   company: string
-  role: string
-  status: string
-  applied_date: string
-  jd_source: string
-  resume_version: string
-  fit_score: number
-  follow_ups: FollowUp[]
-  notes: string
+  content: string
+  size: number
 }
 
-const COLUMNS = [
-  { key: 'researching', label: 'Researching', color: 'bg-text-muted/10' },
-  { key: 'applied', label: 'Applied', color: 'bg-accent/10' },
-  { key: 'phone-screen', label: 'Phone Screen', color: 'bg-warning/10' },
-  { key: 'onsite', label: 'Onsite', color: 'bg-warning/20' },
-  { key: 'offer', label: 'Offer', color: 'bg-success/10' },
-  { key: 'rejected', label: 'Rejected', color: 'bg-danger/10' },
-  { key: 'withdrawn', label: 'Withdrawn', color: 'bg-text-muted/5' },
-] as const
-
-const STATUS_OPTIONS = COLUMNS.map((c) => ({ value: c.key, label: c.label }))
-
-function daysInStage(appliedDate: string): number {
-  if (!appliedDate) return 0
-  const diff = Date.now() - new Date(appliedDate).getTime()
-  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)))
+interface PrepPackage {
+  filename: string
+  title: string
+  content: string
 }
 
-function nextPendingFollowUp(followUps: FollowUp[]): FollowUp | null {
-  const pending = followUps.filter((f) => f.status === 'pending')
-  if (pending.length === 0) return null
-  pending.sort((a, b) => a.due.localeCompare(b.due))
-  return pending[0]
+interface ChatMessage {
+  role: 'user' | 'agent'
+  content: string
 }
 
-function followUpIndicator(fu: FollowUp | null): { label: string; className: string } | null {
-  if (!fu) return null
-  const today = new Date().toISOString().split('T')[0]
-  if (fu.due < today) return { label: `Overdue: ${fu.due}`, className: 'text-danger' }
-  if (fu.due === today) return { label: `Due today`, className: 'text-warning' }
-  return { label: `Follow-up: ${fu.due}`, className: 'text-text-muted' }
-}
+type TabKey = 'resumes' | 'cover-letters' | 'work-products'
+
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+const RESUME_DIRECTIVE = `You are the user's resume specialist. Read search/context/experience-library.yaml and search/context/career-plan.yaml for context.
+
+IMPORTANT: If experience-library.yaml is empty (no experiences or skills), DO NOT proceed. Instead:
+1. Tell them: "Your experience library isn't set up yet. I need your work history to create resumes. Head to the Career Coach to complete your profile first."
+2. Post a user-action directive (NOT a finding — a DIRECTIVE):
+   Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackboard path "directives" = existing + {"id":"dir-ua-resume","type":"user_action","text":"Your experience is needed to create resumes","button_label":"Complete Background","route":"/coach","chat_message":"I need to complete my background for resume tailoring.","assigned_to":"coach","from":"resume","priority":"high","status":"pending","posted_at":"<ISO>"}
+
+If context is available, greet the user briefly and ask what they'd like help with. You can help with: tailoring resumes to specific JDs, writing cover letters, creating work products (strategic 1-pagers), and reviewing application materials.`
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 export default function ApplyingPage() {
-  const [applications, setApplications] = useState<Application[]>([])
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [selectedApp, setSelectedApp] = useState<Application | null>(null)
-  const [formCompany, setFormCompany] = useState('')
-  const [formRole, setFormRole] = useState('')
-  const [formStatus, setFormStatus] = useState('researching')
-  const [formJdSource, setFormJdSource] = useState('')
-  const [tailorJdText, setTailorJdText] = useState('')
-  const [showTailorModal, setShowTailorModal] = useState(false)
-  const [savedField, setSavedField] = useState<string | null>(null)
-  // FIX 2: Track which application a tailor is for
-  const [tailorForApp, setTailorForApp] = useState<Application | null>(null)
-  const [tailorAppDropdown, setTailorAppDropdown] = useState('')
-  // FIX 9: Track output filename and content
-  const [tailorOutputFile, setTailorOutputFile] = useState<string | null>(null)
-  const [tailorReviewData, setTailorReviewData] = useState<string | null>(null)
-  const [copySuccess, setCopySuccess] = useState(false)
-  const [viewingResume, setViewingResume] = useState<string | null>(null)
-  const [resumeContent, setResumeContent] = useState<string>('')
+  // ─── Tab state ───────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    if (typeof window === 'undefined') return 'resumes'
+    try { return (localStorage.getItem('applying-active-tab') as TabKey) || 'resumes' } catch { return 'resumes' }
+  })
 
-  const { spawnAgent, status: agentStatus, error: agentError, output: agentOutput, reset: resetAgent } = useAgentEvents('applying')
+  // ─── Data state ──────────────────────────────────────────────────────────
+  const [resumes, setResumes] = useState<Resume[]>([])
+  const [coverLetters, setCoverLetters] = useState<PrepPackage[]>([])
+  const [workProducts, setWorkProducts] = useState<PrepPackage[]>([])
+  const [selectedDoc, setSelectedDoc] = useState<{ title: string; content: string } | null>(null)
 
-  const loadApplications = useCallback(async () => {
+  // ─── Chat state ──────────────────────────────────────────────────────────
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window === 'undefined') return []
     try {
-      const res = await fetch('/api/pipeline/applications')
+      const saved = localStorage.getItem('applying-chat-messages')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+  const [chatInput, setChatInput] = useState('')
+  const hasSpawnedRef = useRef(false)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('applying-chat')
+  const chatProcessing = agentStatus === 'running'
+
+  const { notifications, dismiss: dismissNotification, dismissAll: dismissAllNotifications } = useDirectiveNotifications('resume')
+
+  // ─── Data loading ────────────────────────────────────────────────────────
+
+  const loadResumes = useCallback(async () => {
+    try {
+      const res = await fetch('/api/pipeline/resumes')
       if (res.ok) {
-        const data = await res.json() as { applications: Application[] }
-        setApplications(data.applications)
+        const data = await res.json() as { resumes: Resume[] }
+        setResumes(data.resumes)
+      }
+    } catch {}
+  }, [])
+
+  const loadCoverLetters = useCallback(async () => {
+    try {
+      const dir = 'output/cover-letters'
+      const res = await fetch(`/api/vault/scan?dir=${encodeURIComponent(dir)}`)
+      if (res.ok) {
+        const data = await res.json() as { files?: string[] }
+        if (data.files) {
+          const letters: PrepPackage[] = []
+          for (const f of data.files) {
+            try {
+              const r = await fetch(`/api/vault/read-file?path=output/cover-letters/${f}`)
+              if (r.ok) {
+                const d = await r.json() as { content: string }
+                const titleMatch = d.content.match(/^#\s+(.+)/m)
+                letters.push({ filename: f, title: titleMatch?.[1] || f, content: d.content })
+              }
+            } catch {}
+          }
+          setCoverLetters(letters)
+        }
+      }
+    } catch {}
+  }, [])
+
+  const loadWorkProducts = useCallback(async () => {
+    try {
+      const dir = 'output/work-products'
+      const res = await fetch(`/api/vault/scan?dir=${encodeURIComponent(dir)}`)
+      if (res.ok) {
+        const data = await res.json() as { files?: string[] }
+        if (data.files) {
+          const products: PrepPackage[] = []
+          for (const f of data.files) {
+            try {
+              const r = await fetch(`/api/vault/read-file?path=output/work-products/${f}`)
+              if (r.ok) {
+                const d = await r.json() as { content: string }
+                const titleMatch = d.content.match(/^#\s+(.+)/m)
+                products.push({ filename: f, title: titleMatch?.[1] || f, content: d.content })
+              }
+            } catch {}
+          }
+          setWorkProducts(products)
+        }
       }
     } catch {}
   }, [])
 
   useEffect(() => {
-    loadApplications()
-  }, [loadApplications])
+    loadResumes()
+    loadCoverLetters()
+    loadWorkProducts()
+
+    const interval = setInterval(() => {
+      loadResumes()
+      loadCoverLetters()
+      loadWorkProducts()
+    }, 30_000)
+    return () => clearInterval(interval)
+  }, [loadResumes, loadCoverLetters, loadWorkProducts])
+
+  // ─── Persistence ─────────────────────────────────────────────────────────
+
+  useEffect(() => { try { localStorage.setItem('applying-active-tab', activeTab) } catch {} }, [activeTab])
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      try { localStorage.setItem('applying-chat-messages', JSON.stringify(chatMessages)) } catch {}
+    }
+  }, [chatMessages])
+
+  // ─── Chat logic ──────────────────────────────────────────────────────────
+
+  const scrollChatToBottom = useCallback(() => {
+    if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
+  }, [])
+
+  useEffect(() => { scrollChatToBottom() }, [chatMessages.length, scrollChatToBottom])
 
   useEffect(() => {
-    if (agentStatus === 'completed') {
-      loadApplications()
-      // Auto-update application's resume_version with the write_to path
-      if (tailorForApp && tailorOutputFile) {
-        fetch(`/api/pipeline/applications/${tailorForApp.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ field: 'resume_version', value: tailorOutputFile }),
-        }).then(() => loadApplications()).catch(() => {})
-      }
-      // Extract review results if present
-      if (agentOutput) {
-        const reviewMatch = agentOutput.match(/((?:recruiter review|ats check|ats score|compatibility)[\s\S]*)/i)
-        if (reviewMatch) {
-          setTailorReviewData(reviewMatch[1].trim())
-        }
-      }
-    }
-  }, [agentStatus, agentOutput, loadApplications, tailorForApp, tailorOutputFile])
+    if (hasSpawnedRef.current) return
+    hasSpawnedRef.current = true
+    if (chatMessages.length > 0) return
 
-  const handleAddApplication = async () => {
-    if (!formCompany.trim() || !formRole.trim()) return
-
-    try {
-      const res = await fetch('/api/pipeline/applications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company: formCompany,
-          role: formRole,
-          status: formStatus,
-          jd_source: formJdSource || 'pasted',
-        }),
+    let cancelled = false
+    const waitAndSpawn = async () => {
+      for (let i = 0; i < 5; i++) {
+        try {
+          const res = await fetch('http://localhost:8790/state', { signal: AbortSignal.timeout(2000) })
+          if (res.ok) break
+        } catch {}
+        await new Promise(r => setTimeout(r, 1000))
+      }
+      if (cancelled) return
+      spawnAgent('resume', {
+        skill: 'resume-chat',
+        entry_name: 'resume-session',
+        text: RESUME_DIRECTIVE,
       })
-      if (res.ok) {
-        setFormCompany('')
-        setFormRole('')
-        setFormStatus('researching')
-        setFormJdSource('')
-        setShowAddForm(false)
-        loadApplications()
-      }
-    } catch {}
-  }
-
-  const handleStatusChange = async (id: string, newStatus: string) => {
-    try {
-      await fetch(`/api/pipeline/applications/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ field: 'status', value: newStatus }),
-      })
-      loadApplications()
-      if (selectedApp?.id === id) {
-        setSelectedApp((prev) => prev ? { ...prev, status: newStatus } : null)
-      }
-    } catch {}
-  }
-
-  const handleFollowUpAction = async (appId: string, followUps: FollowUp[], index: number, action: 'dismissed' | 'skipped' | 'sent') => {
-    const updated = [...followUps]
-    updated[index] = { ...updated[index], status: action }
-    try {
-      await fetch(`/api/pipeline/applications/${appId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ field: 'follow_ups', value: updated }),
-      })
-      loadApplications()
-    } catch {}
-  }
-
-  const handleTailorResume = async () => {
-    if (!tailorJdText.trim()) return
-    resetAgent()
-    setTailorOutputFile(null)
-    setTailorReviewData(null)
-    setCopySuccess(false)
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-
-    // FIX 2: Resolve which application this tailor is for
-    let linkedApp: Application | null = null
-    if (tailorAppDropdown) {
-      const app = applications.find((a) => a.id === tailorAppDropdown)
-      linkedApp = app || null
-      setTailorForApp(linkedApp)
     }
+    waitAndSpawn()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-    // Build contextual filename: company-role-timestamp.md
-    const companySlug = (linkedApp?.company || 'general').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    const roleSlug = (linkedApp?.role || 'resume').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    const outputPath = `output/resumes/${companySlug}-${roleSlug}-${timestamp}.md`
-    setTailorOutputFile(outputPath)
-
-    await spawnAgent('resume', {
-      skill: 'resume-tailor',
-      entry_name: `${companySlug}-${roleSlug}`,
-      metadata: {
-        company: linkedApp?.company || '',
-        role: linkedApp?.role || '',
-        jd_file: linkedApp?.jd_source || '',
-      },
-      write_to: outputPath,
-      text: `Tailor a resume for this job description. Read search/context/experience-library.yaml and search/context/career-plan.yaml for my background.\n\nCompany: ${linkedApp?.company || 'unknown'}\nRole: ${linkedApp?.role || 'unknown'}\n\nJob Description:\n${tailorJdText}`,
-    })
-    // Don't close modal — keep it open to show progress and results
-    // setShowTailorModal(false)
-    // setTailorJdText('')
-  }
-
-  // FIX 2: Tailor resume from detail panel — auto-loads JD from vault file
-  const handleTailorFromDetail = async (app: Application) => {
-    setTailorForApp(app)
-    setTailorAppDropdown(app.id)
-    setTailorJdText('') // Clear first
-    setShowTailorModal(true)
-
-    // Try to load JD text from vault file
-    if (app.jd_source && app.jd_source.startsWith('vault/')) {
-      try {
-        const res = await fetch(`/api/vault/read-jd?path=${encodeURIComponent(app.jd_source)}`)
-        if (res.ok) {
-          const data = await res.json() as { text: string }
-          setTailorJdText(data.text)
-        }
-      } catch { /* ignore — user can still paste manually */ }
+  useEffect(() => {
+    if (agentStatus === 'completed' && agentOutput) {
+      setChatMessages(prev => [...prev, { role: 'agent', content: agentOutput }])
+      agentReset()
+      loadResumes()
+      loadCoverLetters()
+      loadWorkProducts()
     }
-  }
+    if (agentStatus === 'failed') {
+      setChatMessages(prev => [...prev, { role: 'agent', content: 'Something went wrong. Please try again.' }])
+      agentReset()
+    }
+    if (agentStatus === 'timeout') {
+      setChatMessages(prev => [...prev, { role: 'agent', content: 'Request timed out. Please try again.' }])
+      agentReset()
+    }
+  }, [agentStatus, agentOutput, agentReset, loadResumes, loadCoverLetters, loadWorkProducts])
 
-  // Inline edit save handler for detail panel fields
-  const viewResumeFile = async (path: string) => {
-    setViewingResume(path)
-    setResumeContent('Loading...')
+  const sendChatMessage = useCallback(async (text: string) => {
+    if (!text.trim() || chatProcessing) return
+    setChatMessages(prev => [...prev, { role: 'user', content: text.trim() }])
+    setChatInput('')
+
     try {
-      const res = await fetch(`/api/vault/read-file?path=${encodeURIComponent(path)}`)
-      if (res.ok) {
-        const data = await res.json() as { content: string }
-        setResumeContent(data.content)
-      } else {
-        setResumeContent('Failed to load resume file.')
+      const result = await spawnAgent('resume', {
+        skill: 'resume-chat',
+        entry_name: 'resume-followup',
+        text: text.trim(),
+      })
+      if (result === null) {
+        setChatMessages(prev => [...prev, { role: 'agent', content: 'The agent is still processing. Please wait.' }])
       }
     } catch {
-      setResumeContent('Failed to load resume file.')
+      setChatMessages(prev => [...prev, { role: 'agent', content: 'Failed to reach agent.' }])
     }
-  }
+  }, [agentStatus, spawnAgent])
 
-  const handleDeleteApplication = async (app: Application) => {
-    // Step 1: confirm deletion
-    const hasResume = !!app.resume_version
-    let message = `Delete application for ${app.company} — ${app.role}?\n\nThis will remove the application and its attached JD.`
-    if (hasResume) {
-      message += `\n\nThe tailored resume (${app.resume_version}) will NOT be deleted automatically. You can remove it from search/output/resumes/ manually if needed.`
-    }
-    if (!confirm(message)) return
+  usePendingAction(sendChatMessage, setActiveTab as (tab: string) => void)
 
-    // Step 2: ask about resume deletion if one exists
-    if (hasResume) {
-      const deleteResume = confirm(`Also delete the tailored resume?\n\n${app.resume_version}\n\nClick OK to delete it, or Cancel to keep it.`)
-      if (deleteResume && app.resume_version) {
-        try {
-          // Delete resume file via a generic file delete
-          await fetch('/api/vault/delete-file', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: app.resume_version }),
-          })
-        } catch { /* ignore — resume deletion is best-effort */ }
-      }
-    }
+  // ─── Stats ───────────────────────────────────────────────────────────────
 
-    // Step 3: delete the application (also removes attached JD)
-    try {
-      const res = await fetch(`/api/pipeline/applications/${app.id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setSelectedApp(null)
-        loadApplications()
-      }
-    } catch { /* ignore */ }
-  }
+  const stats = useMemo(() => ({
+    resumes: resumes.length,
+    coverLetters: coverLetters.length,
+    workProducts: workProducts.length,
+  }), [resumes, coverLetters, workProducts])
 
-  const handleFieldUpdate = async (field: string, value: string | number) => {
-    if (!selectedApp) return
-    try {
-      await fetch(`/api/pipeline/applications/${selectedApp.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ field, value }),
-      })
-      setSelectedApp((prev) => prev ? { ...prev, [field]: value } : null)
-      loadApplications()
-      setSavedField(field)
-      setTimeout(() => setSavedField(null), 1500)
-    } catch {}
-  }
-
-  // FIX 9: Copy resume content to clipboard
-  const handleCopyResume = async () => {
-    if (agentOutput) {
-      try {
-        await navigator.clipboard.writeText(agentOutput)
-        setCopySuccess(true)
-        setTimeout(() => setCopySuccess(false), 2000)
-      } catch { /* ignore */ }
-    }
-  }
-
-  const appsByStatus = (statusKey: string) =>
-    applications.filter((a) => a.status === statusKey)
+  // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-full mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Applying</h1>
-          <p className="text-text-muted mt-1">Track your applications through the pipeline.</p>
+    <div className="flex h-[calc(100vh-64px)]">
+      {/* ─── Left Panel: Tabs (65%) ─────────────────────────────────── */}
+      <div className="flex-1 flex flex-col overflow-hidden border-r border-border">
+        <div className="px-5 pt-5 pb-3">
+          <h1 className="text-2xl font-bold mb-3">Applying</h1>
+          <div className="flex gap-3">
+            {[
+              { label: 'Resumes', value: stats.resumes },
+              { label: 'Cover Letters', value: stats.coverLetters },
+              { label: 'Work Products', value: stats.workProducts },
+            ].map(s => (
+              <div key={s.label} className="flex-1 bg-surface border border-border rounded-lg px-3 py-2">
+                <div className="text-xs text-text-muted">{s.label}</div>
+                <div className="text-lg font-bold">{s.value}</div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowTailorModal(true)}
-            className="px-4 py-2 bg-surface border border-border text-text rounded-md text-sm font-medium hover:bg-bg transition-colors"
-          >
-            Tailor Resume
-          </button>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover transition-colors"
-          >
-            Add Application
-          </button>
+
+        {/* Tab Bar */}
+        <div className="flex gap-6 border-b border-border px-5">
+          {([
+            { key: 'resumes' as TabKey, label: `Resumes${resumes.length > 0 ? ` (${resumes.length})` : ''}` },
+            { key: 'cover-letters' as TabKey, label: `Cover Letters${coverLetters.length > 0 ? ` (${coverLetters.length})` : ''}` },
+            { key: 'work-products' as TabKey, label: `Work Products${workProducts.length > 0 ? ` (${workProducts.length})` : ''}` },
+          ]).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`pb-2.5 text-sm font-medium transition-colors relative ${
+                activeTab === tab.key ? 'text-text' : 'text-text-muted hover:text-text'
+              }`}
+            >
+              {tab.label}
+              {activeTab === tab.key && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-full" />}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <DirectiveBanner
+            notifications={notifications}
+            onDismiss={dismissNotification}
+            onDismissAll={dismissAllNotifications}
+            onDiscuss={sendChatMessage}
+          />
+
+          {/* ─── Resumes Tab ───────────────────────────────────── */}
+          {activeTab === 'resumes' && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-text-muted">Tailored Resumes</h2>
+                <button
+                  onClick={() => sendChatMessage('Run this command first: cat .claude/skills/resume-tailor/SKILL.md — then help me tailor a resume. Ask me which company and role to target.')}
+                  disabled={chatProcessing}
+                  className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Tailor New Resume
+                </button>
+              </div>
+
+              {resumes.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-text-muted text-lg mb-2">No tailored resumes yet.</p>
+                  <p className="text-text-muted text-sm mb-4">Click &quot;Tailor New Resume&quot; or ask the agent to create one for a specific company.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {resumes.map(resume => (
+                    <button
+                      key={resume.filename}
+                      onClick={() => setSelectedDoc(selectedDoc?.title === resume.title ? null : { title: resume.title, content: resume.content })}
+                      className={`w-full text-left p-4 border rounded-lg transition-colors ${
+                        selectedDoc?.title === resume.title ? 'border-accent bg-accent/5' : 'border-border hover:bg-bg'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">{resume.title}</p>
+                          <p className="text-xs text-text-muted mt-0.5">{resume.filename}</p>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(resume.content) }}
+                          className="text-xs text-accent hover:text-accent-hover font-medium px-2 py-1"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── Cover Letters Tab ─────────────────────────────── */}
+          {activeTab === 'cover-letters' && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-text-muted">Cover Letters</h2>
+                <button
+                  onClick={() => sendChatMessage('Help me write a cover letter. Ask me which company and role to target.')}
+                  disabled={chatProcessing}
+                  className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Write Cover Letter
+                </button>
+              </div>
+
+              {coverLetters.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-text-muted text-lg mb-2">No cover letters yet.</p>
+                  <p className="text-text-muted text-sm">Ask the resume agent to write one for a specific company.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {coverLetters.map(letter => (
+                    <button
+                      key={letter.filename}
+                      onClick={() => setSelectedDoc(selectedDoc?.title === letter.title ? null : letter)}
+                      className={`w-full text-left p-4 border rounded-lg transition-colors ${
+                        selectedDoc?.title === letter.title ? 'border-accent bg-accent/5' : 'border-border hover:bg-bg'
+                      }`}
+                    >
+                      <p className="font-medium text-sm">{letter.title}</p>
+                      <p className="text-xs text-text-muted mt-0.5">{letter.filename}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── Work Products Tab ─────────────────────────────── */}
+          {activeTab === 'work-products' && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-text-muted">Work Products</h2>
+                <button
+                  onClick={() => sendChatMessage('Help me create a strategic work product (1-pager) analyzing a company\'s product. Ask me which company to target.')}
+                  disabled={chatProcessing}
+                  className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Create Work Product
+                </button>
+              </div>
+
+              {workProducts.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-text-muted text-lg mb-2">No work products yet.</p>
+                  <p className="text-text-muted text-sm">Strategic 1-pagers show companies you understand their product. Ask the agent to create one.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {workProducts.map(product => (
+                    <button
+                      key={product.filename}
+                      onClick={() => setSelectedDoc(selectedDoc?.title === product.title ? null : product)}
+                      className={`w-full text-left p-4 border rounded-lg transition-colors ${
+                        selectedDoc?.title === product.title ? 'border-accent bg-accent/5' : 'border-border hover:bg-bg'
+                      }`}
+                    >
+                      <p className="font-medium text-sm">{product.title}</p>
+                      <p className="text-xs text-text-muted mt-0.5">{product.filename}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Document viewer */}
+          {selectedDoc && (
+            <div className="mt-4 bg-surface border border-border rounded-lg p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold">{selectedDoc.title}</h3>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => navigator.clipboard.writeText(selectedDoc.content)} className="text-xs text-accent hover:text-accent-hover font-medium">
+                    Copy All
+                  </button>
+                  <button onClick={() => setSelectedDoc(null)} className="text-xs text-text-muted hover:text-text">Close</button>
+                </div>
+              </div>
+              <div className="bg-bg p-4 rounded-md border border-border overflow-auto max-h-[60vh]">
+                <MarkdownView content={selectedDoc.content} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Agent status bar */}
-      {agentStatus === 'running' && (
-        <div className="mb-4 p-3 bg-accent/5 border border-accent/20 rounded-lg flex items-center gap-2 text-sm">
-          <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-          <span>Resume agent is tailoring your resume...</span>
-        </div>
-      )}
-      {agentStatus === 'completed' && (
-        <div className="mb-4 p-3 bg-success/5 border border-success/20 rounded-lg text-sm">
-          <div className="text-success mb-1">Resume generated!</div>
-          {/* FIX 9: Show output filename */}
-          {tailorOutputFile && (
-            <div className="text-text-muted text-xs mb-2">
-              Saved to: <span className="font-mono text-text">{tailorOutputFile}</span>
-            </div>
-          )}
+      {/* ─── Right Panel: Agent Chat (35%) ─────────────────────────── */}
+      <div className="w-[35%] flex flex-col bg-surface">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {/* FIX 9: Copy to clipboard */}
-            {agentOutput && (
-              <button
-                onClick={handleCopyResume}
-                className="text-xs px-2 py-1 bg-bg border border-border rounded hover:bg-surface transition-colors"
-              >
-                {copySuccess ? 'Copied!' : 'Copy to Clipboard'}
-              </button>
-            )}
+            <span className={`w-2 h-2 rounded-full ${chatProcessing ? 'bg-accent animate-pulse' : 'bg-success'}`} />
+            <span className="text-sm font-semibold">Resume Agent</span>
           </div>
-          {/* FIX 9: Review results */}
-          {tailorReviewData && (
-            <div className="mt-3 p-3 bg-bg border border-border rounded-md">
-              <h4 className="text-xs font-semibold text-text-muted mb-1">Review Results</h4>
-              <MarkdownView content={tailorReviewData} className="text-xs" />
+          <button onClick={() => {
+            setChatMessages([])
+            localStorage.removeItem('applying-chat-messages')
+            localStorage.removeItem('agent-spawn-applying-chat')
+            hasSpawnedRef.current = false
+            fetch('/api/agent/rotate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agent: 'resume' }) }).catch(() => {})
+          }} className="text-xs text-text-muted hover:text-text">Reset</button>
+        </div>
+
+        <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+          {chatMessages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[90%] rounded-lg px-3.5 py-2.5 ${
+                msg.role === 'user' ? 'bg-accent/10 text-text' : 'bg-bg text-text'
+              }`}>
+                {msg.role === 'agent' ? (
+                  <MarkdownView content={msg.content} className="text-sm" />
+                ) : (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                )}
+              </div>
+            </div>
+          ))}
+          {chatProcessing && (
+            <div className="flex justify-start">
+              <div className="bg-bg rounded-lg px-3.5 py-2.5 flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-text-muted">Resume agent is thinking...</span>
+              </div>
             </div>
           )}
         </div>
-      )}
-      {agentStatus === 'failed' && (
-        <div className="mb-4 p-3 bg-danger/5 border border-danger/20 rounded-lg text-sm text-danger">
-          {agentError || 'Resume generation failed.'}
-        </div>
-      )}
 
-      {/* Add Application Form */}
-      {showAddForm && (
-        <div className="mb-6 bg-surface border border-border rounded-lg p-5">
-          <h3 className="font-semibold mb-3">Add Application</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <input
-              value={formCompany}
-              onChange={(e) => setFormCompany(e.target.value)}
-              placeholder="Company"
-              className="px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
-            />
-            <input
-              value={formRole}
-              onChange={(e) => setFormRole(e.target.value)}
-              placeholder="Role"
-              className="px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
-            />
-            <select
-              value={formStatus}
-              onChange={(e) => setFormStatus(e.target.value)}
-              className="px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-            <input
-              value={formJdSource}
-              onChange={(e) => setFormJdSource(e.target.value)}
-              placeholder="JD source (URL or 'pasted')"
-              className="px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
-            />
-          </div>
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={handleAddApplication}
-              disabled={!formCompany.trim() || !formRole.trim()}
-              className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
-            >
-              Add
-            </button>
-            <button
-              onClick={() => setShowAddForm(false)}
-              className="px-4 py-2 bg-bg border border-border text-text-muted rounded-md text-sm hover:text-text transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-          {/* FIX 8: Auto-follow-up notice */}
-          <p className="text-xs text-text-muted mt-3">
-            Follow-ups will be auto-scheduled at days 7, 14, and 21 after applying.
-          </p>
-        </div>
-      )}
-
-      {/* Tailor Resume Modal */}
-      {showTailorModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface border border-border rounded-lg p-6 w-full max-w-lg">
-            <h3 className="font-semibold mb-3">Tailor Resume</h3>
-            <p className="text-text-muted text-sm mb-3">Paste the job description to generate a tailored resume.</p>
-            {/* FIX 2: Application selector dropdown */}
-            <div className="mb-3">
-              <label className="text-xs text-text-muted block mb-1">Link to application (optional)</label>
-              <select
-                value={tailorAppDropdown}
-                onChange={(e) => setTailorAppDropdown(e.target.value)}
-                disabled={agentStatus === 'running' || agentStatus === 'completed'}
-                className="w-full px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
-              >
-                <option value="">-- None --</option>
-                {applications.map((app) => (
-                  <option key={app.id} value={app.id}>
-                    {app.company} - {app.role}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <textarea
-              value={tailorJdText}
-              onChange={(e) => setTailorJdText(e.target.value)}
-              disabled={agentStatus === 'running' || agentStatus === 'completed'}
-              placeholder="Paste job description here..."
-              className="w-full h-48 p-3 border border-border rounded-md bg-bg text-text text-sm resize-y focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
-            />
-            {/* Action buttons */}
-            {agentStatus !== 'running' && agentStatus !== 'completed' && (
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={handleTailorResume}
-                  disabled={!tailorJdText.trim()}
-                  className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
-                >
-                  Generate Resume
-                </button>
-                <button
-                  onClick={() => { setShowTailorModal(false); setTailorJdText(''); setTailorAppDropdown(''); setTailorForApp(null); resetAgent() }}
-                  className="px-4 py-2 bg-bg border border-border text-text-muted rounded-md text-sm hover:text-text transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-
-            {/* Agent progress inside modal */}
-            {agentStatus === 'running' && (
-              <div className="mt-4 p-3 bg-accent/5 border border-accent/20 rounded-lg flex items-center gap-2 text-sm">
-                <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                <span>Resume agent is working — this may take 30-60 seconds...</span>
-              </div>
-            )}
-
-            {agentStatus === 'completed' && (
-              <div className="mt-4 p-3 bg-success/5 border border-success/20 rounded-lg text-sm">
-                <div className="font-medium text-success mb-2">Resume generated!</div>
-                {tailorOutputFile && (
-                  <div className="text-text-muted text-xs mb-2">
-                    Saved to: <span className="font-mono text-text">{tailorOutputFile}</span>
-                  </div>
-                )}
-                {agentOutput && (
-                  <div className="mt-2 max-h-60 overflow-y-auto p-3 bg-bg border border-border rounded-md">
-                    <MarkdownView content={agentOutput} />
-                  </div>
-                )}
-                <div className="flex gap-2 mt-3">
-                  {agentOutput && (
-                    <button
-                      onClick={handleCopyResume}
-                      className="text-xs px-3 py-1.5 bg-bg border border-border rounded hover:bg-surface transition-colors"
-                    >
-                      {copySuccess ? 'Copied!' : 'Copy Resume'}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { setShowTailorModal(false); setTailorJdText(''); setTailorAppDropdown(''); setTailorForApp(null); resetAgent() }}
-                    className="text-xs px-3 py-1.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
-                  >
-                    Done
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {agentStatus === 'failed' && (
-              <div className="mt-4 p-3 bg-danger/5 border border-danger/20 rounded-lg text-sm">
-                <div className="text-danger mb-2">{agentError || 'Resume generation failed.'}</div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleTailorResume}
-                    disabled={!tailorJdText.trim()}
-                    className="text-xs px-3 py-1.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
-                  >
-                    Retry
-                  </button>
-                  <button
-                    onClick={() => { setShowTailorModal(false); resetAgent() }}
-                    className="text-xs px-3 py-1.5 bg-bg border border-border rounded hover:bg-surface transition-colors"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Kanban Board */}
-      {applications.length === 0 && !showAddForm ? (
-        <div className="text-center py-16">
-          <p className="text-text-muted text-lg mb-2">No applications yet.</p>
-          <p className="text-text-muted text-sm mb-4">Click &ldquo;Add Application&rdquo; to get started.</p>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover transition-colors"
-          >
-            Add Your First Application
+        <div className="border-t border-border p-3 flex items-center gap-2">
+          <input
+            value={chatInput}
+            onChange={e => setChatInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(chatInput) } }}
+            placeholder="Ask the resume agent..."
+            disabled={chatProcessing}
+            className="flex-1 px-3 py-2 border border-border rounded-md bg-bg text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50"
+          />
+          <button onClick={() => sendChatMessage(chatInput)} disabled={!chatInput.trim() || chatProcessing}
+            className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed">
+            Send
           </button>
         </div>
-      ) : (
-        <div className="flex gap-3 overflow-x-auto pb-4">
-          {COLUMNS.map((col) => {
-            const colApps = appsByStatus(col.key)
-            return (
-              <div key={col.key} className="flex-shrink-0 w-64">
-                <div className={`rounded-t-lg px-3 py-2 ${col.color}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold">{col.label}</span>
-                    <span className="text-xs text-text-muted bg-surface rounded-full w-5 h-5 flex items-center justify-center">
-                      {colApps.length}
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-bg/50 border border-t-0 border-border rounded-b-lg p-2 min-h-[200px] space-y-2">
-                  {colApps.map((app) => {
-                    const nextFU = nextPendingFollowUp(app.follow_ups)
-                    const fuIndicator = followUpIndicator(nextFU)
-
-                    return (
-                      <div
-                        key={app.id}
-                        onClick={() => setSelectedApp(app)}
-                        className={`bg-surface border rounded-md p-3 cursor-pointer hover:shadow-sm transition-shadow ${
-                          selectedApp?.id === app.id ? 'border-accent shadow-sm' : 'border-border'
-                        }`}
-                      >
-                        <div className="font-medium text-sm">{app.company}</div>
-                        <div className="text-xs text-text-muted">{app.role}</div>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs text-text-muted">
-                            {daysInStage(app.applied_date)}d
-                          </span>
-                          {app.fit_score > 0 && (
-                            <span className={`text-xs font-medium ${
-                              app.fit_score >= 75 ? 'text-success'
-                                : app.fit_score >= 60 ? 'text-warning'
-                                  : 'text-danger'
-                            }`}>
-                              {app.fit_score}
-                            </span>
-                          )}
-                        </div>
-                        {fuIndicator && (
-                          <div className={`text-xs mt-1 ${fuIndicator.className}`}>
-                            {fuIndicator.label}
-                          </div>
-                        )}
-                        {app.resume_version && (
-                          <div className="text-xs text-text-muted mt-1 truncate">
-                            {app.resume_version}
-                          </div>
-                        )}
-                        {/* Status dropdown */}
-                        <select
-                          value={app.status}
-                          onChange={(e) => {
-                            e.stopPropagation()
-                            handleStatusChange(app.id, e.target.value)
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-2 w-full text-xs px-2 py-1 border border-border rounded bg-bg focus:outline-none focus:ring-1 focus:ring-accent/40"
-                        >
-                          {STATUS_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Detail Panel */}
-      {selectedApp && (
-        <div className="fixed inset-y-0 right-0 w-96 bg-surface border-l border-border shadow-lg z-40 overflow-y-auto">
-          <div className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <input
-                defaultValue={selectedApp.company}
-                onBlur={(e) => { if (e.target.value !== selectedApp.company) handleFieldUpdate('company', e.target.value) }}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                className="font-semibold text-lg bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full mr-2 px-1 py-0.5 rounded transition-colors"
-              />
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {savedField === 'company' && <span className="text-xs text-success">Saved</span>}
-                <button
-                  onClick={() => handleDeleteApplication(selectedApp)}
-                  className="text-danger hover:text-danger/80 text-sm"
-                >
-                  Delete
-                </button>
-                <button
-                  onClick={() => setSelectedApp(null)}
-                  className="text-text-muted hover:text-text text-sm"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Role {savedField === 'role' && <span className="text-success normal-case">- Saved</span>}</div>
-                <input
-                  defaultValue={selectedApp.role}
-                  onBlur={(e) => { if (e.target.value !== selectedApp.role) handleFieldUpdate('role', e.target.value) }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                  className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
-                />
-              </div>
-
-              <div>
-                <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Status</div>
-                <select
-                  value={selectedApp.status}
-                  onChange={(e) => handleStatusChange(selectedApp.id, e.target.value)}
-                  className="text-sm px-2 py-1 border border-border rounded bg-bg focus:outline-none focus:ring-1 focus:ring-accent/40"
-                >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Applied {savedField === 'applied_date' && <span className="text-success normal-case">- Saved</span>}</div>
-                  <input
-                    type="date"
-                    defaultValue={selectedApp.applied_date || ''}
-                    onBlur={(e) => { if (e.target.value !== (selectedApp.applied_date || '')) handleFieldUpdate('applied_date', e.target.value) }}
-                    className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
-                  />
-                </div>
-                <div>
-                  <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Fit Score {savedField === 'fit_score' && <span className="text-success normal-case">- Saved</span>}</div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-sm">{selectedApp.fit_score > 0 ? `${selectedApp.fit_score}/100` : 'Not scored'}</span>
-                    <button
-                      onClick={() => {
-                        const val = prompt('Override fit score (0-100):', String(selectedApp.fit_score || ''))
-                        if (val !== null && !isNaN(Number(val))) handleFieldUpdate('fit_score', Number(val))
-                      }}
-                      className="text-xs text-text-muted hover:text-accent ml-1"
-                      title="Override fit score"
-                    >
-                      edit
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* FIX 2: Resume section with Tailor + View */}
-              <div>
-                <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Resume</div>
-                {selectedApp.resume_version ? (
-                  <div>
-                    <div className="text-sm text-text-muted mb-1 font-mono text-xs">{selectedApp.resume_version}</div>
-                    <button
-                      onClick={() => viewResumeFile(selectedApp.resume_version)}
-                      className="text-xs text-accent hover:text-accent-hover hover:underline"
-                    >
-                      View Resume
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-sm text-text-muted">Not yet tailored</div>
-                )}
-                <button
-                  onClick={() => handleTailorFromDetail(selectedApp)}
-                  className="mt-2 px-3 py-1.5 bg-accent text-white rounded text-xs font-medium hover:bg-accent-hover transition-colors"
-                >
-                  {selectedApp.resume_version ? 'Re-tailor Resume' : 'Tailor Resume'}
-                </button>
-              </div>
-
-              <div>
-                <div className="text-xs text-text-muted uppercase tracking-wide mb-1">JD Source {savedField === 'jd_source' && <span className="text-success normal-case">- Saved</span>}</div>
-                <input
-                  defaultValue={selectedApp.jd_source || ''}
-                  onBlur={(e) => { if (e.target.value !== (selectedApp.jd_source || '')) handleFieldUpdate('jd_source', e.target.value) }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                  placeholder="URL or description"
-                  className="text-sm bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-0.5 rounded transition-colors"
-                />
-              </div>
-
-              {/* Follow-ups */}
-              <div>
-                <div className="text-xs text-text-muted uppercase tracking-wide mb-2">Follow-ups</div>
-                {selectedApp.follow_ups.length === 0 ? (
-                  <p className="text-sm text-text-muted">No follow-ups</p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedApp.follow_ups.map((fu, idx) => {
-                      const today = new Date().toISOString().split('T')[0]
-                      const isOverdue = fu.status === 'pending' && fu.due < today
-                      const isToday = fu.status === 'pending' && fu.due === today
-
-                      return (
-                        <div
-                          key={idx}
-                          className={`p-2 rounded border text-sm ${
-                            fu.status !== 'pending'
-                              ? 'border-border/50 bg-bg/50 opacity-60'
-                              : isOverdue
-                                ? 'border-danger/30 bg-danger/5'
-                                : isToday
-                                  ? 'border-warning/30 bg-warning/5'
-                                  : 'border-border'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className={`text-xs font-medium ${
-                              isOverdue ? 'text-danger' : isToday ? 'text-warning' : ''
-                            }`}>
-                              {fu.due}
-                            </span>
-                            <span className="text-xs text-text-muted capitalize">{fu.status}</span>
-                          </div>
-                          <div className="text-xs text-text-muted mt-0.5">{fu.message_summary}</div>
-                          {fu.status === 'pending' && (
-                            <div className="flex gap-1 mt-2">
-                              <button
-                                onClick={() => handleFollowUpAction(selectedApp.id, selectedApp.follow_ups, idx, 'sent')}
-                                className="text-xs px-2 py-0.5 bg-success/10 text-success rounded hover:bg-success/20"
-                              >
-                                Sent
-                              </button>
-                              <button
-                                onClick={() => handleFollowUpAction(selectedApp.id, selectedApp.follow_ups, idx, 'skipped')}
-                                className="text-xs px-2 py-0.5 bg-bg text-text-muted rounded hover:bg-border"
-                              >
-                                Skip
-                              </button>
-                              <button
-                                onClick={() => handleFollowUpAction(selectedApp.id, selectedApp.follow_ups, idx, 'dismissed')}
-                                className="text-xs px-2 py-0.5 bg-bg text-text-muted rounded hover:bg-border"
-                              >
-                                Dismiss
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <div className="text-xs text-text-muted uppercase tracking-wide mb-1">Notes {savedField === 'notes' && <span className="text-success normal-case">- Saved</span>}</div>
-                <textarea
-                  defaultValue={selectedApp.notes || ''}
-                  onBlur={(e) => { if (e.target.value !== (selectedApp.notes || '')) handleFieldUpdate('notes', e.target.value) }}
-                  placeholder="Add notes..."
-                  rows={3}
-                  className="text-sm bg-transparent border border-transparent hover:border-border focus:border-accent focus:outline-none w-full px-1 py-1 rounded transition-colors resize-y"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Resume Viewer Modal */}
-      {viewingResume && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface border border-border rounded-lg w-full max-w-3xl max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div>
-                <h3 className="font-semibold">Resume</h3>
-                <p className="text-xs text-text-muted font-mono">{viewingResume}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(resumeContent)
-                    } catch { /* ignore */ }
-                  }}
-                  className="text-xs px-3 py-1.5 bg-bg border border-border rounded hover:bg-surface transition-colors"
-                >
-                  Copy
-                </button>
-                <button
-                  onClick={() => setViewingResume(null)}
-                  className="text-xs px-3 py-1.5 bg-bg border border-border rounded hover:bg-surface transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <MarkdownView content={resumeContent} />
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   )
 }

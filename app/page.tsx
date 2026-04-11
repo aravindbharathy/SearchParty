@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useAgentEvents } from './hooks/use-agent-events'
-import { AgentChat } from './_components/agent-chat'
 import type { ContextStatusResponse } from './types/context'
 
 interface UrgencyItem {
@@ -51,9 +49,6 @@ export default function Dashboard() {
   const [urgency, setUrgency] = useState<UrgencyData | null>(null)
   const [stats, setStats] = useState<PipelineStats | null>(null)
   const [netStats, setNetStats] = useState<NetworkingStats | null>(null)
-  const [briefingContent, setBriefingContent] = useState<string | null>(null)
-  const [briefingLoading, setBriefingLoading] = useState(false)
-  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('dashboard')
 
   useEffect(() => {
     fetch('/api/context/status')
@@ -89,39 +84,6 @@ export default function Dashboard() {
     window.addEventListener('focus', fetchDashboardData)
     return () => window.removeEventListener('focus', fetchDashboardData)
   }, [fetchDashboardData])
-
-  useEffect(() => {
-    if (agentStatus === 'completed' || agentStatus === 'failed') {
-      fetchDashboardData()
-    }
-  }, [agentStatus, fetchDashboardData])
-
-  useEffect(() => {
-    if (agentStatus === 'completed' && agentOutput) {
-      setBriefingContent(agentOutput)
-      setBriefingLoading(false)
-    }
-    if (agentStatus === 'failed') {
-      setBriefingLoading(false)
-    }
-  }, [agentStatus, agentOutput])
-
-  const handleRunBriefing = async () => {
-    agentReset()
-    setBriefingLoading(true)
-    setBriefingContent(null)
-
-    try {
-      await spawnAgent('coach', {
-        skill: 'daily-briefing',
-        entry_name: 'briefing',
-        metadata: {},
-        text: `Produce a daily briefing for today. Read search/pipeline/applications.yaml, search/pipeline/interviews.yaml, search/context/connection-tracker.yaml, and search/context/snapshot.yaml for current status.`,
-      })
-    } catch {
-      setBriefingLoading(false)
-    }
-  }
 
   const isContextReady = contextStatus?.contextReady ?? false
   const totalUrgency = (urgency?.overdue.length ?? 0) + (urgency?.today.length ?? 0)
@@ -361,100 +323,59 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Quick Actions + Daily Briefing side-by-side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* Quick Actions */}
-        <div className="bg-surface border border-border rounded-lg p-5">
-          <h2 className="font-semibold mb-3">Quick Actions</h2>
-          <div className="space-y-2">
-            <a
-              href="/finding"
-              className="flex items-center gap-3 p-3 rounded-md border border-border hover:bg-bg transition-colors"
-            >
-              <span className="text-lg">&#x1F50D;</span>
-              <div>
-                <div className="text-sm font-medium">Score a JD</div>
-                <div className="text-xs text-text-muted">Paste a job description for fit analysis</div>
-              </div>
-            </a>
-            <a
-              href="/applying"
-              className="flex items-center gap-3 p-3 rounded-md border border-border hover:bg-bg transition-colors"
-            >
-              <span className="text-lg">&#x1F4DD;</span>
-              <div>
-                <div className="text-sm font-medium">Tailor Resume</div>
-                <div className="text-xs text-text-muted">Generate a targeted resume from a JD</div>
-              </div>
-            </a>
-            <a
-              href="/networking"
-              className="flex items-center gap-3 p-3 rounded-md border border-border hover:bg-bg transition-colors"
-            >
-              <span className="text-lg">&#x1F91D;</span>
-              <div>
-                <div className="text-sm font-medium">Generate Connection Batch</div>
-                <div className="text-xs text-text-muted">Create personalized LinkedIn outreach</div>
-              </div>
-            </a>
-            <a
-              href="/applying"
-              className="flex items-center gap-3 p-3 rounded-md border border-border hover:bg-bg transition-colors"
-            >
-              <span className="text-lg">&#x2795;</span>
-              <div>
-                <div className="text-sm font-medium">Add Application</div>
-                <div className="text-xs text-text-muted">Track a new application in the pipeline</div>
-              </div>
-            </a>
-          </div>
-        </div>
-
-        {/* Daily Briefing */}
-        <div className="bg-surface border border-border rounded-lg p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold">Daily Briefing</h2>
-            <button
-              onClick={handleRunBriefing}
-              disabled={briefingLoading}
-              className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {briefingLoading ? 'Generating...' : 'Run Briefing'}
-            </button>
-          </div>
-          {briefingLoading && (
-            <div className="flex items-center gap-2 text-sm text-text-muted">
-              <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-              Coach agent generating daily briefing...
+      {/* Quick Actions */}
+      <div className="bg-surface border border-border rounded-lg p-5 mb-8">
+        <h2 className="font-semibold mb-3">Quick Actions</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <a href="/finding" className="flex items-center gap-3 p-3 rounded-md border border-border hover:bg-bg transition-colors">
+            <span className="text-lg">&#x1F50D;</span>
+            <div>
+              <div className="text-sm font-medium">Find Roles</div>
+              <div className="text-xs text-text-muted">Scan companies for open positions</div>
             </div>
-          )}
-          {briefingContent && (
-            <>
-              <div className="mt-2">
-                <AgentChat
-                  agentName="coach"
-                  initialOutput={briefingContent}
-                  skill="daily-briefing"
-                  onClose={() => setBriefingContent(null)}
-                />
-              </div>
-              <div className="flex items-center gap-3 mt-4 pt-3 border-t border-border">
-                <a href="/applying" className="text-xs text-accent hover:text-accent-hover font-medium">
-                  Go to Applications &rarr;
-                </a>
-                <a href="/networking" className="text-xs text-accent hover:text-accent-hover font-medium">
-                  Go to Networking &rarr;
-                </a>
-                <a href="/interviewing" className="text-xs text-accent hover:text-accent-hover font-medium">
-                  Go to Interviews &rarr;
-                </a>
-              </div>
-            </>
-          )}
-          {!briefingLoading && !briefingContent && (
-            <p className="text-sm text-text-muted">Click &quot;Run Briefing&quot; for the coach&apos;s deeper analysis of today&apos;s priorities, follow-ups, and pipeline health.</p>
-          )}
+          </a>
+          <a href="/applying" className="flex items-center gap-3 p-3 rounded-md border border-border hover:bg-bg transition-colors">
+            <span className="text-lg">&#x1F4DD;</span>
+            <div>
+              <div className="text-sm font-medium">Tailor Resume</div>
+              <div className="text-xs text-text-muted">Create a targeted resume</div>
+            </div>
+          </a>
+          <a href="/networking" className="flex items-center gap-3 p-3 rounded-md border border-border hover:bg-bg transition-colors">
+            <span className="text-lg">&#x1F91D;</span>
+            <div>
+              <div className="text-sm font-medium">Network</div>
+              <div className="text-xs text-text-muted">Generate outreach messages</div>
+            </div>
+          </a>
+          <a href="/interviewing" className="flex items-center gap-3 p-3 rounded-md border border-border hover:bg-bg transition-colors">
+            <span className="text-lg">&#x1F3AF;</span>
+            <div>
+              <div className="text-sm font-medium">Interview Prep</div>
+              <div className="text-xs text-text-muted">Prep or mock interview</div>
+            </div>
+          </a>
         </div>
+      </div>
+
+      {/* Pipeline Kanban */}
+      <div className="bg-surface border border-border rounded-lg p-5 mb-8">
+        <h2 className="font-semibold mb-4">Application Pipeline</h2>
+        {!stats || stats.total === 0 ? (
+          <p className="text-text-muted text-sm">No applications yet. <a href="/finding" className="text-accent hover:text-accent-hover">Find roles</a> to get started.</p>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {FUNNEL_STAGES.filter(s => !['rejected', 'withdrawn'].includes(s.key) || (stats.byStatus[s.key] ?? 0) > 0).map((stage) => {
+              const count = stats.byStatus[stage.key] ?? 0
+              return (
+                <div key={stage.key} className={`min-w-[140px] flex-1 rounded-lg p-3 ${stage.color}`}>
+                  <div className="text-xs text-text-muted mb-1">{stage.label}</div>
+                  <div className="text-2xl font-bold">{count}</div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Urgency badge count for sidebar */}
