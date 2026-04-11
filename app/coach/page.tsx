@@ -1082,8 +1082,10 @@ function KeyInfoLine({ sectionKey, data, filled, section }: { sectionKey: string
       // If we have data but parts is empty, check if section is actually filled
       if (parts.length === 0 && filled) return <p className="text-sm text-text-muted">Profile data loaded</p>
       if (parts.length === 0) {
-        const missing = Object.values(section.fields || {}).filter(f => f.required && !f.filled).map(f => f.label)
-        if (missing.length > 0) return <p className="text-sm text-danger truncate">Missing: {missing.slice(0, 3).join(', ')}</p>
+        if (section.required_filled > 0) {
+          const missing = Object.values(section.fields || {}).filter(f => f.required && !f.filled).map(f => f.label)
+          if (missing.length > 0) return <p className="text-sm text-danger truncate">Missing: {missing.slice(0, 3).join(', ')}</p>
+        }
         return <p className="text-sm text-text-muted italic">Not started</p>
       }
       return <p className="text-sm text-text-muted truncate">{parts.join(' · ')}</p>
@@ -1096,8 +1098,11 @@ function KeyInfoLine({ sectionKey, data, filled, section }: { sectionKey: string
       if (funcs.length > 0) parts.push(funcs.join(', '))
       if (target.comp_floor && Number(target.comp_floor) > 0) parts.push(`$${Number(target.comp_floor).toLocaleString()}+`)
       if (parts.length === 0) {
-        const missing = Object.values(section.fields || {}).filter(f => f.required && !f.filled).map(f => f.label)
-        return <p className="text-sm text-danger truncate">Missing: {missing.slice(0, 3).join(', ')}</p>
+        if (section.required_filled > 0) {
+          const missing = Object.values(section.fields || {}).filter(f => f.required && !f.filled).map(f => f.label)
+          if (missing.length > 0) return <p className="text-sm text-danger truncate">Missing: {missing.slice(0, 3).join(', ')}</p>
+        }
+        return <p className="text-sm text-text-muted italic">Not started</p>
       }
       return <p className="text-sm text-text-muted truncate">{parts.join(' · ')}</p>
     }
