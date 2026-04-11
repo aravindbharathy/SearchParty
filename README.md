@@ -1,6 +1,6 @@
 <p align="center">
   <h1 align="center">Search Party</h1>
-  <p align="center"><strong>Your AI-powered job search team.</strong><br/>5 specialist agents that research, tailor, network, and prep — running locally on your machine.</p>
+  <p align="center"><strong>Your AI-powered job search team.</strong><br/>6 specialist agents that research, tailor, network, prep, and negotiate — running locally on your machine.</p>
 </p>
 
 <br/>
@@ -36,7 +36,7 @@ Meanwhile, the people who get hired had a warm intro from someone on the team.
 
 ## What if you had a team?
 
-Search Party gives you **5 AI specialists** that remember everything about you, coordinate with each other, and handle the grunt work — so you can focus on building relationships and performing in interviews.
+Search Party gives you **6 AI specialists** that remember everything about you, coordinate with each other, and handle the grunt work — so you can focus on building relationships and performing in interviews.
 
 <br/>
 
@@ -65,6 +65,7 @@ Not templates. The agents read your actual experience, your career goals, and ea
 | **Resume** | Tailors resumes, writes cover letters, creates work products, hiring manager messages |
 | **Networking** | Personalized LinkedIn outreach, referral sequences, profile audit |
 | **Interview** | Prep packages, mock interviews with scoring, post-interview debriefs |
+| **Negotiation** | Salary research, offer analysis, counter-offer strategy, comp comparison |
 
 <br/>
 
@@ -176,6 +177,7 @@ Every page: **tabbed content** on the left, **agent chat** on the right.
 | **Applying** | Resumes, cover letters, work products |
 | **Networking** | Outreach, referrals, LinkedIn audit |
 | **Interviewing** | Prep, mock interviews, debriefs |
+| **Closing** | Offers, salary research, negotiation strategy |
 | **Command Center** | Agent management, blackboard viewer |
 
 <br/>

@@ -15,6 +15,7 @@ const AGENT_ICONS: Record<string, string> = {
   coach: '🤖',
   networking: '🤝',
   interview: '🎯',
+  negotiation: '💰',
 }
 
 /**

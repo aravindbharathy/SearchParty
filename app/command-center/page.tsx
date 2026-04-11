@@ -11,6 +11,7 @@ const AGENT_COLORS: Record<string, string> = {
   coach: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
   networking: 'bg-green-500/10 text-green-400 border-green-500/20',
   interview: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+  negotiation: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
 }
 
 const ALL_AGENTS = [
@@ -19,6 +20,7 @@ const ALL_AGENTS = [
   { name: 'coach', role: 'Job Search Coach' },
   { name: 'networking', role: 'Outreach & Connections' },
   { name: 'interview', role: 'Interview Prep' },
+  { name: 'negotiation', role: 'Salary & Negotiation' },
 ]
 
 function agentBadgeColor(name: string): string {
@@ -120,8 +122,12 @@ export default function CommandCenterPage() {
         const keysToRemove = [
           'coach-messages', 'coach-section', 'coach-resume-zone', 'coach-last-briefing-date',
           'finding-chat-messages', 'finding-active-tab',
+          'applying-chat-messages', 'applying-active-tab',
           'networking-chat-messages', 'net-active-tab', 'net-parsed-messages', 'net-active-batch',
-          'agent-spawn-coach-agent', 'agent-spawn-finding-chat', 'agent-spawn-networking-chat',
+          'interviewing-chat-messages', 'interviewing-active-tab',
+          'closing-chat-messages', 'closing-active-tab',
+          'agent-spawn-coach-agent', 'agent-spawn-finding-chat', 'agent-spawn-applying-chat',
+          'agent-spawn-networking-chat', 'agent-spawn-interviewing-chat', 'agent-spawn-closing-chat',
         ]
         for (const key of keysToRemove) {
           try { localStorage.removeItem(key) } catch {}
@@ -174,6 +180,7 @@ export default function CommandCenterPage() {
         resume: ['applying-chat-messages', 'agent-spawn-applying-chat'],
         networking: ['networking-chat-messages', 'agent-spawn-networking-chat'],
         interview: ['interviewing-chat-messages', 'agent-spawn-interviewing-chat'],
+        negotiation: ['closing-chat-messages', 'agent-spawn-closing-chat'],
       }
       for (const key of chatKeys[agentName] || []) {
         try { localStorage.removeItem(key) } catch {}
