@@ -448,13 +448,18 @@ export default function InterviewingPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {prepPackages.map(pkg => (
-                    <button key={pkg.filename} onClick={() => setSelectedPrep(selectedPrep?.filename === pkg.filename ? null : pkg)}
-                      className={`text-left p-4 border rounded-lg transition-colors ${
-                        selectedPrep?.filename === pkg.filename ? 'border-accent bg-accent/5' : 'border-border hover:bg-bg'
-                      }`}>
-                      <p className="font-medium text-sm">{pkg.title}</p>
-                      <p className="text-xs text-text-muted mt-1">{pkg.filename}</p>
-                    </button>
+                    <div key={pkg.filename} className={`p-4 border rounded-lg transition-colors ${
+                      selectedPrep?.filename === pkg.filename ? 'border-accent bg-accent/5' : 'border-border hover:bg-bg'
+                    }`}>
+                      <button onClick={() => setSelectedPrep(selectedPrep?.filename === pkg.filename ? null : pkg)} className="w-full text-left">
+                        <p className="font-medium text-sm">{pkg.title}</p>
+                        <p className="text-xs text-text-muted mt-1">{pkg.filename}</p>
+                      </button>
+                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
+                        <button onClick={() => sendChatMessage(`Let's discuss this prep package: ${pkg.title}`)} disabled={chatProcessing}
+                          className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">Discuss</button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -462,7 +467,11 @@ export default function InterviewingPage() {
                 <div className="mt-4 bg-surface border border-border rounded-lg p-5">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold">{selectedPrep.title}</h3>
-                    <button onClick={() => setSelectedPrep(null)} className="text-xs text-text-muted hover:text-text">Close</button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => sendChatMessage(`Let's discuss this prep: ${selectedPrep.title}`)} disabled={chatProcessing}
+                        className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">Discuss with Agent</button>
+                      <button onClick={() => setSelectedPrep(null)} className="text-xs text-text-muted hover:text-text">Close</button>
+                    </div>
                   </div>
                   <div className="bg-bg p-4 rounded-md border border-border overflow-auto max-h-[60vh]">
                     <MarkdownView content={selectedPrep.content} />

@@ -309,26 +309,20 @@ export default function ApplyingPage() {
               ) : (
                 <div className="space-y-2">
                   {resumes.map(resume => (
-                    <button
-                      key={resume.filename}
-                      onClick={() => setSelectedDoc(selectedDoc?.title === resume.title ? null : { title: resume.title, content: resume.content })}
-                      className={`w-full text-left p-4 border rounded-lg transition-colors ${
-                        selectedDoc?.title === resume.title ? 'border-accent bg-accent/5' : 'border-border hover:bg-bg'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-sm">{resume.title}</p>
-                          <p className="text-xs text-text-muted mt-0.5">{resume.filename}</p>
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(resume.content) }}
-                          className="text-xs text-accent hover:text-accent-hover font-medium px-2 py-1"
-                        >
-                          Copy
-                        </button>
+                    <div key={resume.filename} className={`p-4 border rounded-lg transition-colors ${
+                      selectedDoc?.title === resume.title ? 'border-accent bg-accent/5' : 'border-border hover:bg-bg'
+                    }`}>
+                      <button onClick={() => setSelectedDoc(selectedDoc?.title === resume.title ? null : { title: resume.title, content: resume.content })} className="w-full text-left">
+                        <p className="font-medium text-sm">{resume.title}</p>
+                        <p className="text-xs text-text-muted mt-0.5">{resume.filename}</p>
+                      </button>
+                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
+                        <button onClick={() => sendChatMessage(`Review and improve this resume: ${resume.title}`)} disabled={chatProcessing}
+                          className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">Discuss</button>
+                        <button onClick={() => navigator.clipboard.writeText(resume.content)}
+                          className="text-xs text-text-muted hover:text-text">Copy</button>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -357,16 +351,23 @@ export default function ApplyingPage() {
               ) : (
                 <div className="space-y-2">
                   {coverLetters.map(letter => (
-                    <button
+                    <div
                       key={letter.filename}
-                      onClick={() => setSelectedDoc(selectedDoc?.title === letter.title ? null : letter)}
-                      className={`w-full text-left p-4 border rounded-lg transition-colors ${
+                      className={`p-4 border rounded-lg transition-colors ${
                         selectedDoc?.title === letter.title ? 'border-accent bg-accent/5' : 'border-border hover:bg-bg'
                       }`}
                     >
-                      <p className="font-medium text-sm">{letter.title}</p>
-                      <p className="text-xs text-text-muted mt-0.5">{letter.filename}</p>
-                    </button>
+                      <button onClick={() => setSelectedDoc(selectedDoc?.title === letter.title ? null : letter)} className="w-full text-left">
+                        <p className="font-medium text-sm">{letter.title}</p>
+                        <p className="text-xs text-text-muted mt-0.5">{letter.filename}</p>
+                      </button>
+                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
+                        <button onClick={() => sendChatMessage(`Review and improve this cover letter: ${letter.title}`)} disabled={chatProcessing}
+                          className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">Discuss</button>
+                        <button onClick={() => navigator.clipboard.writeText(letter.content)}
+                          className="text-xs text-text-muted hover:text-text">Copy</button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -404,16 +405,20 @@ export default function ApplyingPage() {
               ) : (
                 <div className="space-y-2">
                   {workProducts.map(product => (
-                    <button
-                      key={product.filename}
-                      onClick={() => setSelectedDoc(selectedDoc?.title === product.title ? null : product)}
-                      className={`w-full text-left p-4 border rounded-lg transition-colors ${
-                        selectedDoc?.title === product.title ? 'border-accent bg-accent/5' : 'border-border hover:bg-bg'
-                      }`}
-                    >
-                      <p className="font-medium text-sm">{product.title}</p>
-                      <p className="text-xs text-text-muted mt-0.5">{product.filename}</p>
-                    </button>
+                    <div key={product.filename} className={`p-4 border rounded-lg transition-colors ${
+                      selectedDoc?.title === product.title ? 'border-accent bg-accent/5' : 'border-border hover:bg-bg'
+                    }`}>
+                      <button onClick={() => setSelectedDoc(selectedDoc?.title === product.title ? null : product)} className="w-full text-left">
+                        <p className="font-medium text-sm">{product.title}</p>
+                        <p className="text-xs text-text-muted mt-0.5">{product.filename}</p>
+                      </button>
+                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
+                        <button onClick={() => sendChatMessage(`Review and improve this outreach: ${product.title}`)} disabled={chatProcessing}
+                          className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">Discuss</button>
+                        <button onClick={() => navigator.clipboard.writeText(product.content)}
+                          className="text-xs text-text-muted hover:text-text">Copy</button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -426,7 +431,11 @@ export default function ApplyingPage() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold">{selectedDoc.title}</h3>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => navigator.clipboard.writeText(selectedDoc.content)} className="text-xs text-accent hover:text-accent-hover font-medium">
+                  <button onClick={() => sendChatMessage(`Let's discuss and improve: ${selectedDoc.title}`)} disabled={chatProcessing}
+                    className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">
+                    Discuss with Agent
+                  </button>
+                  <button onClick={() => navigator.clipboard.writeText(selectedDoc.content)} className="text-xs text-text-muted hover:text-text">
                     Copy All
                   </button>
                   <button onClick={() => setSelectedDoc(null)} className="text-xs text-text-muted hover:text-text">Close</button>

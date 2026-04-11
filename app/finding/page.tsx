@@ -921,6 +921,11 @@ export default function FindingPage() {
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold">{selectedJD.company} — {selectedJD.role}</h3>
                     <div className="flex items-center gap-2">
+                      <button onClick={() => sendChatMessage(`Let's discuss this JD score for ${selectedJD.company} — ${selectedJD.role}. What are the key gaps and how can I address them?`)}
+                        disabled={chatProcessing}
+                        className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">
+                        Discuss
+                      </button>
                       <button
                         onClick={() => addToPipeline(selectedJD.company, selectedJD.role, selectedJD.score, selectedJD.jd_file)}
                         className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover"
