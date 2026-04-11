@@ -62,12 +62,8 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
         networkingCount={networkingCount}
         activePage={pathname}
       />
-      <main className="flex-1 overflow-y-auto relative">
-        <div className="fixed top-0 right-0 left-56 z-40 pointer-events-none">
-          <div className="pointer-events-auto p-3">
-            <UserActionBar />
-          </div>
-        </div>
+      <main className="flex-1 overflow-y-auto">
+        <UserActionBar />
         <div className="p-6">
           {children}
         </div>

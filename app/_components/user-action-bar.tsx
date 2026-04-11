@@ -114,34 +114,55 @@ export function UserActionBar() {
     router.push(route)
   }
 
+  const [expanded, setExpanded] = useState(true)
+
   if (actions.length === 0) return null
 
   return (
-    <div className="space-y-2">
-      {actions.map(action => {
-        const fb = fallbackRoute(action.text)
-        const buttonLabel = action.button_label || fb.label
-        const agent = AGENT_LABELS[action.from] || action.from
+    <div className="border-b border-warning/30 bg-warning/5">
+      {/* Collapsed bar */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-4 py-2 flex items-center justify-between text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-warning text-sm">!</span>
+          <span className="text-sm font-medium">{actions.length} action{actions.length !== 1 ? 's' : ''} needed</span>
+          {!expanded && (
+            <span className="text-xs text-text-muted">— {actions.map(a => a.text).join('; ').slice(0, 80)}{actions.map(a => a.text).join('; ').length > 80 ? '...' : ''}</span>
+          )}
+        </div>
+        <span className="text-xs text-text-muted">{expanded ? '▲' : '▼'}</span>
+      </button>
 
-        return (
-          <div key={action.id} className="flex items-center gap-3 bg-warning/10 border border-warning/30 rounded-lg px-4 py-3 shadow-md backdrop-blur-sm">
-            <span className="text-warning text-lg">!</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-text">{action.text}</p>
-              <p className="text-xs text-text-muted mt-0.5">From: {agent}</p>
-            </div>
-            <button
-              onClick={() => handleAction(action)}
-              className="px-3 py-1.5 bg-accent text-white text-xs font-medium rounded-md hover:bg-accent-hover shrink-0"
-            >
-              {buttonLabel}
-            </button>
-            <button onClick={() => dismiss(action.id)} className="text-xs text-text-muted hover:text-text shrink-0">
-              ✕
-            </button>
-          </div>
-        )
-      })}
+      {/* Expanded content */}
+      {expanded && (
+        <div className="px-4 pb-3 space-y-2">
+          {actions.map(action => {
+            const fb = fallbackRoute(action.text)
+            const buttonLabel = action.button_label || fb.label
+            const agent = AGENT_LABELS[action.from] || action.from
+
+            return (
+              <div key={action.id} className="flex items-center gap-3 bg-surface border border-warning/20 rounded-lg px-4 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-text">{action.text}</p>
+                  <p className="text-xs text-text-muted mt-0.5">From: {agent}</p>
+                </div>
+                <button
+                  onClick={() => handleAction(action)}
+                  className="px-3 py-1.5 bg-accent text-white text-xs font-medium rounded-md hover:bg-accent-hover shrink-0"
+                >
+                  {buttonLabel}
+                </button>
+                <button onClick={() => dismiss(action.id)} className="text-xs text-text-muted hover:text-text shrink-0">
+                  ✕
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
