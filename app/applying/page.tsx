@@ -377,14 +377,23 @@ export default function ApplyingPage() {
           {activeTab === 'work-products' && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-text-muted">Work Products</h2>
-                <button
-                  onClick={() => sendChatMessage('Help me create a strategic work product (1-pager) analyzing a company\'s product. Ask me which company to target.')}
-                  disabled={chatProcessing}
-                  className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
-                >
-                  Create Work Product
-                </button>
+                <h2 className="text-sm font-semibold text-text-muted">Work Products & Outreach</h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => sendChatMessage('Help me write a message to a hiring manager. Ask me which company and role, and I\'ll provide context about why I\'m a great fit. The message should lead with a specific insight about their product or team.')}
+                    disabled={chatProcessing}
+                    className="px-4 py-2 border border-accent text-accent rounded-md text-sm font-medium hover:bg-accent/10 disabled:opacity-50"
+                  >
+                    Hiring Manager Message
+                  </button>
+                  <button
+                    onClick={() => sendChatMessage('Help me create a strategic work product (1-pager) analyzing a company\'s product. Ask me which company to target.')}
+                    disabled={chatProcessing}
+                    className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
+                  >
+                    Create Work Product
+                  </button>
+                </div>
               </div>
 
               {workProducts.length === 0 ? (
