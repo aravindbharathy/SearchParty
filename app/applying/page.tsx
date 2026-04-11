@@ -28,7 +28,7 @@ interface ChatMessage {
   content: string
 }
 
-type TabKey = 'resumes' | 'cover-letters' | 'work-products'
+type TabKey = 'resumes' | 'cover-letters' | 'outreach'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -39,7 +39,7 @@ IMPORTANT: If experience-library.yaml is empty (no experiences or skills), DO NO
 2. Post a user-action directive (NOT a finding — a DIRECTIVE):
    Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackboard path "directives" = existing + {"id":"dir-ua-resume","type":"user_action","text":"Your experience is needed to create resumes","button_label":"Complete Background","route":"/coach","chat_message":"I need to complete my background for resume tailoring.","assigned_to":"coach","from":"resume","priority":"high","status":"pending","posted_at":"<ISO>"}
 
-If context is available, greet the user briefly and ask what they'd like help with. You can help with: tailoring resumes to specific JDs, writing cover letters, creating work products (strategic 1-pagers), and reviewing application materials.`
+If context is available, greet the user briefly and ask what they'd like help with. You can help with: tailoring resumes to specific JDs, writing cover letters, crafting hiring manager messages, writing company insight briefs, and reviewing application materials.`
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ export default function ApplyingPage() {
 
   const loadWorkProducts = useCallback(async () => {
     try {
-      const dir = 'output/work-products'
+      const dir = 'output/outreach'
       const res = await fetch(`/api/vault/scan?dir=${encodeURIComponent(dir)}`)
       if (res.ok) {
         const data = await res.json() as { files?: string[] }
@@ -119,7 +119,7 @@ export default function ApplyingPage() {
           const products: PrepPackage[] = []
           for (const f of data.files) {
             try {
-              const r = await fetch(`/api/vault/read-file?path=output/work-products/${f}`)
+              const r = await fetch(`/api/vault/read-file?path=output/outreach/${f}`)
               if (r.ok) {
                 const d = await r.json() as { content: string }
                 const titleMatch = d.content.match(/^#\s+(.+)/m)
@@ -248,7 +248,7 @@ export default function ApplyingPage() {
             {[
               { label: 'Resumes', value: stats.resumes },
               { label: 'Cover Letters', value: stats.coverLetters },
-              { label: 'Work Products', value: stats.workProducts },
+              { label: 'Outreach', value: stats.workProducts },
             ].map(s => (
               <div key={s.label} className="flex-1 bg-surface border border-border rounded-lg px-3 py-2">
                 <div className="text-xs text-text-muted">{s.label}</div>
@@ -263,7 +263,7 @@ export default function ApplyingPage() {
           {([
             { key: 'resumes' as TabKey, label: `Resumes${resumes.length > 0 ? ` (${resumes.length})` : ''}` },
             { key: 'cover-letters' as TabKey, label: `Cover Letters${coverLetters.length > 0 ? ` (${coverLetters.length})` : ''}` },
-            { key: 'work-products' as TabKey, label: `Work Products${workProducts.length > 0 ? ` (${workProducts.length})` : ''}` },
+            { key: 'outreach' as TabKey, label: `Outreach${workProducts.length > 0 ? ` (${workProducts.length})` : ''}` },
           ]).map(tab => (
             <button
               key={tab.key}
@@ -373,11 +373,11 @@ export default function ApplyingPage() {
             </div>
           )}
 
-          {/* ─── Work Products Tab ─────────────────────────────── */}
-          {activeTab === 'work-products' && (
+          {/* ─── Outreach Tab ─────────────────────────────── */}
+          {activeTab === 'outreach' && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-text-muted">Work Products & Outreach</h2>
+                <h2 className="text-sm font-semibold text-text-muted">Outreach</h2>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => sendChatMessage('Help me write a message to a hiring manager. Ask me which company and role, and I\'ll provide context about why I\'m a great fit. The message should lead with a specific insight about their product or team.')}
@@ -387,19 +387,19 @@ export default function ApplyingPage() {
                     Hiring Manager Message
                   </button>
                   <button
-                    onClick={() => sendChatMessage('Help me create a strategic work product (1-pager) analyzing a company\'s product. Ask me which company to target.')}
+                    onClick={() => sendChatMessage('Help me create a company insight brief — a short document showing I\'ve researched this company\'s product and have specific ideas. Ask me which company to target.')}
                     disabled={chatProcessing}
                     className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
                   >
-                    Create Work Product
+                    Company Insight Brief
                   </button>
                 </div>
               </div>
 
               {workProducts.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-text-muted text-lg mb-2">No work products yet.</p>
-                  <p className="text-text-muted text-sm">Strategic 1-pagers show companies you understand their product. Ask the agent to create one.</p>
+                  <p className="text-text-muted text-lg mb-2">No outreach materials yet.</p>
+                  <p className="text-text-muted text-sm">Create a <strong>hiring manager message</strong> to reach out directly, or a <strong>company insight brief</strong> showing you&apos;ve done your homework on their product.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
