@@ -160,12 +160,24 @@ export default function CommandCenterPage() {
   }, [spawnStatus, fetchSessions])
 
   const handleResetSession = async (agentName: string) => {
+    if (!confirm(`Reset the ${agentName} agent? This clears its conversation memory. It will start fresh on the next interaction.`)) return
     try {
       await fetch('/api/agent/rotate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agent: agentName }),
       })
+      // Clear the chat localStorage for this agent's page
+      const chatKeys: Record<string, string[]> = {
+        coach: ['coach-messages', 'agent-spawn-coach-agent'],
+        research: ['finding-chat-messages', 'agent-spawn-finding-chat'],
+        resume: ['applying-chat-messages', 'agent-spawn-applying-chat'],
+        networking: ['networking-chat-messages', 'agent-spawn-networking-chat'],
+        interview: ['interviewing-chat-messages', 'agent-spawn-interviewing-chat'],
+      }
+      for (const key of chatKeys[agentName] || []) {
+        try { localStorage.removeItem(key) } catch {}
+      }
       fetchSessions()
     } catch {
       // ignore
@@ -243,7 +255,16 @@ export default function CommandCenterPage() {
           </div>
         </div>
       </div>
-      <p className="text-text-muted mb-8">Agent management and blackboard status.</p>
+      <p className="text-text-muted mb-4">Agent management and blackboard status.</p>
+
+      {/* Warning banner */}
+      <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 mb-6 flex items-start gap-3">
+        <span className="text-warning text-lg mt-0.5">!</span>
+        <div>
+          <p className="text-sm font-medium text-text">Advanced area</p>
+          <p className="text-xs text-text-muted mt-0.5">Resetting agents clears their memory of your conversations. Only reset an agent if it&apos;s behaving incorrectly or stuck. The full reset erases all your profile data and generated materials.</p>
+        </div>
+      </div>
 
       {/* ─── Connection Status ─────────────────────────────────── */}
       {!connected && (

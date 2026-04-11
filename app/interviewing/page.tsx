@@ -576,13 +576,7 @@ export default function InterviewingPage() {
             <span className={`w-2 h-2 rounded-full ${chatProcessing ? 'bg-accent animate-pulse' : 'bg-success'}`} />
             <span className="text-sm font-semibold">Interview Agent</span>
           </div>
-          <button onClick={() => {
-            setChatMessages([])
-            localStorage.removeItem('interviewing-chat-messages')
-            localStorage.removeItem('agent-spawn-interviewing-chat')
-            hasSpawnedRef.current = false
-            fetch('/api/agent/rotate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agent: 'interview' }) }).catch(() => {})
-          }} className="text-xs text-text-muted hover:text-text">Reset</button>
+          <a href="/command-center" className="text-xs text-text-muted hover:text-text">Manage</a>
         </div>
 
         <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">

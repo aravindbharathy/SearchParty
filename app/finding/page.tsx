@@ -1181,19 +1181,9 @@ export default function FindingPage() {
             <span className={`w-2 h-2 rounded-full ${chatProcessing ? 'bg-accent animate-pulse' : 'bg-success'}`} />
             <span className="text-sm font-semibold">Research Agent</span>
           </div>
-          <button
-            onClick={() => {
-              setChatMessages([])
-              localStorage.removeItem('finding-chat-messages')
-              localStorage.removeItem('agent-spawn-finding-chat')
-              hasSpawnedRef.current = false
-              // Rotate agent session so it starts fresh with new instructions
-              fetch('/api/agent/rotate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agent: 'research' }) }).catch(() => {})
-            }}
-            className="text-xs text-text-muted hover:text-text"
-          >
-            Reset
-          </button>
+          <a href="/command-center" className="text-xs text-text-muted hover:text-text">
+            Manage
+          </a>
         </div>
 
         {/* Chat Messages */}

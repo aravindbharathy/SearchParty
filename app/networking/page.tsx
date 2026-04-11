@@ -1092,18 +1092,9 @@ export default function NetworkingPage() {
             <span className={`w-2 h-2 rounded-full ${chatProcessing ? 'bg-warning animate-pulse' : 'bg-accent'}`} />
             <span className="text-sm font-semibold text-text">Networking Agent</span>
           </div>
-          <button
-            onClick={() => {
-              setChatMessages([])
-              localStorage.removeItem('networking-chat-messages')
-              localStorage.removeItem('agent-spawn-networking-chat')
-              hasSpawnedRef.current = false
-              fetch('/api/agent/rotate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agent: 'networking' }) }).catch(() => {})
-            }}
-            className="text-xs text-text-muted hover:text-text px-2 py-1 rounded border border-border hover:bg-bg transition-colors"
-          >
-            Reset
-          </button>
+          <a href="/command-center" className="text-xs text-text-muted hover:text-text">
+            Manage
+          </a>
         </div>
 
         {/* Chat Messages */}
