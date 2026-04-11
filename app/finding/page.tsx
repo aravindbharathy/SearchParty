@@ -1182,7 +1182,7 @@ export default function FindingPage() {
             }}
             className="text-xs text-text-muted hover:text-text"
           >
-            Clear
+            Reset
           </button>
         </div>
 

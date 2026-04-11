@@ -1102,7 +1102,7 @@ export default function NetworkingPage() {
             }}
             className="text-xs text-text-muted hover:text-text px-2 py-1 rounded border border-border hover:bg-bg transition-colors"
           >
-            Clear
+            Reset
           </button>
         </div>
 
