@@ -164,7 +164,13 @@ bun blackboard/server.ts  # Start blackboard server separately
 
 ## License
 
-MIT
+**AGPL-3.0** — free to use, modify, and share. If you run a modified version as a service, you must release your source code. See [LICENSE](LICENSE) for details.
+
+For commercial licensing, contact [@aravindbharathy](https://github.com/aravindbharathy).
+
+## Acknowledgments
+
+The multi-agent blackboard architecture is adapted from [Kapi Sprints](https://github.com/Kapi-IDE/kapi-sprints) by Balaji Viswanathan (Apache 2.0). See [NOTICE](NOTICE) for attribution details.
 
 ---
 

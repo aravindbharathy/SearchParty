@@ -1,0 +1,44 @@
+Search Party
+Copyright (C) 2026 Aravind Bharathy
+
+This product is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+
+---
+
+THIRD-PARTY NOTICES
+
+This project includes code derived from the following open source project:
+
+Kapi Sprints
+  Copyright: Balaji Viswanathan and contributors
+  License: Apache License 2.0
+  Source: https://github.com/Kapi-IDE/kapi-sprints
+
+  The following components were adapted from Kapi Sprints:
+  - blackboard/server.ts — Blackboard coordination server (HTTP + WebSocket)
+  - blackboard/shim.ts — MCP shim for agent-blackboard communication
+  - app/hooks/use-blackboard.ts — WebSocket client hook
+  - The overall multi-agent coordination architecture (blackboard pattern,
+    agent definitions, directive system)
+
+  These files have been substantially modified for the job search domain
+  but retain the core architectural patterns from Kapi Sprints.
+
+  The original Apache 2.0 license text can be found at:
+  https://www.apache.org/licenses/LICENSE-2.0
+
+---
+
+Apache License 2.0 Notice (for derived Kapi Sprints code):
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use these files except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
