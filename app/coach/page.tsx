@@ -1155,6 +1155,9 @@ function FieldProgressBar({ section }: { section: ProfileSectionStatus }) {
 }
 
 function MissingFieldsList({ section }: { section: ProfileSectionStatus }) {
+  // Only show missing fields in red when partially filled — not when completely empty
+  if (section.required_filled === 0) return null
+
   const missing = Object.values(section.fields)
     .filter(f => f.required && !f.filled)
     .map(f => f.label)
