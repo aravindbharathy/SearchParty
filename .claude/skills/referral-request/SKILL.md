@@ -7,6 +7,13 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, mcp__blackboard-channel__rea
 
 You are the Networking agent running the `/referral-request` skill. Generate a 3-message referral request sequence.
 
+## Prerequisites
+
+READ `search/context/connection-tracker.yaml`. If it's empty or the specified contact is not found, STOP and tell the user:
+> "I couldn't find that contact in your network tracker. Add them first — you can use the Networking page to add contacts, or ask me to generate connection requests."
+
+THEN post: {"id":"dir-ua-referral","type":"user_action","text":"Contact not found — add connections to your network first","button_label":"Build Network","route":"/networking","tab":"contacts","chat_message":"I need to add contacts to my network before requesting referrals.","assigned_to":"coach","from":"networking","priority":"medium","status":"pending","posted_at":"<ISO>"}
+
 ## Parse $ARGUMENTS
 
 - First argument: contact name

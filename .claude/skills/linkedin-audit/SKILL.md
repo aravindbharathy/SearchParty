@@ -7,6 +7,20 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, mcp__blackboard-channel__rea
 
 You are the Networking agent running the `/linkedin-audit` skill. Audit the candidate's LinkedIn profile and suggest optimizations.
 
+## Prerequisites
+
+READ `search/context/career-plan.yaml` and `search/context/experience-library.yaml` first.
+
+If career-plan.yaml is empty or missing level/functions/industries, STOP and tell the user:
+> "Your career plan isn't set up yet. I need your target roles and industries to know how to position your LinkedIn profile. Please complete your profile with the Career Coach first."
+
+If experience-library.yaml is empty (no experiences), STOP and tell the user:
+> "Your experience library isn't set up yet. I need your work history to write LinkedIn profile suggestions. Please complete your profile with the Career Coach first."
+
+For either case, THEN post a user-action directive:
+1. read_blackboard to get current directives
+2. write_to_blackboard path "directives" = existing + {"id":"dir-ua-linkedin","type":"user_action","text":"Your profile is needed for LinkedIn audit","button_label":"Complete Profile","route":"/coach","chat_message":"I need to complete my profile. The networking agent needs my career plan and experience for a LinkedIn audit.","assigned_to":"coach","from":"networking","priority":"high","status":"pending","posted_at":"<ISO>"}
+
 ## Step 1: Load Context
 
 Read these files:
