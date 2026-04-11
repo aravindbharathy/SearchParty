@@ -117,14 +117,14 @@ export function UserActionBar() {
   if (actions.length === 0) return null
 
   return (
-    <div className="space-y-2 mb-4">
+    <div className="space-y-2">
       {actions.map(action => {
         const fb = fallbackRoute(action.text)
         const buttonLabel = action.button_label || fb.label
         const agent = AGENT_LABELS[action.from] || action.from
 
         return (
-          <div key={action.id} className="flex items-center gap-3 bg-warning/10 border border-warning/30 rounded-lg px-4 py-3">
+          <div key={action.id} className="flex items-center gap-3 bg-warning/10 border border-warning/30 rounded-lg px-4 py-3 shadow-md backdrop-blur-sm">
             <span className="text-warning text-lg">!</span>
             <div className="flex-1 min-w-0">
               <p className="text-sm text-text">{action.text}</p>
