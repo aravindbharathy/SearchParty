@@ -243,12 +243,6 @@ export default function CommandCenterPage() {
           >
             Reset All
           </button>
-          <button
-            onClick={fetchSessions}
-            className="text-xs text-text-muted hover:text-text px-2 py-1 border border-border rounded transition-colors"
-          >
-            {sessionsLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
           <div className="flex items-center gap-2 text-xs">
             <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-text-muted/40'}`} />
             <span className="text-text-muted">{connected ? 'Live' : 'Disconnected'}</span>
