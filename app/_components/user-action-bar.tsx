@@ -123,16 +123,22 @@ export function UserActionBar() {
       {/* Collapsed bar */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-4 py-2 flex items-center justify-between text-left"
+        className="w-full px-5 py-3 flex items-center justify-between text-left"
       >
         <div className="flex items-center gap-2">
-          <span className="text-warning text-sm">!</span>
-          <span className="text-sm font-medium">{actions.length} action{actions.length !== 1 ? 's' : ''} needed</span>
-          {!expanded && (
-            <span className="text-xs text-text-muted">— {actions.map(a => a.text).join('; ').slice(0, 80)}{actions.map(a => a.text).join('; ').length > 80 ? '...' : ''}</span>
+          <span className="text-warning text-base font-bold">!</span>
+          {expanded ? (
+            <span className="text-base font-medium">{actions.length} action{actions.length !== 1 ? 's' : ''} needed</span>
+          ) : (
+            <span className="text-base text-text">
+              {actions.map(a => {
+                const label = a.button_label || fallbackRoute(a.text).label
+                return label
+              }).join(', ')}
+            </span>
           )}
         </div>
-        <span className="text-xs text-text-muted">{expanded ? '▲' : '▼'}</span>
+        <span className="text-sm text-text-muted">{expanded ? '▲' : '▼'}</span>
       </button>
 
       {/* Expanded content */}
