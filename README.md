@@ -4,11 +4,30 @@
 
 ---
 
-## Why this exists
+## The problem
 
-Job searching is a full-time job. You're juggling dozens of companies, customizing resumes for each one, crafting connection messages, prepping for interviews, following up — and doing it all alone.
+You know the drill. You find a role on LinkedIn, spend 30 minutes tailoring your resume, write a cover letter no one reads, hit apply, and hear nothing back for weeks. Repeat 50 times. Meanwhile, the people who get hired had a warm intro from someone on the team.
 
-Search Party gives you a team of AI specialists, each focused on one part of your search:
+The modern job search is broken in specific ways:
+
+- **You're applying blind.** You don't know if a role is a real fit until you've already invested hours. The JD says "5+ years of experience" but doesn't tell you whether your background in cloud platforms translates to their fintech stack.
+- **Every application is a cold start.** Each resume takes 20-30 minutes to tailor. Each cover letter is written from scratch. There's no compounding — your 50th application doesn't benefit from your 1st.
+- **Networking feels transactional.** You know you should reach out to people at target companies, but "Hi, I'd like to connect" messages get ignored. You don't have time to research each person and craft something genuine.
+- **Interview prep is scattered.** You Google "common PM interview questions," practice in front of a mirror, and hope for the best. You don't track what went well or poorly across interviews, so you repeat the same mistakes.
+- **There's no system.** Everything lives in your head, a messy spreadsheet, and 47 browser tabs. You forget to follow up, miss deadlines, and lose track of where you are with each company.
+- **It's lonely.** You're doing all of this alone, making judgment calls without feedback, and the emotional weight of rejection compounds when there's no one to debrief with.
+
+## What Search Party does differently
+
+Search Party gives you a team of 7 AI specialists. They remember everything about you, coordinate with each other, and handle the repetitive work so you can focus on the human parts — building real relationships and performing in interviews.
+
+**Your work compounds.** Every answer you give the coach, every resume the agent tailors, every interview you debrief — it all feeds back into your profile. Your 50th application is dramatically better than your 1st because the system has learned your strengths, your stories, and what resonates.
+
+**Agents coordinate automatically.** When the Research Agent finds a high-fit role at Stripe, it doesn't just tell you — it tells the Resume Agent to tailor a resume, the Networking Agent to check for warm connections, and the Coach to add it to your morning briefing. You wake up to: "New role at Stripe (92% fit). Resume ready. Marcus Rivera can refer you."
+
+**Everything is personalized.** Not "here's a template, fill in the blanks." The agents read your actual experience, your specific career goals, and the company's culture to produce output that sounds like you wrote it on your best day.
+
+### The team
 
 - **Job Search Coach** — walks you through setting up your profile, runs daily briefings, keeps everything on track
 - **Research Agent** — scans companies for open roles, scores job descriptions against your profile, builds company intel
@@ -20,17 +39,18 @@ Search Party gives you a team of AI specialists, each focused on one part of you
 
 They coordinate through a shared blackboard — when the Research Agent finds a high-fit role, it automatically tells the Resume Agent to tailor a resume and the Networking Agent to check for connections at that company.
 
-## What's different from doing it yourself
+## The old way vs Search Party
 
-| Without Search Party | With Search Party |
-|---------------------|-------------------|
-| Generic resume for every application | Resume tailored to each JD with keyword matching |
-| "Hi, I'd like to connect" on LinkedIn | Personalized messages referencing company-specific context |
-| Googling "common interview questions" | Prep packages with STAR stories mapped to likely questions |
-| Spreadsheet with company names | Live pipeline with fit scores, follow-up tracking, agent coordination |
-| Spending 20 min per application | Agents handle research, tailoring, outreach in parallel |
-| Forgetting to follow up | Automatic follow-up scheduling with reminders |
-| No idea if a role is worth applying to | 0-100 fit scoring across 5 dimensions before you invest time |
+| The old way | With Search Party |
+|------------|-------------------|
+| Spend 30 min tailoring each resume. Hope the keywords are right. | Agent reads the JD, maps your experience to their requirements, hits 90%+ keyword coverage. Takes seconds. |
+| Send "Hi, I'd love to connect" to 50 strangers. Get 2 replies. | Each message references the person's team, recent work, and your specific connection to their domain. |
+| Google "Stripe interview questions" the night before. | Prep package with the company's actual interview format, your best STAR stories for their likely questions, and a mock interview with scoring. |
+| Track applications in a spreadsheet you stop updating after week 2. | Live kanban board with fit scores, follow-up reminders, and agents that keep working while you sleep. |
+| Apply to everything and hope something sticks. | Score every JD before investing time. Skip the 40% fits. Focus energy on the 85%+ matches. |
+| Forget to follow up. Miss the window. | Auto-scheduled follow-ups at days 7, 14, 21. Agents remind you before deadlines. |
+| Same mistakes in every interview. No feedback loop. | Debrief after every interview. Track patterns. Coach targets your weak spots with practice. |
+| No one to talk through strategy with. | A coach that reads your full pipeline every morning and says "here's what to focus on today." |
 
 ## Quick start
 
