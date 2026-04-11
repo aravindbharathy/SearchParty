@@ -19,7 +19,6 @@ const AGENT_LABELS: Record<string, string> = {
   coach: 'Coach',
   networking: 'Networking agent',
   interview: 'Interview agent',
-  strategist: 'Strategist',
 }
 
 /**

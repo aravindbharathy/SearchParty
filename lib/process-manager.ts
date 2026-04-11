@@ -153,7 +153,6 @@ WHEN YOU PRODUCED SHAREABLE WORK, do these:
    - JD scored >= 75 → resume: "Tailor resume for {company} {role}, JD at {path}"
    - Company intel created → networking: "Generate outreach for {company}"
    - Interview scheduled → interview: "Prep package needed for {company} {date}"
-   - Context file stale → archivist: "Review and update {file}"
 
 WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a conversation — do NOT write to the blackboard. Just answer them.
 ---`

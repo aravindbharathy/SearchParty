@@ -1,6 +1,6 @@
 <p align="center">
   <h1 align="center">Search Party</h1>
-  <p align="center"><strong>Your AI-powered job search team.</strong><br/>7 specialist agents that research, tailor, network, and prep — running locally on your machine.</p>
+  <p align="center"><strong>Your AI-powered job search team.</strong><br/>5 specialist agents that research, tailor, network, and prep — running locally on your machine.</p>
 </p>
 
 <br/>
@@ -36,7 +36,7 @@ Meanwhile, the people who get hired had a warm intro from someone on the team.
 
 ## What if you had a team?
 
-Search Party gives you **7 AI specialists** that remember everything about you, coordinate with each other, and handle the grunt work — so you can focus on building relationships and performing in interviews.
+Search Party gives you **5 AI specialists** that remember everything about you, coordinate with each other, and handle the grunt work — so you can focus on building relationships and performing in interviews.
 
 <br/>
 
@@ -61,12 +61,10 @@ Not templates. The agents read your actual experience, your career goals, and ea
 | Agent | What they do |
 |-------|-------------|
 | **Job Search Coach** | Builds your profile, runs daily briefings, keeps everything on track |
-| **Research** | Scans for open roles, scores JDs, builds company intel |
-| **Resume** | Tailors resumes, writes cover letters, creates work products |
+| **Research** | Scans for open roles, scores JDs, builds company intel, analyzes products |
+| **Resume** | Tailors resumes, writes cover letters, creates work products, hiring manager messages |
 | **Networking** | Personalized LinkedIn outreach, referral sequences, profile audit |
 | **Interview** | Prep packages, mock interviews with scoring, post-interview debriefs |
-| **Strategist** | Company product analysis, hiring manager messages |
-| **Archivist** | Maintains your data, extracts patterns, keeps files fresh |
 
 <br/>
 
@@ -197,7 +195,7 @@ export const DEFAULT_MODEL = 'claude-sonnet-4-6'
 // Override per agent
 export const AGENT_MODELS: Record<string, string> = {
   // interview: 'claude-opus-4-6',          // deeper reasoning
-  // archivist: 'claude-haiku-4-5-20251001', // fast + cheap
+  // networking: 'claude-haiku-4-5-20251001', // fast + cheap for outreach
 }
 ```
 
