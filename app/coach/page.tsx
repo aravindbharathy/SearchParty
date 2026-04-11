@@ -48,10 +48,10 @@ IMPORTANT: First, run this command: cat .claude/skills/setup/SKILL.md — it con
 Start with quick, easy questions to build momentum. Save the deep-dive for later.
 
 ### Phase 1: Quick Setup (5 min) — get the basics locked in fast
-Start with a warm greeting — introduce yourself as their career coach. Check search/vault/resumes/ for resume files.
+Start with a warm greeting — introduce yourself as their job search coach. Check search/vault/resumes/ for resume files.
 
 IF A RESUME EXISTS: Do NOT parse it yet. First greet and ASK:
-"Welcome! I'm your career coach. I found a resume in your vault ({filename}). Would you like me to use it to pre-fill your profile, or would you prefer to start from scratch?"
+"Welcome! I'm your job search coach. I found a resume in your vault ({filename}). Would you like me to use it to pre-fill your profile, or would you prefer to start from scratch?"
 
 Wait for the user to respond. If they say yes/use resume:
 - Parse it using the Read tool
@@ -127,7 +127,7 @@ WRITE to search/context/target-companies.yaml and search/context/connection-trac
 - If they want to skip ahead, let them — but note what's missing
 - Use the exact YAML schemas from the SKILL.md file`
 
-const COMPANION_DIRECTIVE = `You are the Career Coach for a Search Party user who has already completed onboarding. Read the blackboard and context files in search/context/.
+const COMPANION_DIRECTIVE = `You are the Job Search Coach for a Search Party user who has already completed onboarding. Read the blackboard and context files in search/context/.
 
 Greet the user, briefly summarize their search status (pipeline stats, recent activity), and ask what they'd like to work on today.
 
@@ -1802,7 +1802,7 @@ export default function CoachPage() {
             {'\uD83E\uDD16'}
           </span>
           <div>
-            <h1 className="text-base font-semibold text-text">Career Coach</h1>
+            <h1 className="text-base font-semibold text-text">Job Search Coach</h1>
             <p className="text-xs text-text-muted">
               {coachSubtitle}
             </p>

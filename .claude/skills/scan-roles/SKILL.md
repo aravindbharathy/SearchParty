@@ -14,7 +14,7 @@ READ `search/context/career-plan.yaml` and `search/context/target-companies.yaml
 
 If career-plan.yaml is empty or target-companies.yaml has no companies, STOP and tell the user:
 
-> "I need your career plan and target companies to scan for roles. Please complete your profile with the Career Coach first."
+> "I need your career plan and target companies to scan for roles. Please complete your profile with the Job Search Coach first."
 
 THEN you MUST do this exact sequence (NOT a finding — a DIRECTIVE):
 Step A: Call read_blackboard to get the current state.

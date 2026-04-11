@@ -30,7 +30,7 @@ List each file the skill needs and what it uses from it:
 If a REQUIRED file is empty or missing critical fields:
 
 1. Tell the user what's missing and where to go:
-   > "Your {section} isn't set up yet. I need {what you need} to {why}. Please complete your profile with the Career Coach first."
+   > "Your {section} isn't set up yet. I need {what you need} to {why}. Please complete your profile with the Job Search Coach first."
 
 2. Post a user-action DIRECTIVE (NOT a finding) to the blackboard. This is MANDATORY.
    Do this EXACT sequence:

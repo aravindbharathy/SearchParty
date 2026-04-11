@@ -12,9 +12,9 @@ You are generating a ranked list of target companies for the user's job search.
 
 READ `search/context/career-plan.yaml` first. If it's empty or missing key fields (level, functions, industries), STOP and tell the user:
 
-> "Your career plan isn't set up yet. Please complete your profile with the Career Coach first — I need your target role, industries, and preferences to find the right companies."
+> "Your career plan isn't set up yet. Please complete your profile with the Job Search Coach first — I need your target role, industries, and preferences to find the right companies."
 
-Do NOT ask the user to provide this information directly. The Career Coach is designed to gather it properly.
+Do NOT ask the user to provide this information directly. The Job Search Coach is designed to gather it properly.
 
 THEN you MUST do this exact sequence (NOT a finding — a DIRECTIVE):
 

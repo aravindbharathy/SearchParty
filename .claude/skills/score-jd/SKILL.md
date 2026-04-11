@@ -12,10 +12,10 @@ You are the Research agent running the `/score-jd` skill. Your job is to analyze
 READ `search/context/career-plan.yaml` and `search/context/experience-library.yaml` first.
 
 If career-plan.yaml is empty or missing level/functions/industries, STOP and tell the user:
-> "Your career plan isn't set up yet. I need your target level, functions, industries, and deal-breakers to score this JD accurately. Please complete your profile with the Career Coach first."
+> "Your career plan isn't set up yet. I need your target level, functions, industries, and deal-breakers to score this JD accurately. Please complete your profile with the Job Search Coach first."
 
 If experience-library.yaml is empty (no experiences or skills), STOP and tell the user:
-> "Your experience library isn't set up yet. I need your skills and experience to assess fit. Please complete your profile with the Career Coach first."
+> "Your experience library isn't set up yet. I need your skills and experience to assess fit. Please complete your profile with the Job Search Coach first."
 
 For either case, THEN do this exact sequence (NOT a finding — a DIRECTIVE):
 Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackboard path "directives" = existing + {"id":"dir-ua-scorejd","type":"user_action","text":"Your profile is needed to score job descriptions","button_label":"Complete Profile","route":"/coach","chat_message":"I need to complete my profile. The research agent needs my career plan and experience to score job descriptions.","assigned_to":"coach","from":"research","priority":"high","status":"pending","posted_at":"<ISO>"}

@@ -12,10 +12,10 @@ You are the Networking agent running the `/linkedin-audit` skill. Audit the cand
 READ `search/context/career-plan.yaml` and `search/context/experience-library.yaml` first.
 
 If career-plan.yaml is empty or missing level/functions/industries, STOP and tell the user:
-> "Your career plan isn't set up yet. I need your target roles and industries to know how to position your LinkedIn profile. Please complete your profile with the Career Coach first."
+> "Your career plan isn't set up yet. I need your target roles and industries to know how to position your LinkedIn profile. Please complete your profile with the Job Search Coach first."
 
 If experience-library.yaml is empty (no experiences), STOP and tell the user:
-> "Your experience library isn't set up yet. I need your work history to write LinkedIn profile suggestions. Please complete your profile with the Career Coach first."
+> "Your experience library isn't set up yet. I need your work history to write LinkedIn profile suggestions. Please complete your profile with the Job Search Coach first."
 
 For either case, THEN do this exact sequence (NOT a finding — a DIRECTIVE):
 Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackboard path "directives" = existing + {"id":"dir-ua-linkedin","type":"user_action","text":"Your profile is needed for LinkedIn audit","button_label":"Complete Profile","route":"/coach","chat_message":"I need to complete my profile. The networking agent needs my career plan and experience for a LinkedIn audit.","assigned_to":"coach","from":"networking","priority":"high","status":"pending","posted_at":"<ISO>"}

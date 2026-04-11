@@ -60,7 +60,7 @@ type TabKey = 'upcoming' | 'prep' | 'history' | 'mock'
 const INTERVIEW_DIRECTIVE = `You are the user's interview specialist. Read search/context/interview-history.yaml, search/context/experience-library.yaml, search/context/qa-master.yaml, and search/context/career-plan.yaml for context.
 
 IMPORTANT: If experience-library.yaml is empty (no experiences), DO NOT proceed with interview prep. Instead:
-1. Tell them: "Your experience library isn't set up yet. I need your STAR stories and work history to prepare interview answers. Head to the Career Coach to complete your profile first."
+1. Tell them: "Your experience library isn't set up yet. I need your STAR stories and work history to prepare interview answers. Head to the Job Search Coach to complete your profile first."
 2. Post a user-action directive (NOT a finding — a DIRECTIVE):
    Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackboard path "directives" = existing + {"id":"dir-ua-interview","type":"user_action","text":"Your experience is needed for interview prep","button_label":"Complete Background","route":"/coach","chat_message":"I need to complete my background for interview prep.","assigned_to":"coach","from":"interview","priority":"high","status":"pending","posted_at":"<ISO>"}
 

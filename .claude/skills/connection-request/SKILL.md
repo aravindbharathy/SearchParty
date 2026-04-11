@@ -18,7 +18,7 @@ THEN do this exact sequence (NOT a finding — a DIRECTIVE):
 Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackboard path "directives" = existing + {"id":"dir-ua-connreq","type":"user_action","text":"Target companies needed before generating outreach","button_label":"Generate Targets","route":"/finding","tab":"companies","chat_message":"I need to generate my target company list so the networking agent can create outreach.","assigned_to":"coach","from":"networking","priority":"high","status":"pending","posted_at":"<ISO>"}
 
 If experience-library.yaml is empty (no experiences, no contact name), STOP and tell the user:
-> "Your experience library isn't set up yet. I need your background to personalize connection messages. Please complete your profile with the Career Coach first."
+> "Your experience library isn't set up yet. I need your background to personalize connection messages. Please complete your profile with the Job Search Coach first."
 
 THEN do this exact sequence (NOT a finding — a DIRECTIVE):
 Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackboard path "directives" = existing + {"id":"dir-ua-connreq-exp","type":"user_action","text":"Your background is needed to personalize outreach messages","button_label":"Complete Background","route":"/coach","chat_message":"I need to complete my background. The networking agent needs it to personalize connection messages.","assigned_to":"coach","from":"networking","priority":"high","status":"pending","posted_at":"<ISO>"}

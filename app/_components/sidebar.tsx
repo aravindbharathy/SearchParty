@@ -14,7 +14,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: (NavItem | { separator: string })[] = [
-  { label: 'Career Coach', href: '/coach' },
+  { label: 'Job Search Coach', href: '/coach' },
   { label: 'Dashboard', href: '/' },
   { separator: 'Lifecycle' },
   { label: 'Finding Roles', href: '/finding' },

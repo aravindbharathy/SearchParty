@@ -83,7 +83,7 @@ const NETWORKING_DIRECTIVE = `You are the user's networking specialist. Read sea
 
 IMPORTANT: If career-plan.yaml is empty or target-companies.yaml has no companies, you MUST do BOTH of these steps:
 
-Step 1 — Tell the user: "Your profile isn't complete yet. Head to the Career Coach to set up your career plan and target companies first — I need those to generate effective outreach."
+Step 1 — Tell the user: "Your profile isn't complete yet. Head to the Job Search Coach to set up your career plan and target companies first — I need those to generate effective outreach."
 
 Step 2 — You MUST post a user-action directive. This is NOT optional. Do this IMMEDIATELY:
    First, read_blackboard to get the current directives array.

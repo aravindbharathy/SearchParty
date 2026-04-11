@@ -18,7 +18,7 @@ const AGENT_COLORS: Record<string, string> = {
 const ALL_AGENTS = [
   { name: 'research', role: 'Role Discovery' },
   { name: 'resume', role: 'Resume Tailoring' },
-  { name: 'coach', role: 'Career Coach' },
+  { name: 'coach', role: 'Job Search Coach' },
   { name: 'networking', role: 'Outreach & Connections' },
   { name: 'interview', role: 'Interview Prep' },
   { name: 'archivist', role: 'Knowledge Management' },

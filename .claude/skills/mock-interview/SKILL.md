@@ -13,7 +13,7 @@ You are the Interview agent running the `/mock-interview` skill. Conduct an inte
 READ `search/context/experience-library.yaml` and `search/context/qa-master.yaml` first.
 
 If experience-library.yaml is empty, STOP and tell the user:
-> "Your experience library isn't set up yet. I need your work history to evaluate your answers. Please complete your profile with the Career Coach first."
+> "Your experience library isn't set up yet. I need your work history to evaluate your answers. Please complete your profile with the Job Search Coach first."
 
 THEN do this exact sequence (NOT a finding — a DIRECTIVE):
 Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackboard path "directives" = existing + {"id":"dir-ua-mock","type":"user_action","text":"Your experience is needed for mock interviews","button_label":"Complete Background","route":"/coach","chat_message":"I need to complete my background for mock interview practice.","assigned_to":"coach","from":"interview","priority":"high","status":"pending","posted_at":"<ISO>"}

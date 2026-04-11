@@ -86,7 +86,7 @@ const RESEARCH_DIRECTIVE = `You are the user's research specialist. Read search/
 
 IMPORTANT: If career-plan.yaml is empty or missing key fields (level, functions, industries), you MUST do BOTH of these steps:
 
-Step 1 — Tell the user: "Your career plan isn't set up yet. Head to the Career Coach to complete your profile first — I need your target role, industries, and preferences to find the right companies."
+Step 1 — Tell the user: "Your career plan isn't set up yet. Head to the Job Search Coach to complete your profile first — I need your target role, industries, and preferences to find the right companies."
 
 Step 2 — You MUST post a user-action directive. This is NOT optional. Do this IMMEDIATELY:
    First, read_blackboard to get the current directives array.
@@ -396,7 +396,7 @@ export default function FindingPage() {
     lastActionRef.current = 'targets'
     setActiveTab('companies')
     sendChatMessage(
-      'Run this command first: cat .claude/skills/generate-targets/SKILL.md — then follow the instructions in that file to generate a ranked list of target companies. If my career plan is empty, tell me to complete it with the Career Coach first — do NOT ask me for the details directly.'
+      'Run this command first: cat .claude/skills/generate-targets/SKILL.md — then follow the instructions in that file to generate a ranked list of target companies. If my career plan is empty, tell me to complete it with the Job Search Coach first — do NOT ask me for the details directly.'
     )
   }
 
