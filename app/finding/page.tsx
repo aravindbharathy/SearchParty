@@ -1175,7 +1175,10 @@ export default function FindingPage() {
             onClick={() => {
               setChatMessages([])
               localStorage.removeItem('finding-chat-messages')
+              localStorage.removeItem('agent-spawn-finding-chat')
               hasSpawnedRef.current = false
+              // Rotate agent session so it starts fresh with new instructions
+              fetch('/api/agent/rotate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agent: 'research' }) }).catch(() => {})
             }}
             className="text-xs text-text-muted hover:text-text"
           >

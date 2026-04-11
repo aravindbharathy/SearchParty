@@ -1096,7 +1096,9 @@ export default function NetworkingPage() {
             onClick={() => {
               setChatMessages([])
               localStorage.removeItem('networking-chat-messages')
+              localStorage.removeItem('agent-spawn-networking-chat')
               hasSpawnedRef.current = false
+              fetch('/api/agent/rotate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agent: 'networking' }) }).catch(() => {})
             }}
             className="text-xs text-text-muted hover:text-text px-2 py-1 rounded border border-border hover:bg-bg transition-colors"
           >
