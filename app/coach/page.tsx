@@ -1054,9 +1054,12 @@ function InterviewHistoryViewer({ data, onCancel }: { data: Record<string, unkno
 
 function KeyInfoLine({ sectionKey, data, filled, section }: { sectionKey: string; data?: Record<string, unknown>; filled: boolean; section: ProfileSectionStatus }) {
   if (!data && !filled) {
-    const missing = Object.values(section.fields || {}).filter(f => f.required && !f.filled).map(f => f.label)
-    if (missing.length > 0) {
-      return <p className="text-sm text-danger truncate">Missing: {missing.slice(0, 3).join(', ')}{missing.length > 3 ? ` +${missing.length - 3}` : ''}</p>
+    // Only show "Missing:" in red when partially filled — not when completely empty
+    if (section.required_filled > 0) {
+      const missing = Object.values(section.fields || {}).filter(f => f.required && !f.filled).map(f => f.label)
+      if (missing.length > 0) {
+        return <p className="text-sm text-danger truncate">Missing: {missing.slice(0, 3).join(', ')}{missing.length > 3 ? ` +${missing.length - 3}` : ''}</p>
+      }
     }
     return <p className="text-sm text-text-muted italic">Not started</p>
   }
