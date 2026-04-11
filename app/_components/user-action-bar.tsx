@@ -77,31 +77,6 @@ export function UserActionBar() {
         })
       }
 
-      // Also check context file status directly — don't rely solely on agents posting directives
-      try {
-        const ctxRes = await fetch('/api/context/profile-status', { signal: AbortSignal.timeout(3000) })
-        if (ctxRes.ok) {
-          const ctx = await ctxRes.json() as { contextReady: boolean; sections: Record<string, { filled: boolean; label: string }> }
-          if (!ctx.contextReady) {
-            const missing = Object.entries(ctx.sections)
-              .filter(([, s]) => !s.filled)
-              .map(([, s]) => s.label)
-
-            const contextActionId = 'context-incomplete'
-            if (!dismissed.has(contextActionId) && !userActions.some(a => a.id === contextActionId)) {
-              userActions.push({
-                id: contextActionId,
-                text: `Your profile is incomplete (missing: ${missing.join(', ')}). Complete it so agents can find roles, tailor resumes, and generate outreach.`,
-                from: 'system',
-                button_label: 'Complete Profile',
-                route: '/coach',
-                chat_message: `I need to complete my profile. These sections are still missing: ${missing.join(', ')}.`,
-              })
-            }
-          }
-        }
-      } catch {}
-
       setActions(userActions)
     } catch {}
   }, [dismissed])
