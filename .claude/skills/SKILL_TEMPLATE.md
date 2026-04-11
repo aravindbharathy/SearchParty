@@ -32,10 +32,15 @@ If a REQUIRED file is empty or missing critical fields:
 1. Tell the user what's missing and where to go:
    > "Your {section} isn't set up yet. I need {what you need} to {why}. Please complete your profile with the Career Coach first."
 
-2. Post a user-action directive to the blackboard. This is MANDATORY — it triggers a visible prompt on every page:
-   - First: read_blackboard to get the current directives array
-   - Then: write_to_blackboard with path "directives" and value = existing array + new entry:
+2. Post a user-action DIRECTIVE (NOT a finding) to the blackboard. This is MANDATORY.
+   Do this EXACT sequence:
+   Step A: Call read_blackboard to get current state.
+   Step B: Get the "directives" array from the response (may be empty []).
+   Step C: Call write_to_blackboard with:
+     - path: "directives"  ← MUST be "directives", NOT "findings"
+     - value: [... existing directives ..., NEW_ENTRY]
 
+   NEW_ENTRY format:
    ```json
    {
      "id": "dir-ua-{skill-name}",
@@ -52,6 +57,9 @@ If a REQUIRED file is empty or missing critical fields:
      "posted_at": "<current ISO timestamp>"
    }
    ```
+
+   IMPORTANT: The "type":"user_action" entry MUST go in the "directives" array, NOT in "findings".
+   Writing to findings will NOT trigger the user prompt. Only directives with type "user_action" are shown.
 
 3. STOP — do not attempt the skill with incomplete data.
 

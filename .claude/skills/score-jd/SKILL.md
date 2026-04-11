@@ -17,9 +17,8 @@ If career-plan.yaml is empty or missing level/functions/industries, STOP and tel
 If experience-library.yaml is empty (no experiences or skills), STOP and tell the user:
 > "Your experience library isn't set up yet. I need your skills and experience to assess fit. Please complete your profile with the Career Coach first."
 
-For either case, THEN post a user-action directive:
-1. read_blackboard to get current directives
-2. write_to_blackboard path "directives" = existing + {"id":"dir-ua-scorejd","type":"user_action","text":"Your profile is needed to score job descriptions","button_label":"Complete Profile","route":"/coach","chat_message":"I need to complete my profile. The research agent needs my career plan and experience to score job descriptions.","assigned_to":"coach","from":"research","priority":"high","status":"pending","posted_at":"<ISO>"}
+For either case, THEN do this exact sequence (NOT a finding — a DIRECTIVE):
+Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackboard path "directives" = existing + {"id":"dir-ua-scorejd","type":"user_action","text":"Your profile is needed to score job descriptions","button_label":"Complete Profile","route":"/coach","chat_message":"I need to complete my profile. The research agent needs my career plan and experience to score job descriptions.","assigned_to":"coach","from":"research","priority":"high","status":"pending","posted_at":"<ISO>"}
 
 ## Parse $ARGUMENTS
 

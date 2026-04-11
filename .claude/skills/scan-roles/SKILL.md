@@ -16,10 +16,11 @@ If career-plan.yaml is empty or target-companies.yaml has no companies, STOP and
 
 > "I need your career plan and target companies to scan for roles. Please complete your profile with the Career Coach first."
 
-THEN you MUST post a user-action directive to the blackboard:
-1. First read_blackboard to get the current directives array
-2. Then write_to_blackboard with path "directives" and value = existing array + this new entry:
-   {"id":"dir-ua-scan","type":"user_action","text":"Your career plan and target companies are needed to scan for roles","button_label":"Complete Career Plan","route":"/coach","chat_message":"I need to complete my career plan and target companies. The research agent needs these to scan for open roles.","assigned_to":"coach","from":"research","priority":"high","status":"pending","posted_at":"<current ISO timestamp>"}
+THEN you MUST do this exact sequence (NOT a finding — a DIRECTIVE):
+Step A: Call read_blackboard to get the current state.
+Step B: Get the "directives" array from the response (may be empty []).
+Step C: Call write_to_blackboard with path "directives" and value = existing array + {"id":"dir-ua-scan","type":"user_action","text":"Your career plan and target companies are needed to scan for roles","button_label":"Complete Career Plan","route":"/coach","chat_message":"I need to complete my career plan and target companies. The research agent needs these to scan for open roles.","assigned_to":"coach","from":"research","priority":"high","status":"pending","posted_at":"<current ISO timestamp>"}
+The "type":"user_action" in DIRECTIVES (not findings) triggers a visible action prompt.
 
 ## Context Files to Read
 

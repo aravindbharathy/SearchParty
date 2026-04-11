@@ -16,12 +16,15 @@ READ `search/context/career-plan.yaml` first. If it's empty or missing key field
 
 Do NOT ask the user to provide this information directly. The Career Coach is designed to gather it properly.
 
-THEN you MUST post a user-action directive to the blackboard. Use write_to_blackboard:
-1. First read_blackboard to get the current directives array
-2. Then write_to_blackboard with path "directives" and value = existing array + this new entry:
-   {"id":"dir-ua-targets","type":"user_action","text":"Your career plan is needed before company research can begin","button_label":"Complete Career Plan","route":"/coach","chat_message":"I need to complete my career plan. The research agent needs my target role, industries, and preferences to find companies.","assigned_to":"coach","from":"research","priority":"high","status":"pending","posted_at":"<current ISO timestamp>"}
+THEN you MUST do this exact sequence (NOT a finding — a DIRECTIVE):
 
-This directive triggers a visible prompt on every page so the user knows what to do.
+Step A: Call read_blackboard to get the current state.
+Step B: Look at the "directives" array in the response (it may be empty []).
+Step C: Call write_to_blackboard with EXACTLY these parameters:
+   - path: "directives"  (NOT "findings" — this must go in DIRECTIVES)
+   - value: [... existing directives ..., {"id":"dir-ua-targets","type":"user_action","text":"Your career plan is needed before company research can begin","button_label":"Complete Career Plan","route":"/coach","chat_message":"I need to complete my career plan. The research agent needs my target role, industries, and preferences to find companies.","assigned_to":"coach","from":"research","priority":"high","status":"pending","posted_at":"<current ISO timestamp>"}]
+
+The "type":"user_action" in DIRECTIVES (not findings) triggers a visible action prompt on every page.
 
 ## Context Files
 

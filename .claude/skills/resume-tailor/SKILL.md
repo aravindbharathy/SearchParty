@@ -16,9 +16,8 @@ If experience-library.yaml is empty (no experiences or skills), STOP and tell th
 
 If career-plan.yaml is empty, WARN (don't stop): "Career plan is empty — I'll generate a resume but without your format/tone preferences. For better results, complete your career plan with the Career Coach."
 
-For missing experience-library, THEN post a user-action directive:
-1. read_blackboard to get current directives
-2. write_to_blackboard path "directives" = existing + {"id":"dir-ua-resume","type":"user_action","text":"Your experience library is needed to generate a resume","button_label":"Complete Background","route":"/coach","chat_message":"I need to complete my background and experience. The resume agent needs it to tailor my resume.","assigned_to":"coach","from":"resume","priority":"high","status":"pending","posted_at":"<ISO>"}
+For missing experience-library, THEN do this exact sequence (NOT a finding — a DIRECTIVE):
+Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackboard path "directives" = existing + {"id":"dir-ua-resume","type":"user_action","text":"Your experience library is needed to generate a resume","button_label":"Complete Background","route":"/coach","chat_message":"I need to complete my background and experience. The resume agent needs it to tailor my resume.","assigned_to":"coach","from":"resume","priority":"high","status":"pending","posted_at":"<ISO>"}
 
 ## Parse $ARGUMENTS
 

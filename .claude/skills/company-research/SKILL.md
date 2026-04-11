@@ -13,10 +13,11 @@ READ `search/context/career-plan.yaml` first. If it's empty or missing key field
 
 > "Your career plan isn't set up yet. I need your target role, industries, and preferences to research companies effectively. Please complete your profile with the Career Coach first."
 
-THEN you MUST post a user-action directive to the blackboard:
-1. First read_blackboard to get the current directives array
-2. Then write_to_blackboard with path "directives" and value = existing array + this new entry:
-   {"id":"dir-ua-research","type":"user_action","text":"Your career plan is needed for company research","button_label":"Complete Career Plan","route":"/coach","chat_message":"I need to complete my career plan. The research agent needs my target role and industries to research companies.","assigned_to":"coach","from":"research","priority":"high","status":"pending","posted_at":"<current ISO timestamp>"}
+THEN you MUST do this exact sequence (NOT a finding — a DIRECTIVE):
+Step A: Call read_blackboard to get current state.
+Step B: Get the "directives" array (may be empty []).
+Step C: Call write_to_blackboard with path "directives" and value = existing array + {"id":"dir-ua-research","type":"user_action","text":"Your career plan is needed for company research","button_label":"Complete Career Plan","route":"/coach","chat_message":"I need to complete my career plan. The research agent needs my target role and industries to research companies.","assigned_to":"coach","from":"research","priority":"high","status":"pending","posted_at":"<current ISO timestamp>"}
+The "type":"user_action" in DIRECTIVES (not findings) triggers a visible action prompt.
 
 ## Parse $ARGUMENTS
 
