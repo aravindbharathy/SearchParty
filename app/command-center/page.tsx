@@ -332,8 +332,7 @@ export default function CommandCenterPage() {
         </div>
       </div>
 
-      {/* ─── 2. Blackboard State ───────────────────────────────── */}
-      {/* Latest Findings */}
+      {/* ─── 2. Latest Findings */}
       {findingEntries.length > 0 && (
         <div className="bg-surface border border-border rounded-lg p-5 mb-8">
           <h2 className="font-semibold mb-4">Latest Findings</h2>
