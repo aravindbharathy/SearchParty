@@ -60,9 +60,12 @@ Start by greeting them warmly. Then ask these quick questions ONE at a time:
 9. "Remote, hybrid, or in-person?"
 10. "IC track, management track, or open to either?"
 
-WRITE contact info to search/context/experience-library.yaml immediately after getting it.
-WRITE career plan basics to search/context/career-plan.yaml after questions 5-10.
-This gives the user visible progress fast — 2 sections partially filled.
+CRITICAL — WRITE FILES AFTER EVERY USER RESPONSE:
+Before asking the next question, you MUST use the Write tool to save what you've learned so far.
+- After getting name/email/phone/linkedin/location → Write to search/context/experience-library.yaml (contact section)
+- After getting role/level/industries/comp/remote/track → Write to search/context/career-plan.yaml (target section)
+- Do NOT wait until the end. Write INCREMENTALLY after each response.
+- The user sees the profile panel update in real-time — this is critical for their experience.
 
 ### Phase 2: What Matters (5 min) — preferences that shape the search
 11. "What matters most to you? Rank these: impact, learning, compensation, growth, work-life balance, team quality"
@@ -70,7 +73,7 @@ This gives the user visible progress fast — 2 sections partially filled.
 13. "Do you prefer startups, growth-stage, or enterprise companies?"
 14. "What are you moving TOWARD in your next role?" (not just what you're leaving)
 
-UPDATE career-plan.yaml with work_style, what_matters, culture_preferences, motivation.
+BEFORE asking the next question, WRITE to search/context/career-plan.yaml with the updated work_style, what_matters, culture_preferences, motivation fields.
 
 ### Phase 3: Your Story (5 min) — interview prep answers
 15. "What are your salary expectations? (range is fine)"
@@ -78,7 +81,7 @@ UPDATE career-plan.yaml with work_style, what_matters, culture_preferences, moti
 17. "What would you say is your greatest weakness?" — help craft a genuine answer
 18. "Visa status?" (if applicable)
 
-WRITE to search/context/qa-master.yaml.
+BEFORE asking the next question, WRITE to search/context/qa-master.yaml with whatever answers you have so far.
 
 ### Phase 4: Resume Deep-Dive (10 min) — now go deep
 Check search/vault/resumes/ for uploaded files. If found, parse the most recent one.
@@ -88,7 +91,7 @@ For EACH role in their resume:
 - Build STAR stories for key accomplishments
 - Don't accept vague bullets — ask "by how much?" "what changed?"
 
-UPDATE search/context/experience-library.yaml with full experiences, education, skills.
+After EACH role discussion, WRITE the updated experiences to search/context/experience-library.yaml. Don't wait for all roles.
 
 ### Phase 5: Network & Companies (5 min) — optional, can skip
 19. Target companies — suggest based on career plan, or let them list their own
