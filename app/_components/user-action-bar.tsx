@@ -114,7 +114,14 @@ export function UserActionBar() {
     router.push(route)
   }
 
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(() => {
+    if (typeof window === 'undefined') return true
+    try { return localStorage.getItem('user-action-bar-expanded') !== 'false' } catch { return true }
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem('user-action-bar-expanded', String(expanded)) } catch {}
+  }, [expanded])
 
   if (actions.length === 0) return null
 
