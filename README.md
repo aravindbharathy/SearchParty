@@ -1,56 +1,93 @@
-# Search Party
+<p align="center">
+  <h1 align="center">Search Party</h1>
+  <p align="center"><strong>Your AI-powered job search team.</strong><br/>7 specialist agents that research, tailor, network, and prep — running locally on your machine.</p>
+</p>
 
-**Your AI-powered job search team.** 7 specialist agents that research companies, tailor resumes, generate outreach, prep you for interviews, and keep your entire pipeline organized — all running locally on your machine.
+<br/>
+
+## The problem with job searching today
+
+You find a role on LinkedIn. Spend 30 minutes tailoring your resume. Write a cover letter no one reads. Hit apply. Hear nothing for weeks.
+
+Repeat 50 times.
+
+Meanwhile, the people who get hired had a warm intro from someone on the team.
+
+<br/>
+
+### Sound familiar?
+
+> **"Is this role even worth applying to?"**
+> You don't know until you've already invested hours. The JD says "5+ years" but doesn't tell you if your background translates.
+
+> **"I'm sending the same resume everywhere."**
+> Each one takes 20-30 minutes to tailor. No compounding — your 50th application doesn't benefit from your 1st.
+
+> **"My LinkedIn outreach gets ignored."**
+> "Hi, I'd like to connect" doesn't work. You don't have time to research each person.
+
+> **"I keep making the same interview mistakes."**
+> No feedback loop. No tracking. No one to debrief with.
+
+> **"Everything is in my head and 47 browser tabs."**
+> Forgot to follow up with Stripe. Lost track of the Figma timeline. When did I apply to Anthropic again?
+
+<br/>
+
+## What if you had a team?
+
+Search Party gives you **7 AI specialists** that remember everything about you, coordinate with each other, and handle the grunt work — so you can focus on building relationships and performing in interviews.
+
+<br/>
+
+### Your work compounds
+
+Every answer you give the coach, every resume tailored, every interview debriefed — it feeds back into your profile. Application #50 is dramatically better than #1.
+
+### Agents coordinate automatically
+
+Research Agent finds a role at Stripe (92% fit) → Resume Agent tailors your resume → Networking Agent checks for warm connections → You wake up to:
+
+> *"New role at Stripe. Resume ready. Marcus Rivera can refer you."*
+
+### Everything is personalized
+
+Not templates. The agents read your actual experience, your career goals, and each company's culture. The output sounds like you wrote it on your best day.
+
+<br/>
+
+## The team
+
+| Agent | What they do |
+|-------|-------------|
+| **Job Search Coach** | Builds your profile, runs daily briefings, keeps everything on track |
+| **Research** | Scans for open roles, scores JDs, builds company intel |
+| **Resume** | Tailors resumes, writes cover letters, creates work products |
+| **Networking** | Personalized LinkedIn outreach, referral sequences, profile audit |
+| **Interview** | Prep packages, mock interviews with scoring, post-interview debriefs |
+| **Strategist** | Company product analysis, hiring manager messages |
+| **Archivist** | Maintains your data, extracts patterns, keeps files fresh |
+
+<br/>
+
+## Before & after
+
+| | Before | After |
+|---|--------|-------|
+| **Resume** | 30 min per application. Hope keywords match. | Tailored in seconds. 90%+ keyword coverage. |
+| **Networking** | Generic "let's connect" to 50 strangers. | Personalized messages referencing their team and your overlap. |
+| **Interview prep** | Google questions the night before. | Prep package with company format, your STAR stories, mock with scoring. |
+| **Pipeline** | Spreadsheet abandoned after week 2. | Live kanban with fit scores, follow-ups, agent coordination. |
+| **Fit assessment** | Apply to everything. Hope for the best. | Score every JD before investing time. Focus on 85%+ matches. |
+| **Follow-ups** | Forget. Miss the window. | Auto-scheduled at days 7, 14, 21. Reminders before deadlines. |
+| **Learning** | Same mistakes every interview. | Debrief, track patterns, coach targets your weak spots. |
+| **Strategy** | Alone with no feedback. | Coach reads your pipeline every morning. "Here's what to focus on today." |
+
+<br/>
 
 ---
 
-## The problem
-
-You know the drill. You find a role on LinkedIn, spend 30 minutes tailoring your resume, write a cover letter no one reads, hit apply, and hear nothing back for weeks. Repeat 50 times. Meanwhile, the people who get hired had a warm intro from someone on the team.
-
-The modern job search is broken in specific ways:
-
-- **You're applying blind.** You don't know if a role is a real fit until you've already invested hours. The JD says "5+ years of experience" but doesn't tell you whether your background in cloud platforms translates to their fintech stack.
-- **Every application is a cold start.** Each resume takes 20-30 minutes to tailor. Each cover letter is written from scratch. There's no compounding — your 50th application doesn't benefit from your 1st.
-- **Networking feels transactional.** You know you should reach out to people at target companies, but "Hi, I'd like to connect" messages get ignored. You don't have time to research each person and craft something genuine.
-- **Interview prep is scattered.** You Google "common PM interview questions," practice in front of a mirror, and hope for the best. You don't track what went well or poorly across interviews, so you repeat the same mistakes.
-- **There's no system.** Everything lives in your head, a messy spreadsheet, and 47 browser tabs. You forget to follow up, miss deadlines, and lose track of where you are with each company.
-- **It's lonely.** You're doing all of this alone, making judgment calls without feedback, and the emotional weight of rejection compounds when there's no one to debrief with.
-
-## What Search Party does differently
-
-Search Party gives you a team of 7 AI specialists. They remember everything about you, coordinate with each other, and handle the repetitive work so you can focus on the human parts — building real relationships and performing in interviews.
-
-**Your work compounds.** Every answer you give the coach, every resume the agent tailors, every interview you debrief — it all feeds back into your profile. Your 50th application is dramatically better than your 1st because the system has learned your strengths, your stories, and what resonates.
-
-**Agents coordinate automatically.** When the Research Agent finds a high-fit role at Stripe, it doesn't just tell you — it tells the Resume Agent to tailor a resume, the Networking Agent to check for warm connections, and the Coach to add it to your morning briefing. You wake up to: "New role at Stripe (92% fit). Resume ready. Marcus Rivera can refer you."
-
-**Everything is personalized.** Not "here's a template, fill in the blanks." The agents read your actual experience, your specific career goals, and the company's culture to produce output that sounds like you wrote it on your best day.
-
-### The team
-
-- **Job Search Coach** — walks you through setting up your profile, runs daily briefings, keeps everything on track
-- **Research Agent** — scans companies for open roles, scores job descriptions against your profile, builds company intel
-- **Resume Agent** — tailors resumes to specific JDs, writes cover letters, creates strategic work products
-- **Networking Agent** — generates personalized LinkedIn outreach, crafts referral sequences, audits your profile
-- **Interview Agent** — builds prep packages, runs mock interviews with scoring, debriefs after real interviews
-- **Strategist Agent** — analyzes company products, writes hiring manager messages
-- **Archivist Agent** — maintains your context files, extracts patterns, keeps data fresh
-
-They coordinate through a shared blackboard — when the Research Agent finds a high-fit role, it automatically tells the Resume Agent to tailor a resume and the Networking Agent to check for connections at that company.
-
-## The old way vs Search Party
-
-| The old way | With Search Party |
-|------------|-------------------|
-| Spend 30 min tailoring each resume. Hope the keywords are right. | Agent reads the JD, maps your experience to their requirements, hits 90%+ keyword coverage. Takes seconds. |
-| Send "Hi, I'd love to connect" to 50 strangers. Get 2 replies. | Each message references the person's team, recent work, and your specific connection to their domain. |
-| Google "Stripe interview questions" the night before. | Prep package with the company's actual interview format, your best STAR stories for their likely questions, and a mock interview with scoring. |
-| Track applications in a spreadsheet you stop updating after week 2. | Live kanban board with fit scores, follow-up reminders, and agents that keep working while you sleep. |
-| Apply to everything and hope something sticks. | Score every JD before investing time. Skip the 40% fits. Focus energy on the 85%+ matches. |
-| Forget to follow up. Miss the window. | Auto-scheduled follow-ups at days 7, 14, 21. Agents remind you before deadlines. |
-| Same mistakes in every interview. No feedback loop. | Debrief after every interview. Track patterns. Coach targets your weak spots with practice. |
-| No one to talk through strategy with. | A coach that reads your full pipeline every morning and says "here's what to focus on today." |
+<br/>
 
 ## Quick start
 
@@ -58,140 +95,152 @@ They coordinate through a shared blackboard — when the Research Agent finds a 
 
 - [Node.js](https://nodejs.org/) 20+
 - [Bun](https://bun.sh/) 1.0+
-- [Claude Code](https://claude.ai/code) CLI installed and authenticated
+- [Claude Code](https://claude.ai/code) CLI — installed and authenticated
 
-### Setup
+### 1. Clone and install
 
 ```bash
-# Clone the repo
 git clone https://github.com/aravindbharathy/SearchParty.git
 cd SearchParty
-
-# Install dependencies
 npm install
+```
 
-# Start everything (blackboard server + dashboard)
+### 2. Start the system
+
+```bash
 bun cli/job-search.ts start
 ```
 
-The dashboard opens at **http://localhost:8791**. The blackboard server runs on port 8790.
+Dashboard opens at **http://localhost:8791**
 
-### First steps
+### 3. Set up your profile
 
-1. **Upload your resume** — drop a PDF into `search/vault/resumes/`
-2. **Open the Job Search Coach** — click "Job Search Coach" in the sidebar
-3. **Answer the coach's questions** — it'll parse your resume, ask about your goals, and build your profile
-4. **Start finding roles** — go to "Finding Roles" to generate target companies and scan for open positions
+1. Drop your resume PDF into `search/vault/resumes/`
+2. Click **Job Search Coach** in the sidebar
+3. The coach parses your resume, confirms details, asks about your goals
+4. Your profile fills up as you answer — other agents use it to personalize everything
 
-The coach guides you through everything. Your profile builds up as you answer questions, and the other agents use it to personalize everything they do.
+### 4. Start finding roles
 
-### Optional: Daily role scanning
+Go to **Finding Roles** → generate target companies → scan for open positions → score JDs → tailor resumes.
 
-Set up a cron job to scan for new roles every morning:
+### Optional: automated daily scanning
 
 ```bash
-# Add to crontab (runs at 7am daily)
+# Scan for new roles at 7am every day
 crontab -e
 0 7 * * * curl -s -X POST http://localhost:8791/api/agent/scan-roles
 ```
 
-The research agent will check your target companies for new openings and have everything ready for your morning briefing.
+<br/>
+
+---
+
+<br/>
 
 ## How it works
 
 ### Your data stays local
 
-Everything lives in the `search/` directory on your machine:
-
 ```
 search/
-  context/          <- Your profile (experience, career plan, Q&A answers)
-  pipeline/         <- Applications, interviews, open roles
-  output/           <- Generated resumes, cover letters, prep packages
-  intel/            <- Company research files
-  vault/            <- Your source documents (resumes, JDs, transcripts)
+  context/    Your profile (experience, career plan, Q&A answers)
+  pipeline/   Applications, interviews, open roles
+  output/     Generated resumes, cover letters, prep packages
+  intel/      Company research files
+  vault/      Your source documents (resumes, JDs, transcripts)
 ```
 
-No data leaves your machine except when agents use web search to research companies or find job postings.
+No data leaves your machine except when agents search the web for company info or job postings.
 
 ### Agent coordination
 
-Agents communicate through a shared blackboard — a YAML file that all agents can read and write to. When one agent discovers something relevant to another, it posts a finding or directive:
+Agents share a **blackboard** — a live coordination surface. When one agent discovers something, it posts for others:
 
-- Research scores a JD at 85/100 → posts directive to Resume: "Tailor resume for Stripe Staff Engineer"
-- Resume finishes tailoring → posts directive to Networking: "Check connections at Stripe"
-- Networking finds a warm connection → posts to Coach: "Referral path available at Stripe"
+```
+Research scores JD at 85/100
+  → Resume: "Tailor resume for Stripe Staff Engineer"
+    → Networking: "Check connections at Stripe"
+      → Coach: "Referral path available"
+```
 
-The dashboard auto-dispatches directives every 30 seconds, so agents pick up work automatically.
+The dashboard auto-dispatches work every 30 seconds.
 
 ### The dashboard
 
-Every page follows the same pattern: tabbed content on the left, specialist agent chat on the right. Ask questions, trigger skills, review output — all in one place.
+Every page: **tabbed content** on the left, **agent chat** on the right.
 
-| Page | What it does |
-|------|-------------|
-| **Pipeline** (home) | Kanban board tracking all applications across stages |
-| **Job Search Coach** | Profile setup, daily briefings, strategy advice |
-| **Finding Roles** | Target companies, open role scanning, JD scoring, company intel |
-| **Applying** | Tailored resumes, cover letters, strategic work products |
-| **Networking** | Connection requests, referral sequences, LinkedIn audit |
-| **Interviewing** | Prep packages, mock interviews with scoring, debriefs |
-| **Command Center** | Agent management, blackboard viewer, directive tracking |
+| Page | Purpose |
+|------|---------|
+| **Pipeline** | Kanban board — track applications across stages |
+| **Job Search Coach** | Profile setup, daily briefings, strategy |
+| **Finding Roles** | Companies, open roles, JD scoring, intel |
+| **Applying** | Resumes, cover letters, work products |
+| **Networking** | Outreach, referrals, LinkedIn audit |
+| **Interviewing** | Prep, mock interviews, debriefs |
+| **Command Center** | Agent management, blackboard viewer |
+
+<br/>
+
+---
+
+<br/>
 
 ## Configuration
 
 ### Agent model
 
-Edit `project.config.ts` to change which Claude model agents use:
-
 ```typescript
-// All agents use this model by default
+// project.config.ts
 export const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
-// Override per agent if needed
+// Override per agent
 export const AGENT_MODELS: Record<string, string> = {
-  // interview: 'claude-opus-4-6',    // deeper reasoning for mocks
-  // archivist: 'claude-haiku-4-5-20251001',  // fast/cheap for maintenance
+  // interview: 'claude-opus-4-6',          // deeper reasoning
+  // archivist: 'claude-haiku-4-5-20251001', // fast + cheap
 }
 ```
 
 ### Skills
 
-Skills are markdown files in `.claude/skills/` that define how agents do specific tasks. Edit them to customize behavior — no code changes needed:
+Markdown files that control agent behavior. Edit without code changes:
 
 ```
 .claude/skills/
-  scan-roles/SKILL.md        <- How to find open roles (sources, verification)
-  generate-targets/SKILL.md  <- How to build target company list
-  resume-tailor/SKILL.md     <- How to tailor resumes
-  score-jd/SKILL.md          <- How to score job descriptions
-  interview-prep/SKILL.md    <- How to build prep packages
-  mock-interview/SKILL.md    <- How to run mock interviews
-  ...
+  scan-roles/SKILL.md         How to find open roles
+  generate-targets/SKILL.md   How to build company lists
+  resume-tailor/SKILL.md      How to tailor resumes
+  score-jd/SKILL.md           How to score job descriptions
+  interview-prep/SKILL.md     How to build prep packages
+  mock-interview/SKILL.md     How to run mock interviews
 ```
 
 ### Profile schema
 
-Edit `search/config/profile-schema.yaml` to change which fields are required for each profile section. This controls the completion indicators and what the coach asks about.
+`search/config/profile-schema.yaml` — controls which fields are required and what the coach asks about.
+
+<br/>
 
 ## Development
 
 ```bash
-npm run dev          # Next.js dev server on :8791
-npm run build        # Production build
-bun blackboard/server.ts  # Start blackboard server separately
+npm run dev                    # Next.js dev server on :8791
+npm run build                  # Production build
+bun blackboard/server.ts       # Blackboard server separately
 ```
+
+<br/>
 
 ## License
 
-**AGPL-3.0** — free to use, modify, and share. If you run a modified version as a service, you must release your source code. See [LICENSE](LICENSE) for details.
+**AGPL-3.0** — free to use, modify, and share. If you run a modified version as a service, you must release your source code. See [LICENSE](LICENSE).
 
 For commercial licensing, contact [@aravindbharathy](https://github.com/aravindbharathy).
 
 ## Acknowledgments
 
-The multi-agent blackboard architecture is adapted from [Kapi Sprints](https://github.com/Kapi-IDE/kapi-sprints) by Balaji Viswanathan (Apache 2.0). See [NOTICE](NOTICE) for attribution details.
+Blackboard architecture adapted from [Kapi Sprints](https://github.com/Kapi-IDE/kapi-sprints) by Balaji Viswanathan (Apache 2.0). See [NOTICE](NOTICE).
 
 ---
 
-Built with [Claude Code](https://claude.ai/code). Agents powered by Claude.
+<p align="center">Built with <a href="https://claude.ai/code">Claude Code</a>. Agents powered by Claude.</p>
