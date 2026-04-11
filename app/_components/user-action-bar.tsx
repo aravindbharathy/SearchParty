@@ -126,19 +126,13 @@ export function UserActionBar() {
         className="w-full px-5 py-3 flex items-center justify-between text-left"
       >
         <div className="flex items-center gap-2">
-          <span className="text-warning text-base font-bold">!</span>
-          {expanded ? (
-            <span className="text-base font-medium">{actions.length} action{actions.length !== 1 ? 's' : ''} needed</span>
-          ) : (
-            <span className="text-base text-text">
-              {actions.map(a => {
-                const label = a.button_label || fallbackRoute(a.text).label
-                return label
-              }).join(', ')}
-            </span>
+          <span className="text-warning text-sm font-bold">!</span>
+          <span className="text-sm font-medium">{actions.length} action{actions.length !== 1 ? 's' : ''} needed</span>
+          {!expanded && (
+            <span className="text-sm text-text-muted">— {actions.map(a => a.button_label || fallbackRoute(a.text).label).join(', ')}</span>
           )}
         </div>
-        <span className="text-sm text-text-muted">{expanded ? '▲' : '▼'}</span>
+        <span className="text-xs text-text-muted">{expanded ? '▲' : '▼'}</span>
       </button>
 
       {/* Expanded content */}
