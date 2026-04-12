@@ -6,6 +6,8 @@ import { useDirectiveNotifications } from '../hooks/use-directive-notifications'
 import { usePendingAction } from '../hooks/use-pending-action'
 import { DirectiveBanner } from '../_components/directive-banner'
 import { MarkdownView } from '../_components/markdown-view'
+import { ResumeEditor } from '../_components/resume-editor'
+import type { ResumeData } from '@/lib/resume-types'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -52,9 +54,11 @@ export default function ApplyingPage() {
 
   // ─── Data state ──────────────────────────────────────────────────────────
   const [resumes, setResumes] = useState<Resume[]>([])
+  const [structuredResumes, setStructuredResumes] = useState<ResumeData[]>([])
   const [coverLetters, setCoverLetters] = useState<PrepPackage[]>([])
   const [workProducts, setWorkProducts] = useState<PrepPackage[]>([])
   const [selectedDoc, setSelectedDoc] = useState<{ title: string; content: string } | null>(null)
+  const [editingResume, setEditingResume] = useState<ResumeData | null>(null)
 
   // ─── Chat state ──────────────────────────────────────────────────────────
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
@@ -81,6 +85,14 @@ export default function ApplyingPage() {
       if (res.ok) {
         const data = await res.json() as { resumes: Resume[] }
         setResumes(data.resumes)
+      }
+    } catch {}
+    // Also load structured resumes (JSON format)
+    try {
+      const res = await fetch('/api/resume')
+      if (res.ok) {
+        const data = await res.json() as { resumes: ResumeData[] }
+        setStructuredResumes(data.resumes)
       }
     } catch {}
   }, [])
@@ -231,12 +243,36 @@ export default function ApplyingPage() {
   // ─── Stats ───────────────────────────────────────────────────────────────
 
   const stats = useMemo(() => ({
-    resumes: resumes.length,
+    resumes: resumes.length + structuredResumes.length,
     coverLetters: coverLetters.length,
     workProducts: workProducts.length,
   }), [resumes, coverLetters, workProducts])
 
   // ─── Render ──────────────────────────────────────────────────────────────
+
+  // Full-screen resume editor
+  if (editingResume) {
+    return (
+      <div className="h-[calc(100vh-64px)] flex flex-col">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setEditingResume(null)} className="text-sm text-text-muted hover:text-text">
+              ← Back to Applying
+            </button>
+            <h2 className="text-lg font-bold">Resume Editor</h2>
+          </div>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <ResumeEditor
+            resume={editingResume}
+            onChange={setEditingResume}
+            onAskAgent={sendChatMessage}
+            chatProcessing={chatProcessing}
+          />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-[calc(100vh-64px)]">
@@ -301,7 +337,26 @@ export default function ApplyingPage() {
                 </button>
               </div>
 
-              {resumes.length === 0 ? (
+              {/* Structured resumes (editable) */}
+              {structuredResumes.map(sr => (
+                <div key={sr.id} className="p-4 border border-border rounded-lg bg-surface mb-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">{sr.target_company} — {sr.target_role}</p>
+                      <p className="text-xs text-text-muted">v{sr.version} · {sr.keyword_coverage}% keywords · {sr.template} template</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setEditingResume(sr)} className="text-xs px-3 py-1.5 bg-accent text-white rounded-md hover:bg-accent-hover">
+                        Edit & Preview
+                      </button>
+                      <button onClick={() => sendChatMessage(`Let's discuss this resume for ${sr.target_company}`)} disabled={chatProcessing}
+                        className="text-xs text-accent hover:text-accent-hover disabled:opacity-50">Discuss</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {resumes.length === 0 && structuredResumes.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-text-muted text-lg mb-2">No tailored resumes yet.</p>
                   <p className="text-text-muted text-sm mb-4">Click &quot;Tailor New Resume&quot; or ask the agent to create one for a specific company.</p>

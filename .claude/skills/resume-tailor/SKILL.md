@@ -85,40 +85,58 @@ Increment the version number, or start at v1.
 
 ## Step 7: Write Resume
 
-Write to `search/output/resumes/{company-slug}-{role-slug}-v{N}.md`
+Write to `search/output/resumes/{company-slug}-{role-slug}-v{N}.json`
 
-Format:
-```markdown
-# {Full Name}
-{email} | {phone} | {linkedin} | {location}
+Output as STRUCTURED JSON (not markdown). This enables the visual editor and PDF export:
 
-## Professional Summary
-{targeted summary}
-
-## Experience
-
-### {Role Title} — {Company}
-{dates}
-- {bullet 1 — most relevant to JD}
-- {bullet 2}
-- {bullet 3}
-
-### {Role Title} — {Company}
-{dates}
-- {bullet 1}
-...
-
-## Skills
-**Technical**: {skill1}, {skill2}, ...
-**Leadership**: {skill1}, {skill2}, ...
-
-## Education
-{degree} in {field} — {institution} ({year})
-
-## Certifications
-- {cert1}
-- {cert2}
+```json
+{
+  "id": "resume-{timestamp}",
+  "target_company": "{company}",
+  "target_role": "{role}",
+  "template": "clean",
+  "contact": {
+    "name": "{from experience-library}",
+    "email": "{from experience-library}",
+    "phone": "{from experience-library}",
+    "linkedin": "{from experience-library}",
+    "location": "{from experience-library}"
+  },
+  "summary": "{targeted summary — 2-3 sentences}",
+  "experiences": [
+    {
+      "company": "{company name}",
+      "role": "{role title}",
+      "dates": "{start — end}",
+      "location": "{city, state}",
+      "bullets": [
+        { "text": "{bullet — most relevant to JD, with metrics}" },
+        { "text": "{bullet 2}" },
+        { "text": "{bullet 3}" }
+      ]
+    }
+  ],
+  "skills": {
+    "technical": ["{skill1}", "{skill2}"],
+    "leadership": ["{skill1}", "{skill2}"]
+  },
+  "education": [
+    {
+      "institution": "{school}",
+      "degree": "{degree}",
+      "field": "{field}",
+      "year": "{year}"
+    }
+  ],
+  "certifications": ["{cert1}", "{cert2}"],
+  "keyword_coverage": {0-100},
+  "version": {N},
+  "created_at": "{ISO timestamp}",
+  "updated_at": "{ISO timestamp}"
+}
 ```
+
+ALSO write a markdown version to `search/output/resumes/{company-slug}-{role-slug}-v{N}.md` for backward compatibility.
 
 ## Step 8: Recruiter Review Pass (fix issues before proceeding)
 
