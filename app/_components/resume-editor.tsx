@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { ResumeData, ResumeExperience, ResumeBullet } from '@/lib/resume-types'
+import type { ResumeData, ResumeExperience } from '@/lib/resume-types'
 
 interface ResumeEditorProps {
   resume: ResumeData
@@ -10,10 +10,54 @@ interface ResumeEditorProps {
   chatProcessing: boolean
 }
 
+/**
+ * Call the agent to improve a specific piece of text.
+ * Returns the improved text directly (not through the chat sidebar).
+ */
+async function improveWithAgent(prompt: string): Promise<string | null> {
+  try {
+    const res = await fetch('/api/agent/spawn', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agent: 'resume',
+        directive: {
+          skill: 'inline-improve',
+          text: `${prompt}\n\nIMPORTANT: Respond with ONLY the improved text. No explanation, no markdown, no quotes, no "Here's the improved version:" prefix. Just the text itself.`,
+        },
+      }),
+    })
+    if (!res.ok) return null
+    const data = await res.json() as { ok: boolean; spawn_id: string }
+    if (!data.ok) return null
+
+    // Poll for completion
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 2000))
+      const poll = await fetch(`/api/agent/spawn/${data.spawn_id}`)
+      if (!poll.ok) continue
+      const status = await poll.json() as { status: string; output?: string }
+      if (status.status === 'completed' && status.output) {
+        // Clean up the response — remove any markdown formatting or prefixes
+        let text = status.output.trim()
+        text = text.replace(/^["']|["']$/g, '') // remove quotes
+        text = text.replace(/^(Here'?s?|The improved|Updated|Revised)[^:]*:\s*/i, '') // remove prefixes
+        text = text.replace(/^[-•]\s*/, '') // remove bullet prefix
+        return text
+      }
+      if (status.status === 'failed') return null
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: ResumeEditorProps) {
   const [previewHtml, setPreviewHtml] = useState('')
-  const [activeSection, setActiveSection] = useState<string | null>(null)
-  const previewRef = useRef<HTMLIFrameElement>(null)
+  const [improvingField, setImprovingField] = useState<string | null>(null) // tracks which field is being improved
+  const [showPdfPreview, setShowPdfPreview] = useState(false)
+  const [pdfHtml, setPdfHtml] = useState('')
 
   // Render preview whenever resume changes
   const renderPreview = useCallback(async () => {
@@ -31,7 +75,7 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
   }, [resume])
 
   useEffect(() => {
-    const timer = setTimeout(renderPreview, 300) // debounce
+    const timer = setTimeout(renderPreview, 300)
     return () => clearTimeout(timer)
   }, [renderPreview])
 
@@ -65,6 +109,20 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
     update({ experiences: exps })
   }
 
+  // Inline AI improvement — updates the field directly
+  const handleImprove = async (fieldKey: string, currentText: string, onUpdate: (text: string) => void, context?: string) => {
+    setImprovingField(fieldKey)
+    const prompt = context
+      ? `Improve this resume bullet for a ${resume.target_role} role at ${resume.target_company}. Context: ${context}. Current text: "${currentText}"`
+      : `Improve this resume summary for a ${resume.target_role} role at ${resume.target_company}. Make it more specific with metrics. Current text: "${currentText}"`
+
+    const improved = await improveWithAgent(prompt)
+    if (improved) {
+      onUpdate(improved)
+    }
+    setImprovingField(null)
+  }
+
   const handleExportPDF = async () => {
     try {
       const res = await fetch('/api/resume/export', {
@@ -74,14 +132,19 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
       })
       if (res.ok) {
         const { html } = await res.json() as { html: string }
-        const win = window.open('', '_blank')
-        if (win) {
-          win.document.write(html)
-          win.document.close()
-          setTimeout(() => win.print(), 500)
-        }
+        setPdfHtml(html)
+        setShowPdfPreview(true)
       }
     } catch {}
+  }
+
+  const handlePrint = () => {
+    const win = window.open('', '_blank')
+    if (win) {
+      win.document.write(pdfHtml)
+      win.document.close()
+      setTimeout(() => win.print(), 500)
+    }
   }
 
   const handleSave = async () => {
@@ -92,11 +155,37 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
     })
   }
 
+  // PDF preview overlay
+  if (showPdfPreview) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between shrink-0">
+          <h3 className="font-semibold">PDF Preview — {resume.target_company} {resume.target_role}</h3>
+          <div className="flex items-center gap-3">
+            <button onClick={handlePrint}
+              className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover">
+              Download PDF
+            </button>
+            <button onClick={() => setShowPdfPreview(false)}
+              className="text-sm text-text-muted hover:text-text">
+              Back to Editor
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto bg-gray-200 flex justify-center p-8">
+          <div className="bg-white shadow-xl" style={{ width: '8.5in', minHeight: '11in' }}>
+            <iframe srcDoc={pdfHtml} className="w-full border-0" style={{ height: '11in' }} title="PDF Preview" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full">
       {/* Left: Editor */}
       <div className="w-1/2 overflow-y-auto border-r border-border p-4 space-y-4">
-        {/* Header actions */}
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-semibold">{resume.target_company} — {resume.target_role}</h3>
@@ -110,15 +199,13 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
               <option value="traditional">Traditional</option>
             </select>
             <button onClick={handleSave} className="text-xs px-3 py-1.5 border border-border rounded hover:bg-bg">Save</button>
-            <button onClick={handleExportPDF} className="text-xs px-3 py-1.5 bg-accent text-white rounded hover:bg-accent-hover">Export PDF</button>
+            <button onClick={handleExportPDF} className="text-xs px-3 py-1.5 bg-accent text-white rounded hover:bg-accent-hover">Preview PDF</button>
           </div>
         </div>
 
         {/* Contact */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wide">Contact</h4>
-          </div>
+          <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wide">Contact</h4>
           <div className="grid grid-cols-2 gap-2">
             <input value={resume.contact.name} onChange={e => update({ contact: { ...resume.contact, name: e.target.value } })}
               placeholder="Full Name" className="px-2 py-1.5 border border-border rounded text-sm bg-bg" />
@@ -137,9 +224,12 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wide">Summary</h4>
-            <button onClick={() => onAskAgent(`Improve the summary for my ${resume.target_company} ${resume.target_role} resume. Current: "${resume.summary}"`)}
-              disabled={chatProcessing} className="text-xs text-accent hover:text-accent-hover disabled:opacity-50">
-              Improve with agent
+            <button onClick={() => handleImprove('summary', resume.summary, (text) => update({ summary: text }))}
+              disabled={improvingField === 'summary'}
+              className="text-xs text-accent hover:text-accent-hover disabled:opacity-50 flex items-center gap-1">
+              {improvingField === 'summary' ? (
+                <><span className="inline-block w-2 h-2 border border-accent border-t-transparent rounded-full animate-spin" /> Improving...</>
+              ) : '✨ Improve'}
             </button>
           </div>
           <textarea value={resume.summary} onChange={e => update({ summary: e.target.value })}
@@ -150,8 +240,7 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
         <div className="space-y-3">
           <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wide">Experience</h4>
           {resume.experiences.map((exp, expIdx) => (
-            <div key={expIdx} className={`border rounded-lg p-3 ${activeSection === `exp-${expIdx}` ? 'border-accent' : 'border-border'}`}
-              onClick={() => setActiveSection(`exp-${expIdx}`)}>
+            <div key={expIdx} className="border border-border rounded-lg p-3">
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <input value={exp.role} onChange={e => updateExperience(expIdx, { ...exp, role: e.target.value })}
                   placeholder="Role" className="px-2 py-1 border border-border rounded text-sm bg-bg font-medium" />
@@ -163,21 +252,33 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
                   placeholder="Location" className="px-2 py-1 border border-border rounded text-sm bg-bg" />
               </div>
               <div className="space-y-1">
-                {exp.bullets.map((bullet, bIdx) => (
-                  <div key={bIdx} className="flex items-start gap-1">
-                    <span className="text-text-muted text-xs mt-2">•</span>
-                    <textarea value={bullet.text} onChange={e => updateBullet(expIdx, bIdx, e.target.value)}
-                      rows={1} className="flex-1 px-2 py-1 border border-border rounded text-sm bg-bg resize-y"
-                      style={{ minHeight: '2rem' }} />
-                    <button onClick={() => onAskAgent(`Make this bullet stronger with metrics: "${bullet.text}"`)}
-                      disabled={chatProcessing} title="Improve with agent"
-                      className="text-xs text-accent hover:text-accent-hover mt-1 disabled:opacity-50 shrink-0">
-                      ✨
-                    </button>
-                    <button onClick={() => removeBullet(expIdx, bIdx)} title="Remove"
-                      className="text-xs text-text-muted hover:text-danger mt-1 shrink-0">✕</button>
-                  </div>
-                ))}
+                {exp.bullets.map((bullet, bIdx) => {
+                  const fieldKey = `exp-${expIdx}-bullet-${bIdx}`
+                  const isImproving = improvingField === fieldKey
+                  return (
+                    <div key={bIdx} className="flex items-start gap-1">
+                      <span className="text-text-muted text-xs mt-2">•</span>
+                      <textarea value={bullet.text}
+                        onChange={e => updateBullet(expIdx, bIdx, e.target.value)}
+                        rows={1} className="flex-1 px-2 py-1 border border-border rounded text-sm bg-bg resize-y"
+                        style={{ minHeight: '2rem' }} />
+                      <button
+                        onClick={() => handleImprove(fieldKey, bullet.text,
+                          (text) => updateBullet(expIdx, bIdx, text),
+                          `This is for the ${exp.role} role at ${exp.company}`
+                        )}
+                        disabled={isImproving}
+                        title="Improve with AI"
+                        className="text-xs text-accent hover:text-accent-hover mt-1 disabled:opacity-50 shrink-0">
+                        {isImproving ? (
+                          <span className="inline-block w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin" />
+                        ) : '✨'}
+                      </button>
+                      <button onClick={() => removeBullet(expIdx, bIdx)} title="Remove"
+                        className="text-xs text-text-muted hover:text-danger mt-1 shrink-0">✕</button>
+                    </div>
+                  )
+                })}
                 <button onClick={() => addBullet(expIdx)} className="text-xs text-accent hover:text-accent-hover">+ Add bullet</button>
               </div>
             </div>
@@ -221,6 +322,15 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
             </div>
           ))}
         </div>
+
+        {/* Full resume discussion */}
+        <div className="pt-4 border-t border-border">
+          <button onClick={() => onAskAgent(`Review the entire resume for ${resume.target_company} ${resume.target_role} and suggest improvements.`)}
+            disabled={chatProcessing}
+            className="text-sm text-accent hover:text-accent-hover disabled:opacity-50">
+            Discuss full resume with agent →
+          </button>
+        </div>
       </div>
 
       {/* Right: Live Preview */}
@@ -229,14 +339,13 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
           <div className="bg-white shadow-lg mx-auto" style={{ maxWidth: '8.5in', minHeight: '11in' }}>
             {previewHtml ? (
               <iframe
-                ref={previewRef}
                 srcDoc={previewHtml}
                 className="w-full border-0"
                 style={{ height: '11in' }}
                 title="Resume Preview"
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-text-muted text-sm py-20">
+              <div className="flex items-center justify-center h-96 text-text-muted text-sm">
                 Preview will appear here...
               </div>
             )}
