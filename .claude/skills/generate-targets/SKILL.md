@@ -65,6 +65,8 @@ For each company in the list:
 
 ## Output Format
 
+**CRITICAL: Output MUST be valid YAML. No markdown. The dashboard parses this programmatically.**
+
 Write to `search/context/target-companies.yaml`:
 
 ```yaml

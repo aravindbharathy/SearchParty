@@ -25,9 +25,28 @@ export async function GET(
     }
 
     const raw = readFileSync(intelPath, 'utf-8')
-    const data = YAML.parse(raw)
 
-    return NextResponse.json({ intel: data, raw })
+    // Handle two formats:
+    // 1. Pure YAML (structured intel from templates/manual)
+    // 2. YAML frontmatter + markdown body (agent-generated research)
+    let data: Record<string, unknown> = {}
+    let markdown = ''
+
+    const frontmatterMatch = raw.match(/^([\s\S]*?)\n\n##\s/)
+    if (frontmatterMatch) {
+      // Has YAML header followed by markdown sections
+      const yamlPart = frontmatterMatch[1]
+      markdown = raw.slice(yamlPart.length).trim()
+      try { data = YAML.parse(yamlPart) || {} } catch { data = {} }
+    } else {
+      // Try parsing as pure YAML
+      try { data = YAML.parse(raw) || {} } catch { data = {} }
+    }
+
+    // Ensure company field exists
+    if (!data.company && data.slug) data.company = String(data.slug).charAt(0).toUpperCase() + String(data.slug).slice(1)
+
+    return NextResponse.json({ intel: data, raw, markdown })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

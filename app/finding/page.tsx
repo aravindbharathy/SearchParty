@@ -479,18 +479,22 @@ export default function FindingPage() {
 
   // ─── Intel viewer ────────────────────────────────────────────────────────
 
+  const [intelMarkdown, setIntelMarkdown] = useState<string | null>(null)
+
   const viewIntel = async (slug: string) => {
     setActiveTab('intel')
     setSelectedIntelSlug(slug)
     setIntelLoading(true)
     setIntelData(null)
     setIntelRaw(null)
+    setIntelMarkdown(null)
     try {
       const res = await fetch(`/api/finding/intel/${encodeURIComponent(slug)}`)
       if (res.ok) {
-        const data = await res.json() as { intel: CompanyIntel; raw: string }
+        const data = await res.json() as { intel: CompanyIntel; raw: string; markdown?: string }
         setIntelData(data.intel)
         setIntelRaw(data.raw)
+        if (data.markdown) setIntelMarkdown(data.markdown)
       }
     } catch { /* ignore */ }
     setIntelLoading(false)
@@ -1068,6 +1072,19 @@ export default function FindingPage() {
                 <div className="text-center py-8">
                   <span className="inline-block w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin mr-2" />
                   <span className="text-text-muted">Loading intel...</span>
+                </div>
+              ) : intelMarkdown ? (
+                /* Agent-generated markdown intel (not fully structured YAML) */
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold">{intelData?.company || selectedIntelSlug}</h2>
+                    <button onClick={() => sendChatMessage(`Update the intel file for ${selectedIntelSlug}. Read search/intel/${selectedIntelSlug}.yaml and convert the markdown content into proper structured YAML format with fields: company, slug, industry, hq, size, stage, website, careers_url, culture, interview, comp.`)}
+                      disabled={chatProcessing}
+                      className="text-xs text-accent hover:text-accent-hover">Restructure</button>
+                  </div>
+                  <div className="bg-bg rounded-lg border border-border p-4 overflow-auto max-h-[60vh]">
+                    <MarkdownView content={intelMarkdown} className="text-sm" />
+                  </div>
                 </div>
               ) : intelData ? (
                 <div className="space-y-5">

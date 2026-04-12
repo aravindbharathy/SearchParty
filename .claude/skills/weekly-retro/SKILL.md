@@ -56,9 +56,30 @@ After writing the retro report, extract key insights for the playbook:
 
 1. Read `search/playbook.yaml` (create with `lessons: []\ndecisions: []\nchecklists: []` if missing)
 2. For each pattern or learning from "What to Improve":
-   - Add to lessons array: `{id: "les-{next}", text: "the learning", category: "most relevant", source: "retro", date: "today's date"}`
+   - Add to lessons array
 3. For each strategic shift in "Next Week's Focus":
-   - Add to decisions array: `{id: "dec-{next}", text: "the strategy", reasoning: "why", source: "retro", date: "today's date", status: "active"}`
+   - Add to decisions array
 4. Write updated playbook back to `search/playbook.yaml`
+
+The playbook.yaml file must be valid YAML with this structure:
+```yaml
+lessons:
+  - id: "les-001"
+    text: "The specific learning"
+    category: "interview"  # one of: interview, resume, networking, negotiation, general
+    source: "retro"
+    company: ""  # optional
+    date: "2026-04-12"
+decisions:
+  - id: "dec-001"
+    text: "The strategic decision"
+    reasoning: "Why this decision"
+    source: "retro"
+    date: "2026-04-12"
+    status: "active"
+checklists: []  # leave existing checklists unchanged
+```
+
+Read the existing file first and APPEND to the arrays. Do not overwrite existing entries.
 
 IMPORTANT: Read existing lessons first. Do NOT add duplicates of existing lessons.

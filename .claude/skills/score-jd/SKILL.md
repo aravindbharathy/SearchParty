@@ -106,7 +106,9 @@ If `--detailed` flag was present, additionally output:
 
 ## Output
 
-Write the analysis to `search/entries/score-jd-{company-slug}-{role-slug}.md` with this structure:
+Write the analysis to `search/entries/score-jd-{company-slug}-{role-slug}-{YYYY-MM-DDTHH-MM-SS}.md` (replace colons and periods with hyphens in the timestamp) with this structure:
+
+The timestamp in the filename is REQUIRED — the dashboard uses it to parse the date.
 
 ```markdown
 # JD Score: {Company} — {Role}

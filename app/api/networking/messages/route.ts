@@ -52,53 +52,75 @@ function importFromAgentFiles(): Message[] {
   const searchDir = getSearchDir()
   const imported: Message[] = []
 
-  const messagesDir = join(searchDir, 'output', 'messages')
+  const messagesDir = join(searchDir, 'vault', 'generated', 'messages')
   if (!existsSync(messagesDir)) return imported
 
   for (const file of readdirSync(messagesDir)) {
-    if (!file.endsWith('.yaml') && !file.endsWith('.yml')) continue
-    try {
-      const content = readFileSync(join(messagesDir, file), 'utf-8')
-      const parsed = YAML.parse(content)
-      if (!parsed?.messages || !Array.isArray(parsed.messages)) continue
+    const filePath = join(messagesDir, file)
 
-      // Derive a meaningful batch name from file metadata
-      const date = parsed.generated_date || ''
-      const dateStr = date ? ` · ${date}` : ''
-      const count = Array.isArray(parsed.messages) ? parsed.messages.length : 0
+    // Handle YAML files (structured message batches)
+    if (file.endsWith('.yaml') || file.endsWith('.yml')) {
+      try {
+        const content = readFileSync(filePath, 'utf-8')
+        const parsed = YAML.parse(content)
+        if (!parsed?.messages || !Array.isArray(parsed.messages)) continue
 
-      let batchLabel: string
-      if (parsed.strategy_note) {
-        // Extract the focus from strategy note (e.g., "PIVOT: Product Manager focus..." → "PM Outreach")
-        const note = String(parsed.strategy_note)
-        if (note.toLowerCase().includes('product manager') || note.toLowerCase().includes(' pm ')) {
-          batchLabel = `PM Outreach (${count})${dateStr}`
-        } else {
+        const date = parsed.generated_date || ''
+        const dateStr = date ? ` · ${date}` : ''
+        const count = parsed.messages.length
+
+        let batchLabel: string
+        if (parsed.strategy_note) {
+          const note = String(parsed.strategy_note)
           batchLabel = `${note.split('.')[0].slice(0, 40)} (${count})${dateStr}`
+        } else {
+          const roles = parsed.messages.slice(0, 5).map((m: Record<string, string>) => m.role || '')
+          const isResearch = roles.some((r: string) => /research|ux/i.test(r))
+          batchLabel = `${isResearch ? 'UX Research' : 'Outreach'} (${count})${dateStr}`
         }
-      } else {
-        // Detect from roles in messages
-        const roles = (parsed.messages || []).slice(0, 5).map((m: Record<string, string>) => m.role || '')
-        const isResearch = roles.some((r: string) => /research|ux/i.test(r))
-        const focus = isResearch ? 'UX Research' : 'Outreach'
-        batchLabel = `${focus} (${count})${dateStr}`
-      }
 
-      for (const msg of parsed.messages) {
+        for (const msg of parsed.messages) {
+          imported.push({
+            id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            recipient: msg.recipient || msg.name || '',
+            company: msg.target_company || msg.company || '',
+            role: msg.role || '',
+            text: msg.message || msg.text || '',
+            charCount: msg.character_count || (msg.message || '').length,
+            personalization: msg.personalization || '',
+            status: 'draft',
+            createdAt: parsed.generated_date || new Date().toISOString().split('T')[0],
+            batch: batchLabel,
+          })
+        }
+      } catch { /* skip bad files */ }
+      continue
+    }
+
+    // Handle markdown files (agent wrote freeform instead of YAML)
+    if (file.endsWith('.md')) {
+      try {
+        const content = readFileSync(filePath, 'utf-8')
+        const titleMatch = content.match(/^#\s+(.+)/m)
+        const title = titleMatch?.[1] || file.replace('.md', '')
+        // Extract date from filename (connection-batch-2026-04-12.md → 2026-04-12)
+        const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/)
+        const date = dateMatch?.[1] || new Date().toISOString().split('T')[0]
+        // Import as a single "message" with the full content
         imported.push({
           id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          recipient: msg.recipient || msg.name || '',
-          company: msg.target_company || msg.company || '',
-          role: msg.role || '',
-          text: msg.message || msg.text || '',
-          charCount: msg.character_count || (msg.message || '').length,
-          personalization: msg.personalization || '',
+          recipient: '',
+          company: '',
+          role: '',
+          text: content,
+          charCount: content.length,
+          personalization: '',
           status: 'draft',
-          createdAt: parsed.generated_date || new Date().toISOString().split('T')[0],
-          batch: batchLabel,
+          createdAt: date,
+          batch: title,
         })
-      }
-    } catch { /* skip bad files */ }
+      } catch { /* skip */ }
+    }
   }
 
   return imported

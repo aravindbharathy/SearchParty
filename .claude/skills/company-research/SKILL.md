@@ -59,42 +59,56 @@ write_to_blackboard path="log" value={"ts":"{now}","entry":"Generated target com
    - Recent news articles
 3. Write structured intel to `search/intel/{company-slug}.yaml` matching this schema:
 
+**CRITICAL: The output file MUST be valid YAML only — no markdown headers (##), no bullet lists, no freeform paragraphs. The dashboard parses this file programmatically as YAML. If you write markdown, the intel tab will show nothing.**
+
 ```yaml
-company: "Name"
-slug: "kebab-case"
-industry: ""
-hq: ""
-size: ""
-stage: ""
-website: ""
-careers_url: ""
+company: Anthropic
+slug: anthropic
+industry: AI / ML
+hq: San Francisco, CA
+size: "1000+"
+stage: Late-stage private
+website: https://anthropic.com
+careers_url: https://anthropic.com/careers
 
 culture:
-  values: []
-  engineering_culture: ""
-  remote_policy: ""
+  values:
+    - AI safety
+    - Intellectual rigor
+  engineering_culture: "Prototype-first. Engineers use Claude daily."
+  remote_policy: "Hybrid — SF office 3 days/week"
 
 interview:
   stages:
-    - name: ""
-      duration: ""
-      format: ""
-      notes: ""
-  timeline: ""
-  tips: []
+    - name: Recruiter Screen
+      duration: 30 min
+      format: Phone
+      notes: "Culture fit, motivation"
+    - name: Technical
+      duration: 60 min
+      format: Video
+      notes: "Domain expertise deep-dive"
+  timeline: "3-4 weeks"
+  tips:
+    - "Show independent technical accomplishments"
+    - "Demonstrate AI safety awareness"
 
 comp:
   currency: USD
   bands:
-    - level: ""
-      base: ""
-      equity: ""
-      total: ""
-  notes: ""
+    - level: Senior
+      base: "180K-220K"
+      equity: "200K-400K/4yr"
+      total: "280K-380K"
+  notes: "Competitive with FAANG. Equity is private stock."
 
-roles: []
-notes: ""
+sources:
+  - "levels.fyi"
+  - "Glassdoor"
+last_updated: "2026-04-12"
 ```
+
+Fill ALL fields with real data from your research. Use quotes around strings with special characters. Every field must have a value — use "Unknown" if you cannot find the data.
 
 4. If the company exists in target-companies.yaml, update its status to "targeting".
 

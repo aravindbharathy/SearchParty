@@ -80,9 +80,16 @@ IMPORTANT: Preserve existing entries — append the new one, update patterns.
 
 If the debrief reveals a concrete, actionable takeaway:
 
-1. Read `search/playbook.yaml` (create with empty structure if missing)
-2. Add one lesson: `{id: "les-{next}", text: "the takeaway", category: "interview", source: "debrief", company: "company name", date: "today"}`
-3. Write back to `search/playbook.yaml`
+Read search/playbook.yaml, then append ONE lesson to the lessons array:
+```yaml
+  - id: "les-{next number}"
+    text: "The actionable takeaway"
+    category: "interview"
+    source: "debrief"
+    company: "Company Name"
+    date: "YYYY-MM-DD"
+```
+Write back the full file. Do NOT remove existing entries.
 
 Only add a lesson if there is a specific insight — not every debrief needs one.
 
