@@ -27,6 +27,10 @@ next-env.d.ts
 docs/
 .claude/plans/
 
+# Claude Code user settings (machine-specific)
+.claude/settings.json
+.claude/settings.local.json
+
 # Blackboard deps (separate Bun server)
 blackboard/node_modules/
 blackboard/bun.lock
