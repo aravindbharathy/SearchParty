@@ -37,8 +37,9 @@ export const DEFAULT_MODEL = 'claude-sonnet-4-6'
  * Example: use Opus for interview (deeper reasoning for mocks) and Haiku for archivist (fast, cheap maintenance).
  */
 export const AGENT_MODELS: Record<string, string> = {
-  // interview: 'claude-opus-4-6',
-  // archivist: 'claude-haiku-4-5-20251001',
+  // interview: 'claude-opus-4-6',     // deeper reasoning for mock interviews
+  // negotiation: 'claude-opus-4-6',   // nuanced salary/offer analysis
+  // research: 'claude-haiku-4-5-20251001', // fast/cheap for web searches
 }
 
 /** Resolved absolute path to the operations directory */
