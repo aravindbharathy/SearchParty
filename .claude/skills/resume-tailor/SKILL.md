@@ -122,7 +122,7 @@ Format:
 
 ## Step 8: Recruiter Review Pass
 
-Read `.claude/agents/reviewers/recruiter-reviewer.md` and evaluate your resume against the rubric.
+Run: cat .claude/skills/recruiter-review/SKILL.md — then evaluate your resume against the rubric.
 
 Score on:
 - First impression (would a recruiter spend more than 6 seconds?)
@@ -133,7 +133,7 @@ Score on:
 
 ## Step 9: ATS Check Pass
 
-Read `.claude/agents/reviewers/ats-checker.md` and verify:
+Run: cat .claude/skills/ats-check/SKILL.md — then verify:
 
 - Standard section headers used
 - No tables, columns, or graphics (plain text/markdown is fine)
