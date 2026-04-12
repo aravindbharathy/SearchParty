@@ -34,7 +34,7 @@ export const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
 /**
  * Per-agent model overrides. Agents not listed here use DEFAULT_MODEL.
- * Example: use Opus for interview (deeper reasoning for mocks) and Haiku for archivist (fast, cheap maintenance).
+ * Example: use Opus for interview (deeper reasoning for mocks) and Haiku for research (fast, cheap web searches).
  */
 export const AGENT_MODELS: Record<string, string> = {
   // interview: 'claude-opus-4-6',     // deeper reasoning for mock interviews
