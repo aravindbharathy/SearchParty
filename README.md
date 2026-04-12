@@ -58,14 +58,14 @@ Not templates. The agents read your actual experience, your career goals, and ea
 
 ## The team
 
-| Agent | What they do |
-|-------|-------------|
-| **Job Search Coach** | Builds your profile, runs daily briefings, keeps everything on track |
-| **Research** | Scans for open roles, scores JDs, builds company intel, analyzes products |
-| **Resume** | Tailors resumes, writes cover letters, creates work products, hiring manager messages |
-| **Networking** | Personalized LinkedIn outreach, referral sequences, profile audit |
-| **Interview** | Prep packages, mock interviews with scoring, post-interview debriefs |
-| **Negotiation** | Salary research, offer analysis, counter-offer strategy, comp comparison |
+| Agent | What they do | Skills |
+|-------|-------------|--------|
+| **Job Search Coach** | Builds your profile, runs daily briefings, weekly retros | `setup` `daily-briefing` `weekly-retro` |
+| **Research** | Scans for open roles, scores JDs, builds company intel, generates target lists | `scan-roles` `score-jd` `company-research` `generate-targets` |
+| **Resume** | Tailors resumes, cover letters, hiring manager messages, company insight briefs | `resume-tailor` `cover-letter` `hiring-manager-msg` `company-insight` |
+| **Networking** | LinkedIn outreach, referral sequences, profile audit | `connection-request` `referral-request` `linkedin-audit` |
+| **Interview** | Prep packages, mock interviews with scoring, debriefs, thank-you notes | `interview-prep` `mock-interview` `interview-debrief` `thank-you-note` |
+| **Negotiation** | Salary research, offer analysis, counter-offer strategy | `salary-research` `negotiate` |
 
 <br/>
 
@@ -169,16 +169,16 @@ The dashboard auto-dispatches work every 30 seconds.
 
 Every page: **tabbed content** on the left, **agent chat** on the right.
 
-| Page | Purpose |
-|------|---------|
-| **Pipeline** | Kanban board — track applications across stages |
-| **Job Search Coach** | Profile setup, daily briefings, strategy |
-| **Finding Roles** | Companies, open roles, JD scoring, intel |
-| **Applying** | Resumes, cover letters, work products |
-| **Networking** | Outreach, referrals, LinkedIn audit |
-| **Interviewing** | Prep, mock interviews, debriefs |
-| **Closing** | Offers, salary research, negotiation strategy |
-| **Command Center** | Agent management, blackboard viewer |
+| Page | Agent | Purpose |
+|------|-------|---------|
+| **Pipeline** | — | Kanban board — track applications across stages |
+| **Job Search Coach** | Coach | Profile setup, daily briefings, weekly retros |
+| **Finding Roles** | Research | Companies, open roles, JD scoring, company intel |
+| **Applying** | Resume | Tailored resumes, cover letters, outreach materials |
+| **Networking** | Networking | Connection requests, referrals, LinkedIn audit |
+| **Interviewing** | Interview | Prep packages, mock interviews, debriefs |
+| **Closing** | Negotiation | Offers, salary research, negotiation strategy |
+| **Command Center** | All | Agent management, blackboard viewer, reset |
 
 <br/>
 
@@ -201,18 +201,32 @@ export const AGENT_MODELS: Record<string, string> = {
 }
 ```
 
-### Skills
+### Skills (20 total)
 
 Markdown files that control agent behavior. Edit without code changes:
 
 ```
 .claude/skills/
-  scan-roles/SKILL.md         How to find open roles
-  generate-targets/SKILL.md   How to build company lists
-  resume-tailor/SKILL.md      How to tailor resumes
-  score-jd/SKILL.md           How to score job descriptions
-  interview-prep/SKILL.md     How to build prep packages
-  mock-interview/SKILL.md     How to run mock interviews
+  setup/                  Profile onboarding flow
+  daily-briefing/         Morning priorities + pipeline check
+  weekly-retro/           End-of-week analysis + next week plan
+  scan-roles/             Find open roles (sources, verification)
+  score-jd/               Score JD against profile (5 dimensions)
+  company-research/       Build company intel profiles
+  generate-targets/       Rank target companies by fit
+  resume-tailor/          Tailor resume to specific JD
+  cover-letter/           Map top 3 experiences to top 3 requirements
+  hiring-manager-msg/     Lead with product insight, not an ask
+  company-insight/        1-2 page product analysis brief
+  connection-request/     Personalized LinkedIn outreach batch
+  referral-request/       3-message referral sequence
+  linkedin-audit/         Profile positioning for target roles
+  interview-prep/         Company-specific prep packages
+  mock-interview/         One-at-a-time with Three Laws scoring
+  interview-debrief/      Post-interview analysis + pattern tracking
+  thank-you-note/         Personalized, references conversation moments
+  salary-research/        Market comp from Levels.fyi, Glassdoor, Blind
+  negotiate/              Offer analysis + counter-offer strategy
 ```
 
 ### Profile schema
