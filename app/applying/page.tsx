@@ -327,7 +327,19 @@ export default function ApplyingPage() {
           {activeTab === 'resumes' && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-text-muted">Tailored Resumes</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-sm font-semibold text-text-muted">Tailored Resumes</h2>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-text-muted">Default template:</span>
+                    <select value={typeof window !== 'undefined' ? localStorage.getItem('default-resume-template') || 'clean' : 'clean'}
+                      onChange={e => { localStorage.setItem('default-resume-template', e.target.value) }}
+                      className="text-xs px-2 py-1 border border-border rounded bg-bg">
+                      <option value="clean">Clean</option>
+                      <option value="modern">Modern</option>
+                      <option value="traditional">Traditional</option>
+                    </select>
+                  </div>
+                </div>
                 <button
                   onClick={() => sendChatMessage('Run this command first: cat .claude/skills/resume-tailor/SKILL.md — then help me tailor a resume. Ask me which company and role to target.')}
                   disabled={chatProcessing}
@@ -336,6 +348,10 @@ export default function ApplyingPage() {
                   Tailor New Resume
                 </button>
               </div>
+
+              <p className="text-[10px] text-text-muted bg-bg rounded px-3 py-2 mb-4">
+                Add your own templates by dropping HTML/CSS files into <code className="bg-border/50 px-1 rounded">search/vault/resumes/templates/</code> — they&apos;ll appear in the template selector.
+              </p>
 
               {/* Structured resumes (editable) */}
               {structuredResumes.map(sr => (
@@ -349,7 +365,10 @@ export default function ApplyingPage() {
                       <button onClick={() => setEditingResume(sr)} className="text-xs px-3 py-1.5 bg-accent text-white rounded-md hover:bg-accent-hover">
                         Edit & Preview
                       </button>
-                      <button onClick={() => sendChatMessage(`Let's discuss this resume for ${sr.target_company}`)} disabled={chatProcessing}
+                      <button onClick={() => {
+                        const slug = `${sr.target_company.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${sr.target_role.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+                        sendChatMessage(`Review the resume at search/output/resumes/${slug}-v${sr.version}.json — read the file first, then suggest specific improvements for the ${sr.target_company} ${sr.target_role} role.`)
+                      }} disabled={chatProcessing}
                         className="text-xs text-accent hover:text-accent-hover disabled:opacity-50">Discuss</button>
                     </div>
                   </div>
@@ -372,7 +391,7 @@ export default function ApplyingPage() {
                         <p className="text-xs text-text-muted mt-0.5">{resume.filename}</p>
                       </button>
                       <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
-                        <button onClick={() => sendChatMessage(`Review and improve this resume: ${resume.title}`)} disabled={chatProcessing}
+                        <button onClick={() => sendChatMessage(`Read the resume file at search/output/resumes/${resume.filename} — then review it and suggest specific improvements.`)} disabled={chatProcessing}
                           className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">Discuss</button>
                         <button onClick={() => navigator.clipboard.writeText(resume.content)}
                           className="text-xs text-text-muted hover:text-text">Copy</button>
@@ -486,7 +505,7 @@ export default function ApplyingPage() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold">{selectedDoc.title}</h3>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => sendChatMessage(`Let's discuss and improve: ${selectedDoc.title}`)} disabled={chatProcessing}
+                  <button onClick={() => sendChatMessage(`Read the content below and suggest improvements:\n\n${selectedDoc.content.slice(0, 2000)}`)} disabled={chatProcessing}
                     className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">
                     Discuss with Agent
                   </button>

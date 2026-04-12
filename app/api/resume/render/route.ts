@@ -1,22 +1,42 @@
 import { NextResponse } from 'next/server'
+import { existsSync, readFileSync } from 'fs'
+import { join } from 'path'
+import { getSearchDir } from '@/lib/paths'
 import type { ResumeData } from '@/lib/resume-types'
 
 /**
  * POST — render a structured resume as HTML for preview/PDF
+ * If resume.template matches a user template file in vault/resumes/templates/,
+ * uses that CSS instead of the built-in styles.
  */
 export async function POST(req: Request) {
   try {
     const resume = await req.json() as ResumeData
 
-    const html = renderResumeHTML(resume)
+    // Check for user-uploaded template
+    let userStyles: string | null = null
+    const templateDir = join(getSearchDir(), 'vault', 'resumes', 'templates')
+    const cssPath = join(templateDir, `${resume.template}.css`)
+    const htmlPath = join(templateDir, `${resume.template}.html`)
+
+    if (existsSync(cssPath)) {
+      userStyles = readFileSync(cssPath, 'utf-8')
+    } else if (existsSync(htmlPath)) {
+      // If it's an HTML template, extract CSS from <style> tags
+      const htmlContent = readFileSync(htmlPath, 'utf-8')
+      const styleMatch = htmlContent.match(/<style[^>]*>([\s\S]*?)<\/style>/i)
+      if (styleMatch) userStyles = styleMatch[1]
+    }
+
+    const html = renderResumeHTML(resume, userStyles)
     return NextResponse.json({ html })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }
 
-function renderResumeHTML(r: ResumeData): string {
-  const styles = getTemplateStyles(r.template || 'clean')
+function renderResumeHTML(r: ResumeData, userStyles?: string | null): string {
+  const styles = userStyles || getTemplateStyles(r.template || 'clean')
 
   return `<!DOCTYPE html>
 <html>
