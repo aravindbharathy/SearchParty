@@ -386,7 +386,6 @@ export default function FindingPage() {
 
   const handleResearchCompany = (companyName: string) => {
     lastActionRef.current = 'research'
-    setActiveTab('intel')
     sendChatMessage(
       `Run this command first: cat .claude/skills/company-research/SKILL.md — then follow its instructions to research "${companyName}".`
     )

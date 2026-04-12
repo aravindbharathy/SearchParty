@@ -121,13 +121,20 @@ Dashboard opens at **http://localhost:8791**
 
 ### 4. Start finding roles
 
-Go to **Finding Roles** → generate target companies → scan for open positions → score JDs → tailor resumes.
+1. Go to **Finding Roles** in the sidebar
+2. On the **Companies** tab, click **Generate Targets** — the research agent builds a ranked list from your career plan
+3. Click **Get Intel** on any company card to research their interview process, compensation, and culture
+4. Switch to **Score JD** tab — paste a job description and the agent scores it against your profile (0-100)
+5. High-scoring JDs (75+) get an **Add to Pipeline** button — this creates a tracked application
+6. Go to **Applying** → click **Tailor New Resume** — the resume agent builds a targeted resume from your experience
 
 ### Optional: automated daily scanning
 
+Add a cron job to scan for new roles automatically:
+
 ```bash
-# Scan for new roles at 7am every day
 crontab -e
+# Add this line — scans careers pages at 7am daily
 0 7 * * * curl -s -X POST http://localhost:8791/api/agent/scan-roles
 ```
 
