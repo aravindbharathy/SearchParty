@@ -335,7 +335,7 @@ export default function ApplyingPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-text-muted">Cover Letters</h2>
                 <button
-                  onClick={() => sendChatMessage('Help me write a cover letter. Ask me which company and role to target.')}
+                  onClick={() => sendChatMessage('Run this command first: cat .claude/skills/cover-letter/SKILL.md — then follow its instructions to write a cover letter. Ask me which company and role to target.')}
                   disabled={chatProcessing}
                   className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
                 >
@@ -381,14 +381,14 @@ export default function ApplyingPage() {
                 <h2 className="text-sm font-semibold text-text-muted">Outreach</h2>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => sendChatMessage('Help me write a message to a hiring manager. Ask me which company and role, and I\'ll provide context about why I\'m a great fit. The message should lead with a specific insight about their product or team.')}
+                    onClick={() => sendChatMessage('Run this command first: cat .claude/skills/hiring-manager-msg/SKILL.md — then follow its instructions. Ask me which company and role to target.')}
                     disabled={chatProcessing}
                     className="px-4 py-2 border border-accent text-accent rounded-md text-sm font-medium hover:bg-accent/10 disabled:opacity-50"
                   >
                     Hiring Manager Message
                   </button>
                   <button
-                    onClick={() => sendChatMessage('Help me create a company insight brief — a short document showing I\'ve researched this company\'s product and have specific ideas. Ask me which company to target.')}
+                    onClick={() => sendChatMessage('Run this command first: cat .claude/skills/company-insight/SKILL.md — then follow its instructions. Ask me which company to target.')}
                     disabled={chatProcessing}
                     className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
                   >

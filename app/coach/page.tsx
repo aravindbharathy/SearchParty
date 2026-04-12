@@ -1832,7 +1832,7 @@ export default function CoachPage() {
             Daily Briefing
           </button>
           <button
-            onClick={() => sendMessage('Do a weekly retro. Analyze my applications, response rates, interview scores, and networking velocity this week.')}
+            onClick={() => sendMessage('Run this command first: cat .claude/skills/weekly-retro/SKILL.md — then follow its instructions for my weekly retro.')}
             disabled={isProcessing}
             className="px-3 py-1.5 text-xs font-medium border border-border text-text-muted rounded-full hover:bg-bg hover:text-text transition-colors whitespace-nowrap disabled:opacity-50"
           >
