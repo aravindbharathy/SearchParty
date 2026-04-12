@@ -41,7 +41,7 @@ Structure:
 
 ## Step 3: Output
 
-Write to `search/output/messages/thank-you-{company-slug}-{date}.md`:
+Write to `search/vault/generated/messages/thank-you-{company-slug}-{date}.md`:
 
 ```markdown
 # Thank-You Note: {Company} — {Interviewer}

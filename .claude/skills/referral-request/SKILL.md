@@ -48,7 +48,7 @@ Create three messages with escalating urgency:
 
 ## Step 3: Write Output
 
-Write to `search/output/messages/referral-{company-slug}-{contact-slug}.md`:
+Write to `search/vault/generated/messages/referral-{company-slug}-{contact-slug}.md`:
 
 ```markdown
 # Referral Request: {Contact Name} at {Company}
@@ -89,5 +89,5 @@ write_to_blackboard path="log" value={"ts":"{now}","entry":"Generated referral s
 
 If a `spawn_id` was provided:
 ```
-write_to_blackboard path="events.{spawn_id}" value={"event":"agent_complete","spawn_id":"{spawn_id}","agent":"networking","skill":"referral-request","output_path":"search/output/messages/referral-{slug}.md","status":"completed"} log_entry="referral-request spawn complete"
+write_to_blackboard path="events.{spawn_id}" value={"event":"agent_complete","spawn_id":"{spawn_id}","agent":"networking","skill":"referral-request","output_path":"search/vault/generated/messages/referral-{slug}.md","status":"completed"} log_entry="referral-request spawn complete"
 ```

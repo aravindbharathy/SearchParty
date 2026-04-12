@@ -8,7 +8,6 @@ interface ResumeEditorProps {
   resume: ResumeData
   onChange: (resume: ResumeData) => void
   onAskAgent: (message: string) => void
-  chatProcessing: boolean
 }
 
 interface UserTemplate {
@@ -16,7 +15,7 @@ interface UserTemplate {
   filename: string
 }
 
-export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: ResumeEditorProps) {
+export function ResumeEditor({ resume, onChange, onAskAgent }: ResumeEditorProps) {
   const [previewHtml, setPreviewHtml] = useState('')
   const [rightTab, setRightTab] = useState<'preview' | 'agent'>('preview')
   const [agentDraft, setAgentDraft] = useState('')
@@ -134,11 +133,13 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
   }
 
   const handleSave = async () => {
+    const updated = { ...resume, updated_at: new Date().toISOString() }
     await fetch('/api/resume', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(resume),
+      body: JSON.stringify(updated),
     })
+    onChange(updated)
   }
 
   const handleExportPDF = async () => {
@@ -199,7 +200,7 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-semibold">{resume.target_company} — {resume.target_role}</h3>
-            <p className="text-xs text-text-muted">v{resume.version} · {resume.keyword_coverage}% keyword match</p>
+            <p className="text-xs text-text-muted">v{resume.version} · {resume.template} template</p>
           </div>
           <div className="flex items-center gap-2">
             <select value={resume.template} onChange={e => update({ template: e.target.value as ResumeData['template'] })}
@@ -214,7 +215,7 @@ export function ResumeEditor({ resume, onChange, onAskAgent, chatProcessing }: R
         {/* Tip about custom templates */}
         {userTemplates.length === 0 && (
           <p className="text-[10px] text-text-muted bg-bg rounded px-3 py-2">
-            Tip: Add your own resume templates by dropping HTML or CSS files into <code className="bg-border/50 px-1 rounded">search/vault/resumes/templates/</code>. The filename becomes the template name.
+            Tip: Add your own resume templates by dropping HTML or CSS files into <code className="bg-border/50 px-1 rounded">search/vault/uploads/templates/</code>. The filename becomes the template name.
           </p>
         )}
 

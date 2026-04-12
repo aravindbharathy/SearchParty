@@ -3,7 +3,7 @@ import processManager from '@/lib/process-manager'
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json() as { agent?: string; directive?: Record<string, unknown> }
+    const body = await req.json() as { agent?: string; directive?: Record<string, unknown>; oneOff?: boolean; model?: string }
 
     if (!body.agent || !body.directive) {
       return NextResponse.json(
@@ -15,6 +15,8 @@ export async function POST(req: Request) {
     const result = await processManager.spawn({
       agent: body.agent,
       directive: body.directive,
+      oneOff: body.oneOff,
+      model: body.model,
     })
 
     return NextResponse.json(result)

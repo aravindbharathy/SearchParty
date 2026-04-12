@@ -13,7 +13,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
-import { spawn, type ChildProcess, execSync } from 'child_process'
+import { spawn, type ChildProcess } from 'child_process'
 import YAML from 'yaml'
 import { DEFAULT_MODEL, AGENT_MODELS } from '@/project.config'
 import { getSearchDir } from './paths'
@@ -35,6 +35,10 @@ interface SessionsFile {
 interface SpawnRequest {
   agent: string
   directive: Record<string, unknown>
+  /** One-off mode: uses -p (print), no session persistence, no blackboard postamble */
+  oneOff?: boolean
+  /** Override model for this spawn only */
+  model?: string
 }
 
 interface SpawnResult {
@@ -57,6 +61,8 @@ interface ManagerStatus {
 
 class ProcessManager {
   private processes = new Map<string, ChildProcess>()
+  /** One-off spawn results — in-memory only, not persisted to sessions.yaml */
+  private oneOffResults = new Map<string, { status: 'running' | 'completed' | 'failed'; output?: string }>()
   private searchDir: string
 
   constructor() {
@@ -105,13 +111,13 @@ class ProcessManager {
   async spawn(request: SpawnRequest): Promise<SpawnResult> {
     const spawnId = `spawn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     const sessions = this.loadSessions()
-    const existing = sessions.sessions[request.agent]
+    const existing = request.oneOff ? undefined : sessions.sessions[request.agent]
 
     // Check if there's a persistent session to resume
-    const hasExistingSession = existing?.session_id && existing.session_id !== 'pending' && existing.status !== 'failed'
+    const hasExistingSession = !request.oneOff && existing?.session_id && existing.session_id !== 'pending' && existing.status !== 'failed'
 
     try {
-      // Build the message from directive + blackboard postamble
+      // Build the message from directive
       const rawText = typeof request.directive.text === 'string'
         ? request.directive.text
         : JSON.stringify(request.directive)
@@ -157,27 +163,32 @@ WHEN YOU PRODUCED SHAREABLE WORK, do these:
 WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a conversation — do NOT write to the blackboard. Just answer them.
 ---`
 
-      const directiveText = rawText + blackboardPostamble
+      const directiveText = request.oneOff ? rawText : rawText + blackboardPostamble
 
       // Resolve model
-      const model = AGENT_MODELS[request.agent] || DEFAULT_MODEL
+      const model = request.model || AGENT_MODELS[request.agent] || DEFAULT_MODEL
       const claudePath = process.env.CLAUDE_PATH || 'claude'
 
-      // Build args: interactive mode with JSON output, MCP blackboard enabled
+      // Build args
       const args: string[] = [
         '--output-format', 'json',
         '--model', model,
-        '--dangerously-load-development-channels', 'server:blackboard-channel',
       ]
 
-      if (hasExistingSession) {
-        // Resume existing persistent session — agent has full memory + blackboard access
-        args.push('--resume', existing.session_id)
-        console.log(`[process-manager] resuming session ${existing.session_id} for ${request.agent}`)
+      if (request.oneOff) {
+        // One-off: print mode, no agent definition, no blackboard
+        args.push('-p')
+        console.log(`[process-manager] one-off spawn: ${request.agent} (${model})`)
       } else {
-        // First interaction — create new session with agent definition + blackboard
-        args.push('--agent', request.agent)
-        console.log(`[process-manager] creating new session for ${request.agent}`)
+        // Persistent agent: interactive mode with blackboard
+        args.push('--dangerously-load-development-channels', 'server:blackboard-channel')
+        if (hasExistingSession) {
+          args.push('--resume', existing!.session_id)
+          console.log(`[process-manager] resuming session ${existing!.session_id} for ${request.agent}`)
+        } else {
+          args.push('--agent', request.agent)
+          console.log(`[process-manager] creating new session for ${request.agent}`)
+        }
       }
 
       const child = spawn(claudePath, args, {
@@ -195,17 +206,21 @@ WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a
       child.stdin?.write(directiveText)
       child.stdin?.end()
 
-      // Track session (session_id will be updated from JSON response)
+      // Track session (one-off spawns use in-memory map instead)
       const interactions = (existing?.interactions || 0) + 1
-      sessions.sessions[request.agent] = {
-        agent: request.agent,
-        session_id: existing?.session_id || 'pending',
-        spawn_id: spawnId,
-        started_at: new Date().toISOString(),
-        status: 'running',
-        interactions,
+      if (request.oneOff) {
+        this.oneOffResults.set(spawnId, { status: 'running' })
+      } else {
+        sessions.sessions[request.agent] = {
+          agent: request.agent,
+          session_id: existing?.session_id || 'pending',
+          spawn_id: spawnId,
+          started_at: new Date().toISOString(),
+          status: 'running',
+          interactions,
+        }
+        this.saveSessions(sessions)
       }
-      this.saveSessions(sessions)
 
       // Capture output
       const MAX_OUTPUT = 65536
@@ -221,11 +236,16 @@ WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a
       child.on('error', (err: Error) => {
         console.error(`[process-manager] spawn error for ${request.agent}:`, err.message)
         this.processes.delete(spawnId)
-        const errSessions = this.loadSessions()
-        if (errSessions.sessions[request.agent]?.spawn_id === spawnId) {
-          errSessions.sessions[request.agent].status = 'failed'
-          errSessions.sessions[request.agent].output = `Spawn error: ${err.message}`
-          this.saveSessions(errSessions)
+        if (request.oneOff) {
+          this.oneOffResults.set(spawnId, { status: 'failed', output: `Spawn error: ${err.message}` })
+          setTimeout(() => this.oneOffResults.delete(spawnId), 5 * 60 * 1000)
+        } else {
+          const errSessions = this.loadSessions()
+          if (errSessions.sessions[request.agent]?.spawn_id === spawnId) {
+            errSessions.sessions[request.agent].status = 'failed'
+            errSessions.sessions[request.agent].output = `Spawn error: ${err.message}`
+            this.saveSessions(errSessions)
+          }
         }
       })
 
@@ -245,13 +265,22 @@ WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a
           console.error(`[process-manager] failed to parse JSON response, using raw output`)
         }
 
-        const currentSessions = this.loadSessions()
-        if (currentSessions.sessions[request.agent]?.spawn_id === spawnId) {
-          currentSessions.sessions[request.agent].status = code === 0 ? 'completed' : 'failed'
-          currentSessions.sessions[request.agent].session_id = sessionId
-          currentSessions.sessions[request.agent].output = result.slice(-2000)
-          currentSessions.sessions[request.agent].interactions = interactions
-          this.saveSessions(currentSessions)
+        if (request.oneOff) {
+          this.oneOffResults.set(spawnId, {
+            status: code === 0 ? 'completed' : 'failed',
+            output: result.slice(-2000),
+          })
+          // Auto-cleanup after 5 minutes
+          setTimeout(() => this.oneOffResults.delete(spawnId), 5 * 60 * 1000)
+        } else {
+          const currentSessions = this.loadSessions()
+          if (currentSessions.sessions[request.agent]?.spawn_id === spawnId) {
+            currentSessions.sessions[request.agent].status = code === 0 ? 'completed' : 'failed'
+            currentSessions.sessions[request.agent].session_id = sessionId
+            currentSessions.sessions[request.agent].output = result.slice(-2000)
+            currentSessions.sessions[request.agent].interactions = interactions
+            this.saveSessions(currentSessions)
+          }
         }
 
         if (code === 0 && result.trim()) {
@@ -276,6 +305,15 @@ WHEN TO SKIP: If the user just asked a question, wanted an explanation, or had a
         error: err instanceof Error ? err.message : String(err),
       }
     }
+  }
+
+  /** Check status of a one-off spawn by spawn_id */
+  getOneOffStatus(spawnId: string): { status: string; output?: string } | null {
+    const result = this.oneOffResults.get(spawnId)
+    if (result) return result
+    // Check if it's still running
+    if (this.processes.has(spawnId)) return { status: 'running' }
+    return null
   }
 
   getStatus(): ManagerStatus {

@@ -511,7 +511,7 @@ export default function NetworkingPage() {
   // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       {/* ─── Left Panel (65%) ─────────────────────────────────────────── */}
       <div className="w-[65%] flex flex-col overflow-hidden border-r border-border">
         {/* Header */}

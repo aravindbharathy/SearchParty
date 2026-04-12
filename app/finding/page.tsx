@@ -404,7 +404,7 @@ export default function FindingPage() {
     lastActionRef.current = 'score'
     setActiveTab('scored-jds')
     sendChatMessage(
-      `Run this command first: cat .claude/skills/score-jd/SKILL.md — then follow its instructions to score the JD at search/vault/job-descriptions/${filename}.`
+      `Run this command first: cat .claude/skills/score-jd/SKILL.md — then follow its instructions to score the JD at search/vault/uploads/jds/${filename}.`
     )
   }
 
@@ -449,13 +449,21 @@ export default function FindingPage() {
     } catch { /* ignore */ }
   }
 
-  const addToPipeline = async (company: string, role: string, fitScore: number, jdFile?: string) => {
+  const addToPipeline = async (company: string, role: string, fitScore: number, jdFile?: string, jdUrl?: string) => {
     setPipelineMsg(null)
     try {
       const res = await fetch('/api/pipeline/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company, role, status: 'researching', fit_score: fitScore, jd_source: jdFile || 'scored' }),
+        body: JSON.stringify({
+          company,
+          role,
+          status: 'researching',
+          fit_score: fitScore,
+          jd_source: jdUrl ? 'url' : jdFile ? 'scored' : 'manual',
+          jd_file: jdFile ? `entries/${jdFile}` : '',
+          jd_url: jdUrl || '',
+        }),
       })
       if (res.ok) {
         setPipelineMsg({ type: 'success', text: `Added ${company} - ${role} to pipeline` })
@@ -529,7 +537,7 @@ export default function FindingPage() {
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
+    <div className="flex h-full">
       {/* ─── Left Panel: Tabs (65%) ────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden border-r border-border">
         {/* Stats bar */}
@@ -799,7 +807,7 @@ export default function FindingPage() {
               {vaultJDs.length > 0 && (
                 <div className="mt-6 pt-4 border-t border-border">
                   <h3 className="text-sm font-semibold mb-2">Unscored JDs from Vault</h3>
-                  <p className="text-xs text-text-muted mb-3">Files in vault/job-descriptions/</p>
+                  <p className="text-xs text-text-muted mb-3">Files in vault/uploads/jds/</p>
                   <div className="space-y-1">
                     {vaultJDs.map(file => (
                       <div key={file} className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-bg border border-transparent hover:border-border">
@@ -898,7 +906,7 @@ export default function FindingPage() {
                       </button>
                       <div className="mt-2 flex items-center gap-2">
                         <button
-                          onClick={e => { e.stopPropagation(); addToPipeline(jd.company, jd.role, jd.score, jd.jd_file) }}
+                          onClick={e => { e.stopPropagation(); addToPipeline(jd.company, jd.role, jd.score, jd.filename, jd.url) }}
                           className="text-xs px-2.5 py-1 bg-accent/10 text-accent rounded-md hover:bg-accent/20 transition-colors"
                         >
                           Add to Pipeline
@@ -927,7 +935,7 @@ export default function FindingPage() {
                         Discuss
                       </button>
                       <button
-                        onClick={() => addToPipeline(selectedJD.company, selectedJD.role, selectedJD.score, selectedJD.jd_file)}
+                        onClick={() => addToPipeline(selectedJD.company, selectedJD.role, selectedJD.score, selectedJD.filename, selectedJD.url)}
                         className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover"
                       >
                         Add to Pipeline

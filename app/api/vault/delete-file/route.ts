@@ -10,9 +10,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'path required' }, { status: 400 })
     }
 
-    // Only allow deleting from output/ and vault/ directories
-    if (!path.startsWith('output/') && !path.startsWith('vault/')) {
-      return NextResponse.json({ error: 'Can only delete files from output/ or vault/' }, { status: 403 })
+    // Only allow deleting from vault/ directory
+    if (!path.startsWith('vault/')) {
+      return NextResponse.json({ error: 'Can only delete files from vault/' }, { status: 403 })
     }
 
     const searchDir = getSearchDir()

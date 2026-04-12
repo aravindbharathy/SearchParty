@@ -68,7 +68,7 @@ Check interview-history.yaml for patterns:
 
 ## Output
 
-Write to `search/output/prep/{company-slug}-{round-type}-prep.md`:
+Write to `search/vault/generated/prep/{company-slug}-{round-type}-prep.md`:
 
 ```markdown
 # Interview Prep: {Company} — {Role} ({Round Type})

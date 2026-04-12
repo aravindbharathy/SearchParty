@@ -11,8 +11,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'path parameter required' }, { status: 400 })
   }
 
-  // Security: only allow reading from vault/job-descriptions/
-  if (!path.startsWith('vault/job-descriptions/')) {
+  // Security: only allow reading from vault/uploads/jds/
+  if (!path.startsWith('vault/uploads/jds/')) {
     return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
   }
 

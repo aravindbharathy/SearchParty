@@ -53,7 +53,7 @@ Round-robin across companies. If fewer than batch-size contacts can be found, ge
 
 ## Step 4: Write Output
 
-1. Write messages to `search/output/messages/connection-batch-{YYYY-MM-DD}.md`:
+1. Write messages to `search/vault/generated/messages/connection-batch-{YYYY-MM-DD}.md`:
 
 ```markdown
 # Connection Batch — {date}
@@ -108,5 +108,5 @@ write_to_blackboard path="log" value={"ts":"{now}","entry":"Generated {count} co
 
 If a `spawn_id` was provided:
 ```
-write_to_blackboard path="events.{spawn_id}" value={"event":"agent_complete","spawn_id":"{spawn_id}","agent":"networking","skill":"connection-request","output_path":"search/output/messages/connection-batch-{date}.md","status":"completed"} log_entry="connection-request spawn complete"
+write_to_blackboard path="events.{spawn_id}" value={"event":"agent_complete","spawn_id":"{spawn_id}","agent":"networking","skill":"connection-request","output_path":"search/vault/generated/messages/connection-batch-{date}.md","status":"completed"} log_entry="connection-request spawn complete"
 ```

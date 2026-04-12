@@ -33,7 +33,7 @@ You are running the Search Party setup wizard. Your job is to guide the user thr
 ### Step 1: Check Vault for Resumes
 
 ```bash
-ls search/vault/resumes/ 2>/dev/null
+ls search/vault/uploads/resumes/ 2>/dev/null
 ```
 
 If files exist:
@@ -43,7 +43,7 @@ If files exist:
 - Extract: contact info, experiences, education, skills, certifications
 
 If no files:
-- Ask: "Do you have a resume? You can drop it in `search/vault/resumes/` or paste the content here."
+- Ask: "Do you have a resume? You can drop it in `search/vault/uploads/resumes/` or paste the content here."
 
 ### Step 2: Build Experience Entries
 

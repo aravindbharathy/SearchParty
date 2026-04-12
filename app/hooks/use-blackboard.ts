@@ -59,9 +59,6 @@ export function useBlackboard(options: UseBlackboardOptions = {}) {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
-  // Preserve last-known state on disconnect (T0.13)
-  const lastStateRef = useRef<BlackboardState | null>(null)
-
   const clearReconnect = useCallback(() => {
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current)
@@ -86,7 +83,6 @@ export function useBlackboard(options: UseBlackboardOptions = {}) {
           const msg = JSON.parse(e.data)
           if (msg.type === 'state' && msg.data && mountedRef.current) {
             setState(msg.data)
-            lastStateRef.current = msg.data
           }
         } catch {}
       }

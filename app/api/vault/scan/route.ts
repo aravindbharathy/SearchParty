@@ -4,7 +4,7 @@ import { join } from 'path'
 import YAML from 'yaml'
 import { getVaultDir } from '@/lib/paths'
 
-const SUBFOLDERS = ['resumes', 'jds', 'transcripts', 'work-products'] as const
+const SUBFOLDERS = ['uploads/resumes', 'uploads/jds', 'uploads/transcripts', 'uploads/portfolio'] as const
 
 interface ManifestEntry {
   file: string

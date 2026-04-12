@@ -25,7 +25,7 @@ Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackb
 Read these files:
 1. `search/context/career-plan.yaml` — target roles, industries, level
 2. `search/context/experience-library.yaml` — actual experience to work with
-3. Top 5 JD files from `vault/job-descriptions/` — target role requirements
+3. Top 5 JD files from `vault/uploads/jds/` — target role requirements
 
 ## Step 2: Analyze Positioning
 
@@ -44,7 +44,7 @@ For each section, provide:
 
 ## Step 4: Write Output
 
-Write to `search/output/messages/linkedin-audit-{YYYY-MM-DD}.md`:
+Write to `search/vault/generated/messages/linkedin-audit-{YYYY-MM-DD}.md`:
 
 ```markdown
 # LinkedIn Profile Audit — {date}
@@ -90,5 +90,5 @@ write_to_blackboard path="log" value={"ts":"{now}","entry":"LinkedIn audit compl
 
 If a `spawn_id` was provided:
 ```
-write_to_blackboard path="events.{spawn_id}" value={"event":"agent_complete","spawn_id":"{spawn_id}","agent":"networking","skill":"linkedin-audit","output_path":"search/output/messages/linkedin-audit-{date}.md","status":"completed"} log_entry="linkedin-audit spawn complete"
+write_to_blackboard path="events.{spawn_id}" value={"event":"agent_complete","spawn_id":"{spawn_id}","agent":"networking","skill":"linkedin-audit","output_path":"search/vault/generated/messages/linkedin-audit-{date}.md","status":"completed"} log_entry="linkedin-audit spawn complete"
 ```

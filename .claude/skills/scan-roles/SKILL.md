@@ -72,7 +72,7 @@ For each company (up to $ARGUMENTS or 10 high-priority if 'all'):
 
 3. **If active, extract the full JD text**:
    - Capture: title, company, location, salary range (if shown), requirements, responsibilities
-   - Save to `search/vault/job-descriptions/{company-slug}-{role-slug}.txt`
+   - Save to `search/vault/uploads/jds/{company-slug}-{role-slug}.txt`
    - Include the source URL at the top of the file
 
 4. **Estimate fit** (0-100) based on:

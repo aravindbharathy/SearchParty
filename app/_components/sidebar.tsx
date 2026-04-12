@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+
 interface SidebarProps {
   connected: boolean
   urgencyCount: number
@@ -63,7 +65,7 @@ export function Sidebar({ connected, urgencyCount, networkingCount = 0, activePa
 
           const isActive = activePage === item.href
           return (
-            <a
+            <Link
               key={item.href}
               href={item.href}
               className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
@@ -83,7 +85,7 @@ export function Sidebar({ connected, urgencyCount, networkingCount = 0, activePa
                   {networkingCount}
                 </span>
               )}
-            </a>
+            </Link>
           )
         })}
       </nav>

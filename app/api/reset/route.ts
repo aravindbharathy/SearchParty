@@ -23,26 +23,22 @@ export async function POST(req: Request) {
       cleared.push('entries')
     }
 
-    // Clear generated output — subfolders and root-level files
-    const outputDir = join(searchDir, 'output')
-    if (existsSync(outputDir)) {
-      for (const f of readdirSync(outputDir)) {
-        const fp = join(outputDir, f)
-        try {
-          const stat = require('fs').statSync(fp)
-          if (stat.isFile()) {
-            unlinkSync(fp)
-          } else if (stat.isDirectory()) {
-            for (const sf of readdirSync(fp)) {
-              unlinkSync(join(fp, sf))
-            }
-          }
-        } catch { /* skip */ }
+    // Clear generated output — vault/generated/ subdirectories
+    const generatedDir = join(searchDir, 'vault', 'generated')
+    const generatedSubs = ['resumes', 'cover-letters', 'outreach', 'prep', 'messages', 'closing']
+    for (const sub of generatedSubs) {
+      const subDir = join(generatedDir, sub)
+      if (existsSync(subDir)) {
+        for (const f of readdirSync(subDir)) {
+          try { unlinkSync(join(subDir, f)) } catch { /* skip */ }
+        }
       }
-      cleared.push('output')
     }
+    if (existsSync(generatedDir)) cleared.push('vault/generated')
 
     // Reset pipeline
+    const pipelineDir = join(searchDir, 'pipeline')
+    if (!existsSync(pipelineDir)) mkdirSync(pipelineDir, { recursive: true })
     writeFileSync(join(searchDir, 'pipeline', 'applications.yaml'), 'applications: []\n')
     writeFileSync(join(searchDir, 'pipeline', 'interviews.yaml'), 'interviews: []\n')
     writeFileSync(join(searchDir, 'pipeline', 'offers.yaml'), 'offers: []\n')
@@ -139,12 +135,12 @@ export async function POST(req: Request) {
       cleared.push('search state files')
 
       // Clear vault JD files (user-saved JDs from scoring)
-      const jdDir = join(searchDir, 'vault', 'job-descriptions')
+      const jdDir = join(searchDir, 'vault', 'uploads', 'jds')
       if (existsSync(jdDir)) {
         for (const f of readdirSync(jdDir)) {
           unlinkSync(join(jdDir, f))
         }
-        cleared.push('vault/job-descriptions')
+        cleared.push('vault/uploads/jds')
       }
 
       // Clear intel files (contain embedded profile data from previous sessions)
@@ -158,8 +154,8 @@ export async function POST(req: Request) {
     }
 
     const preserved = full
-      ? ['vault/resumes (source files)']
-      : ['context files', 'vault source files', 'intel files']
+      ? ['vault/uploads (source files)']
+      : ['context files', 'vault/uploads', 'intel files']
 
     return NextResponse.json({ ok: true, full, cleared, preserved })
   } catch (err) {

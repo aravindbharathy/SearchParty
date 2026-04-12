@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server'
+import { readFileSync, existsSync } from 'fs'
+import { join } from 'path'
+import YAML from 'yaml'
+import { getSearchDir } from '@/lib/paths'
 import processManager from '@/lib/process-manager'
 
 export async function GET(
@@ -15,10 +19,6 @@ export async function GET(
         let output: string | undefined
         if (agentInfo.status !== 'running') {
           try {
-            const { readFileSync, existsSync } = await import('fs')
-            const { join } = await import('path')
-            const { getSearchDir } = await import('@/lib/paths')
-            const YAML = (await import('yaml')).default
             const sessionsPath = join(getSearchDir(), 'agents', 'sessions.yaml')
             if (existsSync(sessionsPath)) {
               const raw = YAML.parse(readFileSync(sessionsPath, 'utf-8'))
@@ -39,6 +39,16 @@ export async function GET(
           output,
         })
       }
+    }
+
+    // Check one-off spawns (not tracked in sessions.yaml)
+    const oneOff = processManager.getOneOffStatus(spawnId)
+    if (oneOff) {
+      return NextResponse.json({
+        spawn_id: spawnId,
+        status: oneOff.status,
+        output: oneOff.output,
+      })
     }
 
     return NextResponse.json(

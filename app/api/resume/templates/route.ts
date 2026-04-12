@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { existsSync, readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
-import { getSearchDir } from '@/lib/paths'
+import { getUploadsDir } from '@/lib/paths'
 
 /**
  * GET — list user-uploaded resume templates from vault/resumes/templates/
@@ -10,7 +10,7 @@ import { getSearchDir } from '@/lib/paths'
  */
 export async function GET() {
   try {
-    const dir = join(getSearchDir(), 'vault', 'resumes', 'templates')
+    const dir = join(getUploadsDir(), 'templates')
     if (!existsSync(dir)) {
       return NextResponse.json({ templates: [] })
     }

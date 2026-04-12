@@ -16,3 +16,13 @@ export function getSearchDir(): string {
 export function getVaultDir(): string {
   return join(getSearchDir(), 'vault')
 }
+
+/** User uploads directory (search/vault/uploads/) */
+export function getUploadsDir(): string {
+  return join(getSearchDir(), 'vault', 'uploads')
+}
+
+/** Generated artifacts directory (search/vault/generated/) */
+export function getGeneratedDir(): string {
+  return join(getSearchDir(), 'vault', 'generated')
+}

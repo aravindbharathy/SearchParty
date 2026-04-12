@@ -30,7 +30,16 @@ interface ChatMessage {
   content: string
 }
 
-type TabKey = 'resumes' | 'cover-letters' | 'outreach'
+interface TemplateFile {
+  name: string
+  filename: string
+  ext: string
+  isProcessed: boolean
+  hasProcessedVersion: boolean
+  size: number
+}
+
+type TabKey = 'resumes' | 'cover-letters' | 'outreach' | 'templates'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -52,6 +61,12 @@ export default function ApplyingPage() {
     try { return (localStorage.getItem('applying-active-tab') as TabKey) || 'resumes' } catch { return 'resumes' }
   })
 
+  // ─── Template preference ─────────────────────────────────────────────────
+  const [defaultTemplate, setDefaultTemplate] = useState(() => {
+    if (typeof window === 'undefined') return 'clean'
+    try { return localStorage.getItem('default-resume-template') || 'clean' } catch { return 'clean' }
+  })
+
   // ─── Data state ──────────────────────────────────────────────────────────
   const [resumes, setResumes] = useState<Resume[]>([])
   const [structuredResumes, setStructuredResumes] = useState<ResumeData[]>([])
@@ -59,6 +74,8 @@ export default function ApplyingPage() {
   const [workProducts, setWorkProducts] = useState<PrepPackage[]>([])
   const [selectedDoc, setSelectedDoc] = useState<{ title: string; content: string } | null>(null)
   const [editingResume, setEditingResume] = useState<ResumeData | null>(null)
+  const [templates, setTemplates] = useState<TemplateFile[]>([])
+  const [processingTemplates, setProcessingTemplates] = useState<Set<string>>(new Set())
 
   // ─── Chat state ──────────────────────────────────────────────────────────
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
@@ -97,66 +114,56 @@ export default function ApplyingPage() {
     } catch {}
   }, [])
 
-  const loadCoverLetters = useCallback(async () => {
+  const loadTemplates = useCallback(async () => {
     try {
-      const dir = 'output/cover-letters'
-      const res = await fetch(`/api/vault/scan?dir=${encodeURIComponent(dir)}`)
+      const res = await fetch('/api/resume/templates/scan')
       if (res.ok) {
-        const data = await res.json() as { files?: string[] }
-        if (data.files) {
-          const letters: PrepPackage[] = []
-          for (const f of data.files) {
-            try {
-              const r = await fetch(`/api/vault/read-file?path=output/cover-letters/${f}`)
-              if (r.ok) {
-                const d = await r.json() as { content: string }
-                const titleMatch = d.content.match(/^#\s+(.+)/m)
-                letters.push({ filename: f, title: titleMatch?.[1] || f, content: d.content })
-              }
-            } catch {}
-          }
-          setCoverLetters(letters)
-        }
+        const data = await res.json() as { files: TemplateFile[] }
+        setTemplates(data.files || [])
       }
     } catch {}
   }, [])
 
-  const loadWorkProducts = useCallback(async () => {
+  const loadMarkdownDir = useCallback(async (dir: string): Promise<PrepPackage[]> => {
     try {
-      const dir = 'output/outreach'
-      const res = await fetch(`/api/vault/scan?dir=${encodeURIComponent(dir)}`)
-      if (res.ok) {
-        const data = await res.json() as { files?: string[] }
-        if (data.files) {
-          const products: PrepPackage[] = []
-          for (const f of data.files) {
-            try {
-              const r = await fetch(`/api/vault/read-file?path=output/outreach/${f}`)
-              if (r.ok) {
-                const d = await r.json() as { content: string }
-                const titleMatch = d.content.match(/^#\s+(.+)/m)
-                products.push({ filename: f, title: titleMatch?.[1] || f, content: d.content })
-              }
-            } catch {}
-          }
-          setWorkProducts(products)
-        }
-      }
-    } catch {}
+      const res = await fetch(`/api/vault/list-dir?dir=${encodeURIComponent(dir)}`)
+      if (!res.ok) return []
+      const data = await res.json() as { files?: string[] }
+      if (!data.files?.length) return []
+      const results = await Promise.all(data.files.map(async (f): Promise<PrepPackage | null> => {
+        try {
+          const r = await fetch(`/api/vault/read-file?path=${dir}/${f}`)
+          if (!r.ok) return null
+          const d = await r.json() as { content: string }
+          return { filename: f, title: d.content.match(/^#\s+(.+)/m)?.[1] || f, content: d.content }
+        } catch { return null }
+      }))
+      return results.filter((r): r is PrepPackage => r !== null)
+    } catch { return [] }
   }, [])
+
+  const loadCoverLetters = useCallback(async () => {
+    setCoverLetters(await loadMarkdownDir('vault/generated/cover-letters'))
+  }, [loadMarkdownDir])
+
+  const loadWorkProducts = useCallback(async () => {
+    setWorkProducts(await loadMarkdownDir('vault/generated/outreach'))
+  }, [loadMarkdownDir])
 
   useEffect(() => {
     loadResumes()
     loadCoverLetters()
     loadWorkProducts()
+    loadTemplates()
 
     const interval = setInterval(() => {
       loadResumes()
       loadCoverLetters()
       loadWorkProducts()
+      loadTemplates()
     }, 30_000)
     return () => clearInterval(interval)
-  }, [loadResumes, loadCoverLetters, loadWorkProducts])
+  }, [loadResumes, loadCoverLetters, loadWorkProducts, loadTemplates])
 
   // ─── Persistence ─────────────────────────────────────────────────────────
 
@@ -246,14 +253,14 @@ export default function ApplyingPage() {
     resumes: resumes.length + structuredResumes.length,
     coverLetters: coverLetters.length,
     workProducts: workProducts.length,
-  }), [resumes, coverLetters, workProducts])
+  }), [resumes, structuredResumes, coverLetters, workProducts])
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
   // Full-screen resume editor
   if (editingResume) {
     return (
-      <div className="h-[calc(100vh-64px)] flex flex-col">
+      <div className="h-full flex flex-col">
         <div className="px-5 py-3 border-b border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <button onClick={() => setEditingResume(null)} className="text-sm text-text-muted hover:text-text">
@@ -267,7 +274,6 @@ export default function ApplyingPage() {
             resume={editingResume}
             onChange={setEditingResume}
             onAskAgent={sendChatMessage}
-            chatProcessing={chatProcessing}
           />
         </div>
       </div>
@@ -275,7 +281,7 @@ export default function ApplyingPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
+    <div className="flex h-full">
       {/* ─── Left Panel: Tabs (65%) ─────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden border-r border-border">
         <div className="px-5 pt-5 pb-3">
@@ -300,6 +306,7 @@ export default function ApplyingPage() {
             { key: 'resumes' as TabKey, label: `Resumes${resumes.length > 0 ? ` (${resumes.length})` : ''}` },
             { key: 'cover-letters' as TabKey, label: `Cover Letters${coverLetters.length > 0 ? ` (${coverLetters.length})` : ''}` },
             { key: 'outreach' as TabKey, label: `Outreach${workProducts.length > 0 ? ` (${workProducts.length})` : ''}` },
+            { key: 'templates' as TabKey, label: `Templates${templates.length > 0 ? ` (${templates.length})` : ''}` },
           ]).map(tab => (
             <button
               key={tab.key}
@@ -331,17 +338,22 @@ export default function ApplyingPage() {
                   <h2 className="text-sm font-semibold text-text-muted">Tailored Resumes</h2>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-text-muted">Default template:</span>
-                    <select value={typeof window !== 'undefined' ? localStorage.getItem('default-resume-template') || 'clean' : 'clean'}
-                      onChange={e => { localStorage.setItem('default-resume-template', e.target.value) }}
+                    <select value={defaultTemplate}
+                      onChange={e => { setDefaultTemplate(e.target.value); localStorage.setItem('default-resume-template', e.target.value) }}
                       className="text-xs px-2 py-1 border border-border rounded bg-bg">
                       <option value="clean">Clean</option>
                       <option value="modern">Modern</option>
                       <option value="traditional">Traditional</option>
+                      {templates.filter(t => t.isProcessed && (t.ext === 'css' || t.ext === 'html')).map(t => (
+                        <option key={t.name} value={t.name}>{t.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
                 <button
-                  onClick={() => sendChatMessage('Run this command first: cat .claude/skills/resume-tailor/SKILL.md — then help me tailor a resume. Ask me which company and role to target.')}
+                  onClick={() => {
+                    sendChatMessage(`Run this command first: cat .claude/skills/resume-tailor/SKILL.md — then help me tailor a resume. Use the "${defaultTemplate}" template for the resume. Ask me which company and role to target.`)
+                  }}
                   disabled={chatProcessing}
                   className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
                 >
@@ -350,7 +362,7 @@ export default function ApplyingPage() {
               </div>
 
               <p className="text-[10px] text-text-muted bg-bg rounded px-3 py-2 mb-4">
-                Add your own templates by dropping HTML/CSS files into <code className="bg-border/50 px-1 rounded">search/vault/resumes/templates/</code> — they&apos;ll appear in the template selector.
+                Upload your resume template (DOCX or PDF) in the Templates tab — we&apos;ll convert it to match the editor&apos;s format.
               </p>
 
               {/* Structured resumes (editable) */}
@@ -359,7 +371,7 @@ export default function ApplyingPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium text-sm">{sr.target_company} — {sr.target_role}</p>
-                      <p className="text-xs text-text-muted">v{sr.version} · {sr.keyword_coverage}% keywords · {sr.template} template</p>
+                      <p className="text-xs text-text-muted">v{sr.version} · {sr.template} template · edited {new Date(sr.updated_at).toLocaleDateString()}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => setEditingResume(sr)} className="text-xs px-3 py-1.5 bg-accent text-white rounded-md hover:bg-accent-hover">
@@ -367,7 +379,7 @@ export default function ApplyingPage() {
                       </button>
                       <button onClick={() => {
                         const slug = `${sr.target_company.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${sr.target_role.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
-                        sendChatMessage(`Review the resume at search/output/resumes/${slug}-v${sr.version}.json — read the file first, then suggest specific improvements for the ${sr.target_company} ${sr.target_role} role.`)
+                        sendChatMessage(`Review the resume at search/vault/generated/resumes/${slug}-v${sr.version}.json — read the file first, then suggest specific improvements for the ${sr.target_company} ${sr.target_role} role.`)
                       }} disabled={chatProcessing}
                         className="text-xs text-accent hover:text-accent-hover disabled:opacity-50">Discuss</button>
                     </div>
@@ -391,7 +403,7 @@ export default function ApplyingPage() {
                         <p className="text-xs text-text-muted mt-0.5">{resume.filename}</p>
                       </button>
                       <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
-                        <button onClick={() => sendChatMessage(`Read the resume file at search/output/resumes/${resume.filename} — then review it and suggest specific improvements.`)} disabled={chatProcessing}
+                        <button onClick={() => sendChatMessage(`Read the resume file at search/vault/generated/resumes/${resume.filename} — then review it and suggest specific improvements.`)} disabled={chatProcessing}
                           className="text-xs text-accent hover:text-accent-hover font-medium disabled:opacity-50">Discuss</button>
                         <button onClick={() => navigator.clipboard.writeText(resume.content)}
                           className="text-xs text-text-muted hover:text-text">Copy</button>
@@ -496,6 +508,201 @@ export default function ApplyingPage() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ─── Templates Tab ─────────────────────────────── */}
+          {activeTab === 'templates' && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-text-muted">Resume Templates</h2>
+                <button
+                  onClick={() => {
+                    const input = document.createElement('input')
+                    input.type = 'file'
+                    input.accept = '.docx,.pdf,.doc,.html,.css'
+                    input.multiple = true
+                    input.onchange = async () => {
+                      if (!input.files) return
+                      for (const file of Array.from(input.files)) {
+                        const form = new FormData()
+                        form.append('file', file)
+                        form.append('subfolder', 'uploads/templates')
+                        await fetch('/api/vault/upload', { method: 'POST', body: form })
+                      }
+                      loadTemplates()
+                    }
+                    input.click()
+                  }}
+                  className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover"
+                >
+                  Upload Template
+                </button>
+              </div>
+
+              <p className="text-[10px] text-text-muted bg-bg rounded px-3 py-2 mb-4">
+                Upload resume templates in DOCX or PDF format. Click &quot;Process&quot; to convert them to HTML/CSS so they can be used in the resume editor. You can also upload HTML/CSS templates directly.
+              </p>
+
+              {templates.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-text-muted text-lg mb-2">No templates yet.</p>
+                  <p className="text-text-muted text-sm mb-4">Upload a DOCX, PDF, or HTML/CSS template file to get started.</p>
+                  <p className="text-text-muted text-xs">You can also drop files into <code className="bg-border/50 px-1 rounded">search/vault/uploads/templates/</code></p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {templates.map(tpl => (
+                    <div key={tpl.filename} className="p-4 border border-border rounded-lg bg-surface flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{tpl.name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-text-muted uppercase">{tpl.ext}</span>
+                          <span className="text-xs text-text-muted">{(tpl.size / 1024).toFixed(1)} KB</span>
+                          {tpl.isProcessed ? (
+                            <span className="text-xs text-success font-medium">Ready to use</span>
+                          ) : tpl.hasProcessedVersion ? (
+                            <span className="text-xs text-success font-medium">Processed version available</span>
+                          ) : (
+                            <span className="text-xs text-warning font-medium">Needs processing</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!tpl.isProcessed && !tpl.hasProcessedVersion && (
+                          <button
+                            onClick={async () => {
+                              setProcessingTemplates(prev => new Set(prev).add(tpl.name))
+                              try {
+                                const prompt =
+                                  `Process this resume template file: search/vault/uploads/templates/${tpl.filename}\n\n` +
+                                  `Read the file (if it's a PDF, look at its visual layout carefully). Then produce a CSS file that styles THIS EXACT HTML structure:\n\n` +
+                                  '```html\n' +
+                                  '<div class="resume">\n' +
+                                  '  <header class="contact">\n' +
+                                  '    <h1>Name</h1>\n' +
+                                  '    <div class="contact-details"><span>email</span><span class="sep"> | </span><span>phone</span></div>\n' +
+                                  '  </header>\n' +
+                                  '  <section>\n' +
+                                  '    <h2>Summary</h2>\n' +
+                                  '    <p class="summary">text...</p>\n' +
+                                  '  </section>\n' +
+                                  '  <section>\n' +
+                                  '    <h2>Experience</h2>\n' +
+                                  '    <div class="entry">\n' +
+                                  '      <div class="entry-header">\n' +
+                                  '        <span class="entry-title"><strong>Role</strong>, Company (Location)</span>\n' +
+                                  '        <span class="dates">Start - End</span>\n' +
+                                  '      </div>\n' +
+                                  '      <ul><li>Bullet</li></ul>\n' +
+                                  '    </div>\n' +
+                                  '  </section>\n' +
+                                  '  <section>\n' +
+                                  '    <h2>Education</h2>\n' +
+                                  '    <div class="entry">\n' +
+                                  '      <div class="entry-header">\n' +
+                                  '        <span class="entry-title"><strong>Degree in Field</strong>, Institution</span>\n' +
+                                  '        <span class="dates">Year</span>\n' +
+                                  '      </div>\n' +
+                                  '    </div>\n' +
+                                  '  </section>\n' +
+                                  '  <section>\n' +
+                                  '    <h2>Skills</h2>\n' +
+                                  '    <div class="skills-row"><strong>Technical:</strong> skill1, skill2</div>\n' +
+                                  '  </section>\n' +
+                                  '</div>\n' +
+                                  '```\n\n' +
+                                  `CRITICAL RULES for the CSS:\n` +
+                                  `1. Use EXACTLY these selectors: .resume, .contact, h1, .contact-details, .contact-details .sep, h2, .summary, section, .entry, .entry-header, .entry-title, .dates, ul, li, .skills-row\n` +
+                                  `2. .entry-header MUST be display:flex with justify-content:space-between so dates are right-aligned on the SAME LINE as role\n` +
+                                  `3. .dates MUST have white-space:nowrap and flex-shrink:0\n` +
+                                  `4. .entry-title MUST have flex:1\n` +
+                                  `5. Keep it compact — font-size ~10pt body, ~9.5pt bullets, tight margins. A resume must fit on one page.\n` +
+                                  `6. Include * { margin:0; padding:0; box-sizing:border-box; } reset\n` +
+                                  `7. Match the fonts, colors, spacing from the uploaded template as closely as possible.\n\n` +
+                                  `Save the result to: search/vault/uploads/templates/${tpl.name}.css`
+                                const res = await fetch('/api/agent/spawn', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    agent: 'template-processor',
+                                    directive: { text: prompt },
+                                    oneOff: true,
+                                    model: 'claude-sonnet-4-6',
+                                  }),
+                                })
+                                const data = await res.json() as { ok: boolean; spawn_id: string }
+                                if (data.ok) {
+                                  // Poll for completion
+                                  const poll = setInterval(async () => {
+                                    try {
+                                      const status = await fetch(`/api/agent/spawn/${data.spawn_id}`)
+                                      const info = await status.json() as { status: string }
+                                      if (info.status === 'completed' || info.status === 'failed') {
+                                        clearInterval(poll)
+                                        setProcessingTemplates(prev => { const next = new Set(prev); next.delete(tpl.name); return next })
+                                        loadTemplates()
+                                      }
+                                    } catch {}
+                                  }, 3000)
+                                  // Safety timeout
+                                  setTimeout(() => {
+                                    clearInterval(poll)
+                                    setProcessingTemplates(prev => { const next = new Set(prev); next.delete(tpl.name); return next })
+                                    loadTemplates()
+                                  }, 5 * 60 * 1000)
+                                } else {
+                                  setProcessingTemplates(prev => { const next = new Set(prev); next.delete(tpl.name); return next })
+                                }
+                              } catch {
+                                setProcessingTemplates(prev => { const next = new Set(prev); next.delete(tpl.name); return next })
+                              }
+                            }}
+                            disabled={processingTemplates.has(tpl.name)}
+                            className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover disabled:opacity-50"
+                          >
+                            {processingTemplates.has(tpl.name) ? (
+                              <span className="flex items-center gap-1.5">
+                                <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Processing...
+                              </span>
+                            ) : 'Process Template'}
+                          </button>
+                        )}
+                        {tpl.isProcessed && (tpl.ext === 'html' || tpl.ext === 'css') && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const res = await fetch(`/api/vault/read-file?path=vault/uploads/templates/${tpl.filename}`)
+                                if (res.ok) {
+                                  const data = await res.json() as { content: string }
+                                  setSelectedDoc({ title: `Template: ${tpl.name}`, content: '```' + tpl.ext + '\n' + data.content + '\n```' })
+                                }
+                              } catch {}
+                            }}
+                            className="text-xs text-accent hover:text-accent-hover font-medium"
+                          >
+                            View
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Built-in templates */}
+              <div className="mt-6 pt-4 border-t border-border">
+                <h3 className="text-xs font-semibold text-text-muted mb-3">Built-in Templates</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  {['clean', 'modern', 'traditional'].map(name => (
+                    <div key={name} className="p-3 border border-border rounded-lg bg-bg text-center">
+                      <p className="text-sm font-medium capitalize">{name}</p>
+                      <p className="text-xs text-text-muted mt-1">Built-in</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

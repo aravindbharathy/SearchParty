@@ -13,6 +13,8 @@ interface Application {
   fit_score: number
   resume_version: string
   jd_source: string
+  jd_file: string
+  jd_url: string
   notes: string
   follow_ups: Array<{ due: string; type: string; status: string }>
 }
@@ -62,6 +64,7 @@ export default function Dashboard() {
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [artifactsLoading, setArtifactsLoading] = useState(false)
   const [viewingArtifact, setViewingArtifact] = useState<Artifact | null>(null)
+  const [jdScoreContent, setJdScoreContent] = useState<string | null>(null)
 
   const loadApplications = useCallback(async () => {
     try {
@@ -85,116 +88,59 @@ export default function Dashboard() {
     const found: Artifact[] = []
     const slug = app.company.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
-    // Helper to try reading a file
     const tryRead = async (path: string): Promise<string | null> => {
       try {
         const res = await fetch(`/api/vault/read-file?path=${encodeURIComponent(path)}`)
-        if (res.ok) {
-          const data = await res.json() as { content: string }
-          return data.content
-        }
+        if (res.ok) return ((await res.json()) as { content: string }).content
       } catch {}
       return null
     }
 
-    // Search for resumes matching this company
-    try {
-      const res = await fetch('/api/pipeline/resumes')
-      if (res.ok) {
-        const data = await res.json() as { resumes: Array<{ filename: string; title: string; content: string }> }
-        for (const r of data.resumes) {
-          if (r.filename.toLowerCase().includes(slug)) {
-            found.push({ type: 'resume', title: r.title, filename: r.filename, content: r.content, agent: 'resume', route: '/applying' })
-          }
-        }
-      }
-    } catch {}
+    // Fire all independent fetches in parallel
+    const [mdResumes, jsonResumes, coverLetter, hmMsg, insightBrief, scoredJDs, intel, prepPkgs, salary, negotiation] = await Promise.all([
+      fetch('/api/pipeline/resumes').then(r => r.ok ? r.json() : { resumes: [] }).catch(() => ({ resumes: [] })) as Promise<{ resumes: Array<{ filename: string; title: string; content: string }> }>,
+      fetch('/api/resume').then(r => r.ok ? r.json() : { resumes: [] }).catch(() => ({ resumes: [] })) as Promise<{ resumes: Array<{ id: string; target_company: string; target_role: string; template: string; version: number }> }>,
+      tryRead(`vault/generated/cover-letters/${slug}-cover.md`),
+      tryRead(`vault/generated/outreach/${slug}-hiring-manager-msg.md`),
+      tryRead(`vault/generated/outreach/${slug}-insight-brief.md`),
+      fetch('/api/finding/scored-jds').then(r => r.ok ? r.json() : { scoredJDs: [] }).catch(() => ({ scoredJDs: [] })) as Promise<{ scoredJDs: Array<{ filename: string; company: string; role: string; score: number }> }>,
+      fetch(`/api/finding/intel/${encodeURIComponent(slug)}`).then(r => r.ok ? r.json() : null).catch(() => null) as Promise<{ raw: string; intel: { company: string } } | null>,
+      fetch('/api/pipeline/prep-packages').then(r => r.ok ? r.json() : { packages: [] }).catch(() => ({ packages: [] })) as Promise<{ packages: Array<{ filename: string; title: string; content: string }> }>,
+      tryRead(`vault/generated/closing/salary-research-${slug}.md`),
+      tryRead(`vault/generated/closing/negotiation-${slug}.md`),
+    ])
 
-    // Cover letters
-    try {
-      const content = await tryRead(`output/cover-letters/${slug}-cover.md`)
-      if (content) {
-        const title = content.match(/^#\s+(.+)/m)?.[1] || `Cover Letter — ${app.company}`
-        found.push({ type: 'cover-letter', title, filename: `${slug}-cover.md`, content, agent: 'resume', route: '/applying' })
+    // Resumes (markdown)
+    for (const r of mdResumes.resumes) {
+      if (r.filename.toLowerCase().includes(slug)) {
+        found.push({ type: 'resume', title: r.title, filename: r.filename, content: r.content, agent: 'resume', route: '/applying' })
       }
-    } catch {}
-
-    // Outreach / hiring manager message
-    try {
-      const content = await tryRead(`output/work-products/${slug}-hiring-manager-msg.md`)
-      if (content) {
-        const title = content.match(/^#\s+(.+)/m)?.[1] || `Hiring Manager Message — ${app.company}`
-        found.push({ type: 'outreach', title, filename: `${slug}-hiring-manager-msg.md`, content, agent: 'resume', route: '/applying' })
+    }
+    // Resumes (structured JSON)
+    for (const r of jsonResumes.resumes) {
+      if (r.target_company.toLowerCase().includes(slug) || slug.includes(r.target_company.toLowerCase().replace(/[^a-z0-9]+/g, '-'))) {
+        found.push({ type: 'resume', title: `${r.target_company} — ${r.target_role} (v${r.version})`, filename: `${r.id}.json`, content: `Structured resume: ${r.target_company} ${r.target_role}, ${r.template} template`, agent: 'resume', route: '/applying' })
       }
-    } catch {}
-
-    // Company insight brief
-    try {
-      const content = await tryRead(`output/work-products/${slug}-insight-brief.md`)
-      if (content) {
-        const title = content.match(/^#\s+(.+)/m)?.[1] || `Insight Brief — ${app.company}`
-        found.push({ type: 'outreach', title, filename: `${slug}-insight-brief.md`, content, agent: 'resume', route: '/applying' })
-      }
-    } catch {}
-
-    // JD scores
-    try {
-      const res = await fetch('/api/finding/scored-jds')
-      if (res.ok) {
-        const data = await res.json() as { scoredJDs: Array<{ filename: string; company: string; role: string; score: number }> }
-        for (const jd of data.scoredJDs) {
-          if (jd.company.toLowerCase().includes(slug) || slug.includes(jd.company.toLowerCase().replace(/[^a-z0-9]+/g, '-'))) {
-            try {
-              const jdRes = await fetch(`/api/finding/scored-jds/${encodeURIComponent(jd.filename)}`)
-              if (jdRes.ok) {
-                const jdData = await jdRes.json() as { content: string }
-                found.push({ type: 'jd-score', title: `JD Score: ${jd.company} ${jd.role} (${jd.score}/100)`, filename: jd.filename, content: jdData.content, agent: 'research', route: '/finding' })
-              }
-            } catch {}
-          }
-        }
-      }
-    } catch {}
-
-    // Company intel
-    try {
-      const res = await fetch(`/api/finding/intel/${encodeURIComponent(slug)}`)
-      if (res.ok) {
-        const data = await res.json() as { raw: string; intel: { company: string } }
-        found.push({ type: 'intel', title: `Intel: ${data.intel.company}`, filename: `${slug}.yaml`, content: data.raw, agent: 'research', route: '/finding' })
-      }
-    } catch {}
-
-    // Interview prep
-    try {
-      const res = await fetch('/api/pipeline/prep-packages')
-      if (res.ok) {
-        const data = await res.json() as { packages: Array<{ filename: string; title: string; content: string }> }
-        for (const pkg of data.packages) {
-          if (pkg.filename.toLowerCase().includes(slug)) {
-            found.push({ type: 'prep', title: pkg.title, filename: pkg.filename, content: pkg.content, agent: 'interview', route: '/interviewing' })
-          }
-        }
-      }
-    } catch {}
-
-    // Salary research
-    try {
-      const content = await tryRead(`output/salary-research-${slug}.md`)
-      if (content) {
-        const title = content.match(/^#\s+(.+)/m)?.[1] || `Salary Research — ${app.company}`
-        found.push({ type: 'salary', title, filename: `salary-research-${slug}.md`, content, agent: 'negotiation', route: '/closing' })
-      }
-    } catch {}
-
-    // Negotiation strategy
-    try {
-      const content = await tryRead(`output/negotiation-${slug}.md`)
-      if (content) {
-        const title = content.match(/^#\s+(.+)/m)?.[1] || `Negotiation — ${app.company}`
-        found.push({ type: 'negotiation', title, filename: `negotiation-${slug}.md`, content, agent: 'negotiation', route: '/closing' })
-      }
-    } catch {}
+    }
+    // Single-file artifacts
+    if (coverLetter) found.push({ type: 'cover-letter', title: coverLetter.match(/^#\s+(.+)/m)?.[1] || `Cover Letter — ${app.company}`, filename: `${slug}-cover.md`, content: coverLetter, agent: 'resume', route: '/applying' })
+    if (hmMsg) found.push({ type: 'outreach', title: hmMsg.match(/^#\s+(.+)/m)?.[1] || `Hiring Manager Message — ${app.company}`, filename: `${slug}-hiring-manager-msg.md`, content: hmMsg, agent: 'resume', route: '/applying' })
+    if (insightBrief) found.push({ type: 'outreach', title: insightBrief.match(/^#\s+(.+)/m)?.[1] || `Insight Brief — ${app.company}`, filename: `${slug}-insight-brief.md`, content: insightBrief, agent: 'resume', route: '/applying' })
+    // JD scores — fetch matching JD content in parallel
+    const matchingJDs = scoredJDs.scoredJDs.filter(jd => jd.company.toLowerCase().includes(slug) || slug.includes(jd.company.toLowerCase().replace(/[^a-z0-9]+/g, '-')))
+    const jdContents = await Promise.all(matchingJDs.map(jd => fetch(`/api/finding/scored-jds/${encodeURIComponent(jd.filename)}`).then(r => r.ok ? r.json() as Promise<{ content: string }> : null).catch(() => null)))
+    matchingJDs.forEach((jd, i) => {
+      if (jdContents[i]) found.push({ type: 'jd-score', title: `JD Score: ${jd.company} ${jd.role} (${jd.score}/100)`, filename: jd.filename, content: jdContents[i]!.content, agent: 'research', route: '/finding' })
+    })
+    // Intel
+    if (intel) found.push({ type: 'intel', title: `Intel: ${intel.intel.company}`, filename: `${slug}.yaml`, content: intel.raw, agent: 'research', route: '/finding' })
+    // Prep packages
+    for (const pkg of prepPkgs.packages) {
+      if (pkg.filename.toLowerCase().includes(slug)) found.push({ type: 'prep', title: pkg.title, filename: pkg.filename, content: pkg.content, agent: 'interview', route: '/interviewing' })
+    }
+    // Closing
+    if (salary) found.push({ type: 'salary', title: salary.match(/^#\s+(.+)/m)?.[1] || `Salary Research — ${app.company}`, filename: `salary-research-${slug}.md`, content: salary, agent: 'negotiation', route: '/closing' })
+    if (negotiation) found.push({ type: 'negotiation', title: negotiation.match(/^#\s+(.+)/m)?.[1] || `Negotiation — ${app.company}`, filename: `negotiation-${slug}.md`, content: negotiation, agent: 'negotiation', route: '/closing' })
 
     setArtifacts(found)
     setArtifactsLoading(false)
@@ -208,7 +154,15 @@ export default function Dashboard() {
     } else {
       setSelectedApp(app)
       setViewingArtifact(null)
+      setJdScoreContent(null)
       loadArtifacts(app)
+      // Load JD score content if available
+      if (app.jd_file) {
+        fetch(`/api/vault/read-file?path=${encodeURIComponent(app.jd_file)}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => { if (data?.content) setJdScoreContent(data.content) })
+          .catch(() => {})
+      }
     }
   }
 
@@ -224,6 +178,10 @@ export default function Dashboard() {
   }
 
   const handleStatusChange = async (id: string, newStatus: string) => {
+    // Update selectedApp immediately so the dropdown reflects the change
+    if (selectedApp?.id === id) {
+      setSelectedApp({ ...selectedApp, status: newStatus })
+    }
     await fetch(`/api/pipeline/applications/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -251,7 +209,7 @@ export default function Dashboard() {
   const today = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="h-[calc(100vh-64px)] flex">
+    <div className="h-full flex">
       {/* Kanban */}
       <div className={`flex flex-col overflow-hidden ${selectedApp ? 'w-[60%] border-r border-border' : 'w-full'}`}>
         <div className="px-6 pt-5 pb-3 flex items-center justify-between shrink-0">
@@ -394,6 +352,68 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Application Details */}
+          <div className="px-5 py-4 border-b border-border">
+            <h3 className="text-sm font-semibold text-text-muted mb-3">Details</h3>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+              {selectedApp.applied_date && (
+                <>
+                  <span className="text-text-muted">Applied</span>
+                  <span>{new Date(selectedApp.applied_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                </>
+              )}
+              {selectedApp.jd_url && (
+                <>
+                  <span className="text-text-muted">JD Link</span>
+                  <a href={selectedApp.jd_url.startsWith('http') ? selectedApp.jd_url : `https://${selectedApp.jd_url}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="text-accent hover:text-accent-hover underline truncate">{selectedApp.jd_url.replace(/^https?:\/\//, '').slice(0, 40)}</a>
+                </>
+              )}
+              {selectedApp.resume_version && (
+                <>
+                  <span className="text-text-muted">Resume</span>
+                  <span>{selectedApp.resume_version}</span>
+                </>
+              )}
+            </div>
+            {selectedApp.notes && (
+              <p className="text-xs text-text-muted mt-3 italic">{selectedApp.notes}</p>
+            )}
+            {jdScoreContent && (
+              <details className="mt-3">
+                <summary className="text-xs font-medium text-accent cursor-pointer hover:text-accent-hover">View JD Score Report</summary>
+                <div className="mt-2 bg-bg p-3 rounded-md border border-border overflow-auto max-h-[40vh] text-xs">
+                  <MarkdownView content={jdScoreContent} className="text-xs" />
+                </div>
+              </details>
+            )}
+            {selectedApp.follow_ups.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-medium text-text-muted mb-1.5">Follow-ups</p>
+                <div className="space-y-1">
+                  {selectedApp.follow_ups.map((fu, i) => {
+                    const due = new Date(fu.due)
+                    const isOverdue = fu.status === 'pending' && due < new Date()
+                    const isDueToday = fu.status === 'pending' && due.toDateString() === new Date().toDateString()
+                    return (
+                      <div key={i} className={`text-xs flex items-center gap-2 px-2 py-1 rounded ${
+                        isOverdue ? 'bg-danger/10 text-danger' : isDueToday ? 'bg-warning/10 text-warning' : fu.status !== 'pending' ? 'opacity-50' : ''
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          fu.status === 'sent' ? 'bg-success' : isOverdue ? 'bg-danger' : isDueToday ? 'bg-warning' : 'bg-text-muted/40'
+                        }`} />
+                        <span className="flex-1">{fu.type.replace(/-/g, ' ')}</span>
+                        <span>{due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        <span className="capitalize text-text-muted">{fu.status}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Artifacts */}
           <div className="px-5 py-4 flex-1">
             <h3 className="text-sm font-semibold text-text-muted mb-3">Related Materials</h3>
@@ -428,7 +448,25 @@ export default function Dashboard() {
                         className="text-xs text-accent hover:text-accent-hover font-medium">Discuss</button>
                       <button onClick={() => navigator.clipboard.writeText(artifact.content)}
                         className="text-xs text-text-muted hover:text-text">Copy</button>
-                      <a href={artifact.route} className="text-xs text-text-muted hover:text-text ml-auto">
+                      <a href={artifact.route} onClick={(e) => {
+                        e.preventDefault()
+                        // Set the correct tab before navigating
+                        const tabMap: Record<string, { storageKey: string; tab: string }> = {
+                          'resume': { storageKey: 'applying-active-tab', tab: 'resumes' },
+                          'cover-letter': { storageKey: 'applying-active-tab', tab: 'cover-letters' },
+                          'outreach': { storageKey: 'applying-active-tab', tab: 'outreach' },
+                          'jd-score': { storageKey: 'finding-active-tab', tab: 'scored-jds' },
+                          'intel': { storageKey: 'finding-active-tab', tab: 'intel' },
+                          'prep': { storageKey: 'interviewing-active-tab', tab: 'prep' },
+                          'salary': { storageKey: 'closing-active-tab', tab: 'salary' },
+                          'negotiation': { storageKey: 'closing-active-tab', tab: 'negotiation' },
+                        }
+                        const mapping = tabMap[artifact.type]
+                        if (mapping) {
+                          try { localStorage.setItem(mapping.storageKey, mapping.tab) } catch {}
+                        }
+                        router.push(artifact.route)
+                      }} className="text-xs text-text-muted hover:text-text ml-auto">
                         Open in {artifact.route.replace('/', '').replace(/-/g, ' ')} →
                       </a>
                     </div>

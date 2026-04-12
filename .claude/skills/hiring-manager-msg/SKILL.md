@@ -42,4 +42,4 @@ Structure:
 
 ## Output
 
-Write to `search/output/work-products/{company-slug}-hiring-manager-msg.md`
+Write to `search/vault/generated/outreach/{company-slug}-hiring-manager-msg.md`

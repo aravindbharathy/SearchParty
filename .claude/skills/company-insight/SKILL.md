@@ -68,4 +68,4 @@ Format (1-2 pages max):
 
 ## Output
 
-Write to `search/output/work-products/{company-slug}-insight-brief.md`
+Write to `search/vault/generated/outreach/{company-slug}-insight-brief.md`

@@ -48,4 +48,4 @@ Produce a weekly report covering:
 
 ## Step 3: Write
 
-Write to `search/output/retro-{date}.md` and update `search/context/snapshot.yaml` with current pipeline summary.
+Write to `search/vault/generated/retro-{date}.md` and update `search/context/snapshot.yaml` with current pipeline summary.

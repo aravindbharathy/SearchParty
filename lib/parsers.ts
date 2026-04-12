@@ -36,6 +36,8 @@ const ApplicationSchema = z.object({
   ]).default('researching'),
   applied_date: z.string().default(''),
   jd_source: z.string().default(''),
+  jd_file: z.string().default(''),
+  jd_url: z.string().default(''),
   resume_version: z.string().default(''),
   fit_score: z.number().min(0).max(100).default(0),
   follow_ups: z.array(FollowUpSchema).default([]),
@@ -114,6 +116,8 @@ export interface NewApplication {
   role: string
   status?: Application['status']
   jd_source?: string
+  jd_file?: string
+  jd_url?: string
   fit_score?: number
   notes?: string
 }
@@ -252,7 +256,9 @@ export async function addApplication(input: NewApplication): Promise<Application
     role: input.role,
     status: input.status || 'researching',
     applied_date: appliedDate,
-    jd_source: input.jd_source || 'pasted',
+    jd_source: input.jd_source || 'manual',
+    jd_file: input.jd_file || '',
+    jd_url: input.jd_url || '',
     resume_version: '',
     fit_score: input.fit_score || 0,
     follow_ups: generateFollowUps(appliedDate),

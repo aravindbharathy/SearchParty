@@ -45,4 +45,4 @@ Structure (under 400 words):
 
 ## Output
 
-Write to `search/output/cover-letters/{company-slug}-{role-slug}-cover.md`
+Write to `search/vault/generated/cover-letters/{company-slug}-{role-slug}-cover.md`

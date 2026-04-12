@@ -1793,7 +1793,7 @@ export default function CoachPage() {
   const showSkipButton = currentSection && !isProcessing && messages.length > 1
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-full overflow-hidden">
       {/* ─── Left Panel: Coach Chat (60%) ─── */}
       <div className="flex-1 lg:w-[60%] flex flex-col bg-white dark:bg-surface min-h-0">
         {/* Header */}

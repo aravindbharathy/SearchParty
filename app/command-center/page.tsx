@@ -332,16 +332,18 @@ export default function CommandCenterPage() {
                       <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                       Running...
                     </span>
-                  ) : (
+                  ) : pmAgent ? (
                     <button
-                      onClick={() => handleStartAgent(def.name)}
-                      className="px-3 py-1 text-xs bg-accent/20 text-accent border border-accent/30 rounded hover:bg-accent/30 transition-colors"
+                      onClick={() => handleResetSession(def.name)}
+                      className="px-3 py-1 text-xs text-danger border border-danger/30 rounded hover:bg-danger/10 transition-colors"
                     >
-                      Start
+                      Reset
                     </button>
+                  ) : (
+                    <span className="text-xs opacity-40">No session yet</span>
                   )}
                   {pmAgent && !isActive && pmAgent.status === 'failed' && (
-                    <span className="text-xs text-warning">Failed — click Start to retry</span>
+                    <span className="text-xs text-warning">Error — reset to fix</span>
                   )}
                 </div>
               </div>

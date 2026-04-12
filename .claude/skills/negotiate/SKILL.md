@@ -34,7 +34,7 @@ If not already in offers.yaml, ask for:
 
 ## Step 2: Research Market Context
 
-- Check for existing salary research: `search/output/salary-research-{company-slug}.md`
+- Check for existing salary research: `search/vault/generated/closing/salary-research-{company-slug}.md`
 - If none exists, do a quick salary research (WebSearch Levels.fyi, Glassdoor)
 - Check if the user has other active offers (competing leverage)
 
@@ -94,7 +94,7 @@ Specific numbers with reasoning:
 
 ## Step 5: Write Output
 
-Write to `search/output/negotiation-{company-slug}.md`
+Write to `search/vault/generated/closing/negotiation-{company-slug}.md`
 
 Also update `search/pipeline/offers.yaml` with the offer details if not already tracked.
 

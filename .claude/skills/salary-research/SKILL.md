@@ -76,7 +76,7 @@ Combine data into a comp profile:
 
 ## Step 3: Write Output
 
-Write to `search/output/salary-research-{company-slug}.md`
+Write to `search/vault/generated/closing/salary-research-{company-slug}.md`
 
 ## Quality Checks
 

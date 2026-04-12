@@ -3,7 +3,7 @@ import { writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join, basename, resolve } from 'path'
 import { getVaultDir } from '@/lib/paths'
 
-const VALID_SUBFOLDERS = ['resumes', 'jds', 'transcripts', 'work-products'] as const
+const VALID_SUBFOLDERS = ['uploads/resumes', 'uploads/jds', 'uploads/transcripts', 'uploads/portfolio', 'uploads/templates'] as const
 
 export async function POST(request: NextRequest) {
   try {

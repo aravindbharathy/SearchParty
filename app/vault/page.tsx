@@ -22,10 +22,14 @@ interface ScanResponse {
 }
 
 const SUBFOLDER_LABELS: Record<string, string> = {
-  resumes: 'Resumes',
-  jds: 'Job Descriptions',
+  'uploads/jds': 'Job Descriptions',
+  'uploads/templates': 'Resume Templates',
+  'uploads/portfolio': 'Portfolio',
   transcripts: 'Interview Transcripts',
-  'work-products': 'Work Products',
+  'generated/resumes': 'Generated Resumes',
+  'generated/cover-letters': 'Cover Letters',
+  'generated/outreach': 'Outreach',
+  'generated/closing': 'Closing',
 }
 
 function statusBadge(status: string) {
@@ -51,7 +55,7 @@ export default function VaultPage() {
   const [data, setData] = useState<ScanResponse | null>(null)
   const [scanning, setScanning] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [uploadTarget, setUploadTarget] = useState<string>('resumes')
+  const [uploadTarget, setUploadTarget] = useState<string>('uploads/jds')
   const [message, setMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 

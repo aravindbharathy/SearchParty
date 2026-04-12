@@ -40,7 +40,7 @@ export interface ResumeData {
   id: string
   target_company: string
   target_role: string
-  template: 'clean' | 'modern' | 'traditional'
+  template: string
   contact: ResumeContact
   summary: string
   experiences: ResumeExperience[]

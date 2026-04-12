@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { existsSync, readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
-import { getSearchDir } from '@/lib/paths'
+import { getGeneratedDir } from '@/lib/paths'
 
 export async function GET() {
   try {
-    const resumeDir = join(getSearchDir(), 'output', 'resumes')
+    const resumeDir = join(getGeneratedDir(), 'resumes')
     if (!existsSync(resumeDir)) {
       return NextResponse.json({ resumes: [] })
     }

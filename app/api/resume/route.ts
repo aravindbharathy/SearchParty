@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs'
 import { join } from 'path'
-import { getSearchDir } from '@/lib/paths'
+import { getGeneratedDir } from '@/lib/paths'
 
 function getResumeDir(): string {
-  const dir = join(getSearchDir(), 'output', 'resumes')
+  const dir = join(getGeneratedDir(), 'resumes')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
 }

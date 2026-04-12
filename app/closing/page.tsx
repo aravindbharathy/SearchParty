@@ -44,7 +44,7 @@ type TabKey = 'offers' | 'salary-research' | 'negotiation'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const NEGOTIATION_DIRECTIVE = `You are the user's negotiation specialist. Read search/context/career-plan.yaml, search/pipeline/offers.yaml, and any salary research files in search/output/ for context.
+const NEGOTIATION_DIRECTIVE = `You are the user's negotiation specialist. Read search/context/career-plan.yaml, search/pipeline/offers.yaml, and any salary research files in search/vault/generated/closing/ for context.
 
 IMPORTANT: If career-plan.yaml is empty (no comp floor or target level), DO NOT proceed. Instead:
 1. Tell them: "Your career plan isn't set up yet. I need your target comp and level to contextualize salary research. Head to the Job Search Coach to complete your profile first."
@@ -111,34 +111,33 @@ export default function ClosingPage() {
 
   const loadDocs = useCallback(async () => {
     try {
-      // Load salary research and negotiation docs from output/
-      const res = await fetch('/api/vault/read-file?path=output/')
-      // Since we can't list output/ directly, search for files
       const salaryFiles: ResearchDoc[] = []
       const negoFiles: ResearchDoc[] = []
 
-      // Try known patterns
-      for (const prefix of ['salary-research', 'negotiation']) {
-        try {
-          const scanRes = await fetch(`/api/vault/scan?dir=output`)
-          if (scanRes.ok) {
-            const data = await scanRes.json() as { files?: string[] }
-            for (const f of data.files || []) {
-              if (!f.endsWith('.md')) continue
-              try {
-                const r = await fetch(`/api/vault/read-file?path=output/${f}`)
-                if (r.ok) {
-                  const d = await r.json() as { content: string }
-                  const titleMatch = d.content.match(/^#\s+(.+)/m)
-                  const doc = { filename: f, title: titleMatch?.[1] || f, content: d.content }
-                  if (f.startsWith('salary-research')) salaryFiles.push(doc)
-                  else if (f.startsWith('negotiation')) negoFiles.push(doc)
-                }
-              } catch {}
-            }
-          }
-        } catch {}
-        break // only need one scan
+      const scanRes = await fetch(`/api/vault/scan?dir=vault/generated/closing`)
+      if (scanRes.ok) {
+        const data = await scanRes.json() as { files?: string[] }
+        const mdFiles = (data.files || []).filter(f => f.endsWith('.md'))
+
+        const results = await Promise.all(
+          mdFiles.map(async (f) => {
+            try {
+              const r = await fetch(`/api/vault/read-file?path=vault/generated/closing/${f}`)
+              if (r.ok) {
+                const d = await r.json() as { content: string }
+                const titleMatch = d.content.match(/^#\s+(.+)/m)
+                return { filename: f, title: titleMatch?.[1] || f, content: d.content }
+              }
+            } catch {}
+            return null
+          })
+        )
+
+        for (const doc of results) {
+          if (!doc) continue
+          if (doc.filename.startsWith('salary-research')) salaryFiles.push(doc)
+          else if (doc.filename.startsWith('negotiation')) negoFiles.push(doc)
+        }
       }
       setSalaryDocs(salaryFiles)
       setNegotiationDocs(negoFiles)
@@ -226,7 +225,7 @@ export default function ClosingPage() {
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
+    <div className="flex h-full">
       <div className="flex-1 flex flex-col overflow-hidden border-r border-border">
         <div className="px-5 pt-5 pb-3">
           <h1 className="text-2xl font-bold mb-3">Closing</h1>

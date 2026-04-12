@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { existsSync, readdirSync } from 'fs'
 import { join } from 'path'
-import { getVaultDir } from '@/lib/paths'
+import { getUploadsDir } from '@/lib/paths'
 
 export async function GET() {
   try {
-    const jdDir = join(getVaultDir(), 'job-descriptions')
+    const jdDir = join(getUploadsDir(), 'jds')
     if (!existsSync(jdDir)) {
       return NextResponse.json({ files: [] })
     }

@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     }
 
     const vaultDir = getVaultDir()
-    const jdDir = join(vaultDir, 'job-descriptions')
+    const jdDir = join(vaultDir, 'uploads/jds')
     if (!existsSync(jdDir)) mkdirSync(jdDir, { recursive: true })
 
     // Build filename: company-role.txt (sanitized)
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     writeFileSync(filepath, header + body.text.trim())
 
     // Relative path for storage in applications
-    const relativePath = `vault/job-descriptions/${filename}`
+    const relativePath = `vault/uploads/jds/${filename}`
 
     return NextResponse.json({ ok: true, path: relativePath, filename })
   } catch (err) {

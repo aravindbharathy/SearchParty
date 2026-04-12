@@ -1,6 +1,6 @@
 ---
 name: resume-tailor
-description: "Generate a tailored resume from a job description. Reads experience library, applies reviewer rubrics, outputs to search/output/resumes/."
+description: "Generate a tailored resume from a job description. Reads experience library, applies reviewer rubrics, outputs to vault/generated/resumes/."
 argument-hint: "<JD text or path to JD file>"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, mcp__blackboard-channel__read_blackboard, mcp__blackboard-channel__write_to_blackboard
 ---
@@ -77,15 +77,15 @@ Count what percentage of JD requirements are addressed in the resume:
 
 ## Step 6: Determine Version Number
 
-Check `search/output/resumes/` for existing versions:
+Check `search/vault/generated/resumes/` for existing versions:
 ```bash
-ls search/output/resumes/{company-slug}-{role-slug}-v*.md 2>/dev/null | sort -V | tail -1
+ls search/vault/generated/resumes/{company-slug}-{role-slug}-v*.md 2>/dev/null | sort -V | tail -1
 ```
 Increment the version number, or start at v1.
 
 ## Step 7: Write Resume
 
-Write to `search/output/resumes/{company-slug}-{role-slug}-v{N}.json`
+Write to `search/vault/generated/resumes/{company-slug}-{role-slug}-v{N}.json`
 
 Output as STRUCTURED JSON (not markdown). This enables the visual editor and PDF export:
 
@@ -94,7 +94,7 @@ Output as STRUCTURED JSON (not markdown). This enables the visual editor and PDF
   "id": "resume-{timestamp}",
   "target_company": "{company}",
   "target_role": "{role}",
-  "template": "clean",
+  "template": "{use the template name specified by the user, or default to 'clean'}",
   "contact": {
     "name": "{from experience-library}",
     "email": "{from experience-library}",
@@ -136,7 +136,7 @@ Output as STRUCTURED JSON (not markdown). This enables the visual editor and PDF
 }
 ```
 
-ALSO write a markdown version to `search/output/resumes/{company-slug}-{role-slug}-v{N}.md` for backward compatibility.
+ALSO write a markdown version to `search/vault/generated/resumes/{company-slug}-{role-slug}-v{N}.md` for backward compatibility.
 
 ## Step 8: Recruiter Review Pass (fix issues before proceeding)
 
@@ -211,5 +211,5 @@ write_to_blackboard path="log" value={"ts":"{now}","entry":"Resume tailored: {Co
 
 If a `spawn_id` was provided in the directive, include it:
 ```
-write_to_blackboard path="events.{spawn_id}" value={"event":"agent_complete","spawn_id":"{spawn_id}","agent":"resume","skill":"resume-tailor","output_path":"search/output/resumes/{slug}-v{N}.md","status":"completed"} log_entry="resume-tailor spawn complete"
+write_to_blackboard path="events.{spawn_id}" value={"event":"agent_complete","spawn_id":"{spawn_id}","agent":"resume","skill":"resume-tailor","output_path":"search/vault/generated/resumes/{slug}-v{N}.md","status":"completed"} log_entry="resume-tailor spawn complete"
 ```

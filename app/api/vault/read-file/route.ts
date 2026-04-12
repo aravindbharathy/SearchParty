@@ -14,9 +14,9 @@ export async function GET(req: Request) {
   // Normalize: strip leading 'search/' if present (agents write full paths)
   const normalizedPath = path.replace(/^search\//, '')
 
-  // Only allow reading from output/ and vault/ directories
-  if (!normalizedPath.startsWith('output/') && !normalizedPath.startsWith('vault/')) {
-    return NextResponse.json({ error: 'Can only read files from output/ or vault/' }, { status: 403 })
+  // Only allow reading from vault/ and entries/ directories
+  if (!normalizedPath.startsWith('vault/') && !normalizedPath.startsWith('entries/')) {
+    return NextResponse.json({ error: 'Can only read files from vault/ or entries/' }, { status: 403 })
   }
 
   const searchDir = getSearchDir()

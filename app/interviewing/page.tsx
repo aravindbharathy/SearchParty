@@ -287,7 +287,7 @@ export default function InterviewingPage() {
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
+    <div className="flex h-full">
       {/* ─── Left Panel: Tabs (65%) ─────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden border-r border-border">
         <div className="px-5 pt-5 pb-3">

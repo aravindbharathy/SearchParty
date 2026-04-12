@@ -20,6 +20,8 @@ export async function POST(req: Request) {
       role?: string
       status?: string
       jd_source?: string
+      jd_file?: string
+      jd_url?: string
       fit_score?: number
       notes?: string
     }
@@ -36,6 +38,8 @@ export async function POST(req: Request) {
       role: body.role,
       status: (body.status as 'researching' | 'applied' | 'phone-screen' | 'onsite' | 'offer' | 'rejected' | 'withdrawn') || undefined,
       jd_source: body.jd_source,
+      jd_file: body.jd_file,
+      jd_url: body.jd_url,
       fit_score: body.fit_score,
       notes: body.notes,
     })

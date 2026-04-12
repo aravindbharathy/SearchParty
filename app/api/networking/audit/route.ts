@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { existsSync, readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
-import { getSearchDir } from '@/lib/paths'
+import { getGeneratedDir } from '@/lib/paths'
 
 /**
  * GET — read all LinkedIn-related output files from search/output/
@@ -9,12 +9,12 @@ import { getSearchDir } from '@/lib/paths'
  */
 export async function GET() {
   try {
-    const outputDir = join(getSearchDir(), 'output')
-    if (!existsSync(outputDir)) {
+    const messagesDir = join(getGeneratedDir(), 'messages')
+    if (!existsSync(messagesDir)) {
       return NextResponse.json({ documents: [] })
     }
 
-    const allFiles = readdirSync(outputDir)
+    const allFiles = readdirSync(messagesDir)
       .filter(f => f.startsWith('linkedin') && f.endsWith('.md'))
       .sort()
       .reverse()
@@ -24,7 +24,7 @@ export async function GET() {
     }
 
     const documents = allFiles.map(file => {
-      const content = readFileSync(join(outputDir, file), 'utf-8')
+      const content = readFileSync(join(messagesDir, file), 'utf-8')
       // Extract title from first markdown heading, fall back to filename
       const headingMatch = content.match(/^#\s+(.+)/m)
       const title = headingMatch

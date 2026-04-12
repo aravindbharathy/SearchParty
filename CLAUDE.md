@@ -16,10 +16,22 @@ AI-powered job search system. A Next.js 16 dashboard with a blackboard coordinat
 
 ```
 search/                         <- Operations state directory
-  vault/                        <- Source documents (resumes, JDs, transcripts, offers)
+  vault/                        <- All files (uploads + generated)
+    uploads/                    <- User-provided files (survive reset)
+      resumes/                  <- Original resume PDFs/DOCXs
+      jds/                      <- Job descriptions
+      transcripts/              <- Interview transcripts
+      portfolio/                <- Portfolio pieces, work samples
+      templates/                <- Resume CSS/HTML templates
+    generated/                  <- Agent-produced artifacts (cleared on reset)
+      resumes/                  <- Tailored resumes (JSON + MD)
+      cover-letters/            <- Cover letters
+      outreach/                 <- Hiring manager msgs, insight briefs
+      prep/                     <- Interview prep packages
+      messages/                 <- Networking messages
+      closing/                  <- Salary research, negotiation strategies
   context/                      <- User context (experience library, career plan, preferences)
   pipeline/                     <- Application tracking (applications, interviews, offers)
-  output/                       <- Generated artifacts (tailored resumes, cover letters, messages)
   intel/                        <- Company research files (one YAML per company)
   entries/                      <- Log entries (findings, decisions, etc.)
   agents/                       <- Agent session tracking
