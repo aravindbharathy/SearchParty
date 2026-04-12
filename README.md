@@ -201,30 +201,43 @@ export const AGENT_MODELS: Record<string, string> = {
 }
 ```
 
-### Skills (20 total)
+### Skills (22 total)
 
 Markdown files that control agent behavior. Edit without code changes:
 
 ```
 .claude/skills/
+  # Coach
   setup/                  Profile onboarding flow
   daily-briefing/         Morning priorities + pipeline check
   weekly-retro/           End-of-week analysis + next week plan
+
+  # Research
   scan-roles/             Find open roles (sources, verification)
   score-jd/               Score JD against profile (5 dimensions)
   company-research/       Build company intel profiles
   generate-targets/       Rank target companies by fit
+
+  # Resume
   resume-tailor/          Tailor resume to specific JD
   cover-letter/           Map top 3 experiences to top 3 requirements
   hiring-manager-msg/     Lead with product insight, not an ask
   company-insight/        1-2 page product analysis brief
+  recruiter-review/       6-second scan test rubric (used by resume-tailor)
+  ats-check/              ATS compatibility rubric (used by resume-tailor)
+
+  # Networking
   connection-request/     Personalized LinkedIn outreach batch
   referral-request/       3-message referral sequence
   linkedin-audit/         Profile positioning for target roles
+
+  # Interview
   interview-prep/         Company-specific prep packages
   mock-interview/         One-at-a-time with Three Laws scoring
   interview-debrief/      Post-interview analysis + pattern tracking
   thank-you-note/         Personalized, references conversation moments
+
+  # Negotiation
   salary-research/        Market comp from Levels.fyi, Glassdoor, Blind
   negotiate/              Offer analysis + counter-offer strategy
 ```
