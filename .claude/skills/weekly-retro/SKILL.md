@@ -49,3 +49,16 @@ Produce a weekly report covering:
 ## Step 3: Write
 
 Write to `search/vault/generated/retro-{date}.md` and update `search/context/snapshot.yaml` with current pipeline summary.
+
+## Step 4: Update Playbook
+
+After writing the retro report, extract key insights for the playbook:
+
+1. Read `search/playbook.yaml` (create with `lessons: []\ndecisions: []\nchecklists: []` if missing)
+2. For each pattern or learning from "What to Improve":
+   - Add to lessons array: `{id: "les-{next}", text: "the learning", category: "most relevant", source: "retro", date: "today's date"}`
+3. For each strategic shift in "Next Week's Focus":
+   - Add to decisions array: `{id: "dec-{next}", text: "the strategy", reasoning: "why", source: "retro", date: "today's date", status: "active"}`
+4. Write updated playbook back to `search/playbook.yaml`
+
+IMPORTANT: Read existing lessons first. Do NOT add duplicates of existing lessons.

@@ -31,6 +31,7 @@ Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackb
 3. `search/context/qa-master.yaml` — prepared answers for common questions
 4. `search/intel/{company-slug}.yaml` — company intel (if exists)
 5. `search/context/interview-history.yaml` — past interviews, patterns, weak areas
+6. `search/playbook.yaml` — lessons tagged "interview" (especially for this company)
 
 ## Step 2: Research Company (if no intel exists)
 
@@ -88,9 +89,14 @@ Write to `search/vault/generated/prep/{company-slug}-{round-type}-prep.md`:
 ## Weak Spots to Prepare
 {areas from interview-history + addressing_weaknesses}
 
+## Past Lessons
+{List relevant lessons from playbook.yaml}
+
 ## Questions to Ask
 {5-7 thoughtful questions showing research}
 ```
+
+If relevant playbook lessons exist for this company or for interviews in general, include the "Past Lessons" section above. Otherwise omit it.
 
 ## Cross-Agent Directives
 

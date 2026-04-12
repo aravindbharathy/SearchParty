@@ -151,6 +151,7 @@ export const CareerPlanSchema = z.object({
     dream_role: z.string().default(''),
     non_negotiables: z.array(z.string()).default([]),
   }).default({ why_searching: '', dream_role: '', non_negotiables: [] }),
+  search_started: z.string().default(''),
 }).passthrough().transform(plan => {
   const p = plan as Record<string, unknown>
   // Normalize agent aliases for top-level fields

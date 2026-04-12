@@ -114,7 +114,7 @@ Dashboard opens at **http://localhost:8791**
 
 ### 3. Set up your profile
 
-1. Drop your resume PDF into `search/vault/resumes/`
+1. Drop your resume PDF into `search/vault/uploads/resumes/`
 2. Click **Job Search Coach** in the sidebar
 3. The coach parses your resume, confirms details, asks about your goals
 4. Your profile fills up as you answer — other agents use it to personalize everything
@@ -143,11 +143,13 @@ crontab -e
 
 ```
 search/
-  context/    Your profile (experience, career plan, Q&A answers)
-  pipeline/   Applications, interviews, open roles
-  output/     Generated resumes, cover letters, prep packages
-  intel/      Company research files
-  vault/      Your source documents (resumes, JDs, transcripts)
+  vault/
+    uploads/      Your source files (resumes, JDs, transcripts, templates)
+    generated/    Agent output (tailored resumes, cover letters, prep, outreach)
+  context/        Your profile (experience, career plan, Q&A answers)
+  pipeline/       Applications, interviews, offers
+  intel/          Company research files
+  playbook.yaml   Accumulated lessons, strategy decisions, checklists
 ```
 
 No data leaves your machine except when agents search the web for company info or job postings.
@@ -178,6 +180,9 @@ Every page: **tabbed content** on the left, **agent chat** on the right.
 | **Networking** | Networking | Connection requests, referrals, LinkedIn audit |
 | **Interviewing** | Interview | Prep packages, mock interviews, debriefs |
 | **Closing** | Negotiation | Offers, salary research, negotiation strategy |
+| **Analytics** | — | Pipeline funnel, response rates, fit score insights, stale apps |
+| **Playbook** | — | Lessons learned, strategy decisions, reusable checklists |
+| **Vault** | — | File browser for uploads and generated materials |
 | **Command Center** | All | Agent management, blackboard viewer, reset |
 
 <br/>

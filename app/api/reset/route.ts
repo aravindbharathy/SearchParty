@@ -126,7 +126,7 @@ export async function POST(req: Request) {
       cleared.push('context files')
 
       // Clear root-level search state files
-      for (const f of ['board.md', 'decisions.yaml', 'snapshot.yaml', 'lessons.md']) {
+      for (const f of ['board.md', 'decisions.yaml', 'snapshot.yaml', 'lessons.md', 'playbook.yaml']) {
         const fp = join(searchDir, f)
         if (existsSync(fp)) {
           writeFileSync(fp, '')

@@ -33,6 +33,9 @@ search/                         <- Operations state directory
   context/                      <- User context (experience library, career plan, preferences)
   pipeline/                     <- Application tracking (applications, interviews, offers)
   intel/                        <- Company research files (one YAML per company)
+  playbook.yaml                 <- Accumulated lessons, decisions, and checklists (replaces decisions.yaml and lessons.md)
+  decisions.yaml                <- DEPRECATED (replaced by playbook.yaml)
+  lessons.md                    <- DEPRECATED (replaced by playbook.yaml)
   entries/                      <- Log entries (findings, decisions, etc.)
   agents/                       <- Agent session tracking
   archive/                      <- Archived items

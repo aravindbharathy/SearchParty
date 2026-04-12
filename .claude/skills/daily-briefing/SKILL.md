@@ -15,6 +15,7 @@ Read ALL of these files:
 3. `search/context/connection-tracker.yaml` — networking contacts and follow-ups
 4. `search/context/snapshot.yaml` — latest search snapshot (if exists)
 5. `search/board.md` — current board state (if exists)
+6. `search/playbook.yaml` — active strategy decisions
 
 ## Step 2: Analyze Data
 
@@ -72,6 +73,9 @@ Write to `search/board.md` (overwrite previous briefing):
 | Rejected | {n} |
 | Withdrawn | {n} |
 | **Total** | **{n}** |
+
+## Active Strategy
+{List active decisions from playbook.yaml as reminders}
 ```
 
 ## Step 4: Post to Blackboard

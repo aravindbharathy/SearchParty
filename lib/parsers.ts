@@ -267,6 +267,25 @@ export async function addApplication(input: NewApplication): Promise<Application
 
   apps.push(app)
   await writeApplications(apps)
+
+  // Set search_started in career-plan if not already set (survives activity resets)
+  if (apps.length === 1) {
+    try {
+      const { readFileSync, writeFileSync, existsSync } = await import('fs')
+      const { join } = await import('path')
+      const YAML = (await import('yaml')).default
+      const { getSearchDir } = await import('./paths')
+      const cpPath = join(getSearchDir(), 'context', 'career-plan.yaml')
+      if (existsSync(cpPath)) {
+        const raw = YAML.parse(readFileSync(cpPath, 'utf-8')) || {}
+        if (!raw.search_started) {
+          raw.search_started = appliedDate
+          writeFileSync(cpPath, YAML.stringify(raw))
+        }
+      }
+    } catch {}
+  }
+
   return app
 }
 

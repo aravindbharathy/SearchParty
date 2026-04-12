@@ -76,7 +76,17 @@ patterns:
 
 IMPORTANT: Preserve existing entries — append the new one, update patterns.
 
-## Step 5: Thank-You Reminder
+## Step 5: Extract Playbook Lesson
+
+If the debrief reveals a concrete, actionable takeaway:
+
+1. Read `search/playbook.yaml` (create with empty structure if missing)
+2. Add one lesson: `{id: "les-{next}", text: "the takeaway", category: "interview", source: "debrief", company: "company name", date: "today"}`
+3. Write back to `search/playbook.yaml`
+
+Only add a lesson if there is a specific insight — not every debrief needs one.
+
+## Step 6: Thank-You Reminder
 
 After the debrief, remind the user:
 > "Don't forget to send a thank-you note within 24 hours. Would you like me to draft one?"
