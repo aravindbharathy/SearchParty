@@ -374,7 +374,7 @@ export default function FindingPage() {
 
     setActiveTab('scored-jds')
     sendChatMessage(
-      `Score this job description against my profile. Read search/context/experience-library.yaml and search/context/career-plan.yaml for context. Write the scored result to search/entries/ with frontmatter containing Company, Role, URL, Date, and JD File fields.\n\nCompany: ${company}\nRole: ${role}\n${jdUrl.trim() ? `URL: ${jdUrl.trim()}\n` : ''}\nJob Description:\n${jdText.trim()}`
+      `Run this command first: cat .claude/skills/score-jd/SKILL.md — then follow its instructions to score this JD:\n\nCompany: ${company}\nRole: ${role}\n${jdUrl.trim() ? `URL: ${jdUrl.trim()}\n` : ''}\nJob Description:\n${jdText.trim()}`
     )
 
     // Clear form
@@ -388,7 +388,7 @@ export default function FindingPage() {
     lastActionRef.current = 'research'
     setActiveTab('intel')
     sendChatMessage(
-      `Research "${companyName}" and produce structured company intel. Write to search/intel/${companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.yaml with structure: company, slug, industry, hq, size, stage, website, careers_url, culture (values, engineering_culture, remote_policy), interview (stages, timeline, tips), comp (currency, bands, notes). Read search/context/career-plan.yaml for context.`
+      `Run this command first: cat .claude/skills/company-research/SKILL.md — then follow its instructions to research "${companyName}".`
     )
   }
 
@@ -404,7 +404,7 @@ export default function FindingPage() {
     lastActionRef.current = 'score'
     setActiveTab('scored-jds')
     sendChatMessage(
-      `Score the job description from file search/vault/job-descriptions/${filename} against my profile. Read search/context/experience-library.yaml and search/context/career-plan.yaml for context. Write the scored result to search/entries/.`
+      `Run this command first: cat .claude/skills/score-jd/SKILL.md — then follow its instructions to score the JD at search/vault/job-descriptions/${filename}.`
     )
   }
 

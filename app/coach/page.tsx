@@ -1824,7 +1824,7 @@ export default function CoachPage() {
                   }
                 }
               } catch {}
-              sendMessage('Give me my daily briefing. Read search/pipeline/applications.yaml, search/pipeline/open-roles.yaml, search/context/connection-tracker.yaml, and search/context/snapshot.yaml. Include: (1) new open roles discovered at target companies, (2) follow-ups due, (3) upcoming interviews, (4) pipeline status, (5) priorities for today.')
+              sendMessage('Run this command first: cat .claude/skills/daily-briefing/SKILL.md — then follow its instructions to produce my daily briefing.')
             }}
             disabled={isProcessing}
             className="px-3 py-1.5 text-xs font-medium border border-accent/30 text-accent rounded-full hover:bg-accent/10 transition-colors whitespace-nowrap disabled:opacity-50"

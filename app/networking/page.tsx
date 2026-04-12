@@ -460,17 +460,17 @@ export default function NetworkingPage() {
 
   const handleGenerateMessages = () => {
     setActiveTab('messages')
-    sendChatMessage('Generate personalized connection requests for my contacts. Read search/context/target-companies.yaml, search/context/connection-tracker.yaml, and search/context/experience-library.yaml for context. Generate messages for at least 5 contacts, each under 300 characters. Format each with a ## header containing the person\'s name and company.')
+    sendChatMessage('Run this command first: cat .claude/skills/connection-request/SKILL.md — then follow its instructions to generate personalized connection requests.')
   }
 
   const handleRunAudit = () => {
     setActiveTab('linkedin')
     auditRequestedRef.current = true
-    sendChatMessage('Audit my LinkedIn profile against my target roles. Read search/context/career-plan.yaml, search/context/experience-library.yaml, and top JDs from search/vault/job-descriptions/ for the analysis. Provide before/after suggestions for each profile section.')
+    sendChatMessage('Run this command first: cat .claude/skills/linkedin-audit/SKILL.md — then follow its instructions to audit my LinkedIn profile.')
   }
 
   const handleRequestReferral = (contact: Contact) => {
-    sendChatMessage(`Generate a 3-message referral request sequence for "${contact.name}" at "${contact.company}". Their role is ${contact.role}. Read search/context/connection-tracker.yaml for prior interaction history.`)
+    sendChatMessage(`Run this command first: cat .claude/skills/referral-request/SKILL.md — then follow its instructions to generate a referral request sequence for "${contact.name}" at "${contact.company}".`)
   }
 
   const handleCopyMessage = (text: string, idx: number) => {
