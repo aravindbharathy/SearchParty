@@ -120,27 +120,39 @@ Format:
 - {cert2}
 ```
 
-## Step 8: Recruiter Review Pass
+## Step 8: Recruiter Review Pass (fix issues before proceeding)
 
 Run: cat .claude/skills/recruiter-review/SKILL.md — then evaluate your resume against the rubric.
 
-Score on:
+Check:
 - First impression (would a recruiter spend more than 6 seconds?)
-- Quantified achievements (are metrics present?)
+- Quantified achievements (are metrics present in every bullet?)
 - Relevance to role (is it clearly targeted?)
 - Formatting and readability
-- Overall recruiter score
 
-## Step 9: ATS Check Pass
+If ANY check fails: go back and FIX the resume content before continuing. For example:
+- Missing metrics → add numbers from experience-library
+- Weak first impression → strengthen the summary
+- Off-target bullets → swap for more relevant accomplishments
+
+Do NOT proceed to Step 9 until all recruiter checks pass.
+
+## Step 9: ATS Check Pass (fix issues before proceeding)
 
 Run: cat .claude/skills/ats-check/SKILL.md — then verify:
 
-- Standard section headers used
-- No tables, columns, or graphics (plain text/markdown is fine)
-- Keywords match JD terminology
-- Date formats are consistent
-- No header/footer-only content
+- Standard section headers used (Experience, Education, Skills — not creative names)
+- No tables, columns, or graphics (plain text/markdown only)
+- Keywords match JD terminology exactly (not synonyms — use the JD's words)
+- Date formats are consistent throughout
 - Contact info is in the body, not a header
+
+If ANY check fails: go back and FIX the resume. For example:
+- Missing JD keywords → add them to relevant bullet points
+- Non-standard headers → rename to standard ones
+- Inconsistent dates → standardize format
+
+Do NOT output the final resume until both review passes are clean.
 
 ## Step 10: Append Review Results
 
