@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { existsSync, readFileSync } from 'fs'
+import { readFile } from 'fs/promises'
 import { join, resolve } from 'path'
 import { getSearchDir } from '@/lib/paths'
 
@@ -10,12 +10,16 @@ const MIME_TYPES: Record<string, string> = {
   jpeg: 'image/jpeg',
   gif: 'image/gif',
   svg: 'image/svg+xml',
+  txt: 'text/plain',
+  md: 'text/plain',
+  html: 'text/html',
+  css: 'text/css',
+  json: 'application/json',
+  yaml: 'text/yaml',
+  yml: 'text/yaml',
+  csv: 'text/csv',
 }
 
-/**
- * GET /api/vault/serve-file?path=vault/uploads/resumes/file.pdf
- * Serves a binary file with correct content type for browser viewing.
- */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const path = searchParams.get('path')
@@ -36,18 +40,17 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Invalid path' }, { status: 403 })
   }
 
-  if (!existsSync(fullPath)) {
+  try {
+    const buffer = await readFile(fullPath)
+    const ext = path.split('.').pop()?.toLowerCase() || ''
+    return new NextResponse(buffer, {
+      headers: {
+        'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
+        'Content-Length': buffer.length.toString(),
+        'Content-Disposition': 'inline',
+      },
+    })
+  } catch {
     return NextResponse.json({ error: 'File not found' }, { status: 404 })
   }
-
-  const ext = path.split('.').pop()?.toLowerCase() || ''
-  const contentType = MIME_TYPES[ext] || 'application/octet-stream'
-  const buffer = readFileSync(fullPath)
-
-  return new NextResponse(buffer, {
-    headers: {
-      'Content-Type': contentType,
-      'Content-Disposition': 'inline',
-    },
-  })
 }

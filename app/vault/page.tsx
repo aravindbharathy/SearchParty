@@ -43,6 +43,12 @@ const GENERATED_FOLDERS = [
   { dir: 'vault/generated/closing', label: 'Closing' },
 ]
 
+const VIEWABLE_EXTS = new Set(['md', 'txt', 'json', 'yaml', 'yml', 'css', 'html', 'csv'])
+
+function prettyJson(raw: string): string {
+  try { return JSON.stringify(JSON.parse(raw), null, 2) } catch { return raw }
+}
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -99,17 +105,15 @@ export default function VaultPage() {
 
     setUploading(true)
     setMessage(null)
-    let uploaded = 0
-    for (const file of Array.from(files)) {
+    const results = await Promise.allSettled(Array.from(files).map(async file => {
       const form = new FormData()
       form.append('file', file)
       form.append('subfolder', uploadTarget)
-      try {
-        const res = await fetch('/api/vault/upload', { method: 'POST', body: form })
-        const json = await res.json()
-        if (json.ok) uploaded++
-      } catch {}
-    }
+      const res = await fetch('/api/vault/upload', { method: 'POST', body: form })
+      const json = await res.json()
+      return json.ok ? true : false
+    }))
+    const uploaded = results.filter(r => r.status === 'fulfilled' && r.value).length
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
     if (uploaded > 0) {
@@ -134,8 +138,6 @@ export default function VaultPage() {
       }
     } catch {}
   }
-
-  const VIEWABLE_EXTS = new Set(['md', 'txt', 'json', 'yaml', 'yml', 'css', 'html', 'csv'])
 
   const viewFile = async (name: string, path: string) => {
     if (viewingFile?.path === path) { setViewingFile(null); return }
@@ -189,7 +191,7 @@ export default function VaultPage() {
       {/* Upload bar */}
       <div className="mb-6 flex items-center gap-3 p-4 bg-surface border border-border rounded-lg">
         <select value={uploadTarget} onChange={e => setUploadTarget(e.target.value)}
-          className="px-3 py-2 bg-bg border border-border rounded-md text-sm">
+          className="px-3 py-2 pr-8 bg-bg border border-border rounded-md text-sm appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M6%208L1%203h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.75rem_center]">
           {Object.entries(UPLOAD_FOLDERS).map(([key, { label }]) => (
             <option key={key} value={key}>{label}</option>
           ))}
@@ -361,9 +363,7 @@ export default function VaultPage() {
             ) : viewingFile.name.endsWith('.md') ? (
               <MarkdownView content={viewingFile.content} className="text-sm" />
             ) : viewingFile.name.endsWith('.json') ? (
-              <pre className="text-xs font-mono text-text whitespace-pre-wrap">{(() => {
-                try { return JSON.stringify(JSON.parse(viewingFile.content), null, 2) } catch { return viewingFile.content }
-              })()}</pre>
+              <pre className="text-xs font-mono text-text whitespace-pre-wrap">{prettyJson(viewingFile.content)}</pre>
             ) : (
               <pre className="text-xs font-mono text-text whitespace-pre-wrap">{viewingFile.content}</pre>
             )}
