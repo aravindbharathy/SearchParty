@@ -66,9 +66,9 @@ Not templates. The agents read your actual experience, your career goals, and ea
 
 Most tools focus on the evaluate-and-apply phase. Search Party covers the entire arc: finding roles → scoring fit → tailoring resumes → building warm intros → prepping for interviews → mock interviews with scoring → debriefing after → negotiating the offer. Each stage has a dedicated agent with stage-specific skills. Your coach briefs you every morning and runs a retro every week.
 
-### A real dashboard
+### A dashboard that shows the big picture
 
-Not a terminal. A web dashboard with a kanban pipeline, live agent chat, visual resume editor, and company intel cards. You see your entire search at a glance and interact through a UI, not command-line flags.
+A web dashboard with a kanban pipeline, live agent chat, visual resume editor, and company intel cards. You see your entire search at a glance — every stage, every agent, every application — without context-switching.
 
 <br/>
 
