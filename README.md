@@ -342,6 +342,10 @@ bun cli/job-search.ts status   # Check what's running
 
 <br/>
 
+## Disclaimer
+
+Search Party is a local tool — **not** a hosted service. Your data stays on your machine and is sent only to Anthropic's API when agents run. Agents do not auto-submit applications, but AI can behave unpredictably — always review generated content before submitting. You are responsible for complying with the Terms of Service of any platform you use (LinkedIn, Greenhouse, etc.). Fit scores, salary data, and all AI-generated content are recommendations, not guarantees. See [LEGAL_DISCLAIMER.md](LEGAL_DISCLAIMER.md) for full details.
+
 ## License
 
 **AGPL-3.0** — free to use, modify, and share. If you run a modified version as a service, you must release your source code. See [LICENSE](LICENSE).
