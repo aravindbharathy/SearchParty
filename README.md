@@ -183,6 +183,46 @@ crontab -e
 
 ## How it works
 
+### Each agent is a real Claude Code session
+
+Agents aren't chatbots with canned responses. Each one is a full [Claude Code](https://claude.ai/code) session with access to your local filesystem — it can read your files, write new ones, search the web, and run tools. When you ask the Resume agent to tailor your resume, it reads your experience library, reads the JD, and writes a new resume file directly to your machine.
+
+Sessions are **persistent**. The first time you talk to an agent, it starts a new Claude Code session. Every subsequent message resumes the same session, so the agent remembers your full conversation history — what you discussed, what it already tried, what you asked it to change.
+
+### How agents remember everything
+
+The "memory" isn't magic — it's structured files that agents read before every action:
+
+```
+search/context/
+  experience-library.yaml   ← Your work history, skills, STAR stories
+  career-plan.yaml          ← Target roles, preferences, priorities
+  interview-answers.yaml    ← "Why are you looking?" and other prep answers
+  interview-history.yaml    ← Past interviews, scores, patterns across companies
+  connection-tracker.yaml   ← Professional contacts and relationship status
+  target-companies.yaml     ← Companies of interest with intel
+```
+
+Every agent reads the files relevant to its job. The Resume agent reads your experience library and career plan. The Interview agent reads your interview history and STAR stories. The Coach reads everything.
+
+The key is that **agents write back**. When the Interview agent debriefs you after a Stripe phone screen, it writes the questions, your scores, and patterns it noticed to `interview-history.yaml`. Next time Interview Prep runs — for any company — it reads those patterns and adjusts: "You've struggled with system design estimation in your last 2 interviews. Here's a framework." The `playbook.yaml` accumulates strategic lessons the same way.
+
+This is why application #50 is better than #1. The files get richer with every interaction.
+
+### How agents coordinate
+
+Agents share a **blackboard** — a live coordination surface running on a local server. When one agent discovers something, others see it and act:
+
+```
+Research scores JD at 85/100
+  → Resume sees the score and tailors your resume
+    → Networking checks for warm connections at Stripe
+```
+
+The mechanics: each agent connects to the blackboard server via MCP (Model Context Protocol). On every interaction, the agent reads the current blackboard state — who's active, what findings have been posted, and whether any work has been assigned to it. After completing work, the agent writes its results back.
+
+Each agent has [directive rules](.claude/agents/) that define exactly when to trigger cross-agent work. The Resume agent posts a directive when it finishes a resume. The Research agent posts when it scores a JD above 75. No noise — only actionable triggers.
+
 ### Your data stays local
 
 ```
@@ -190,13 +230,7 @@ search/
   vault/
     uploads/          Your source files (resumes, JDs, transcripts, templates)
     generated/        Agent output (tailored resumes, cover letters, prep, outreach)
-  context/            Your profile
-    experience-library.yaml   Work history, skills, education
-    career-plan.yaml          Target roles, preferences, priorities
-    interview-answers.yaml    Why searching, interview prep answers
-    target-companies.yaml     Companies of interest
-    connection-tracker.yaml   Professional contacts
-    interview-history.yaml    Past interviews, patterns, scores
+  context/            Your profile (the structured files agents read and write)
   pipeline/           Application lifecycle
     open-roles.yaml           Canonical role records (score, resume, applications linked)
     applications.yaml         Application submissions (linked to roles via role_id)
@@ -206,7 +240,7 @@ search/
   playbook.yaml       Accumulated lessons, strategy decisions, checklists
 ```
 
-No data leaves your machine except when agents search the web for company info or job postings.
+Everything lives in the `search/` directory on your machine. No data leaves your machine except when agents call Anthropic's API to think, or search the web for company info and job postings.
 
 ### Role-application linking
 
@@ -220,19 +254,7 @@ Open Role (open-roles.yaml)          Application (applications.yaml)
   resume_file: vault/...              applied_date: 2026-04-15
 ```
 
-Agents read this to know: "This role was scored 85, resume v1 was sent, currently at phone screen."
-
-### Agent coordination
-
-Agents share a **blackboard** — a live coordination surface. When one agent discovers something, others act on it:
-
-```
-Research scores JD at 85/100
-  → Resume: "Tailor resume for Stripe Staff Engineer"
-    → Networking: "Check connections at Stripe"
-```
-
-Each agent has [directive rules](.claude/agents/) that define exactly when to post cross-agent work — no noise, only actionable triggers.
+Agents read this to know: "This role was scored 85, resume v1 was sent, currently at phone screen stage."
 
 ### The dashboard
 
