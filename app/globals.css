@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-bg: #FDF8F4;
+  --color-surface: #FFFFFF;
+  --color-border: #E8DDD4;
+  --color-text: #2D2419;
+  --color-text-muted: #8B7E74;
+  --color-accent: #B8845C;
+  --color-accent-hover: #A06F45;
+  --color-success: #4A8C5C;
+  --color-warning: #C4943A;
+  --color-danger: #C44A4A;
+  --color-sidebar-bg: #2D2419;
+  --color-sidebar-text: #E8DDD4;
+  --color-sidebar-active: #B8845C;
+}
+
+:root {
+  /* Warm command center palette */
+  --color-bg: #FDF8F4;           /* warm cream */
+  --color-surface: #FFFFFF;
+  --color-border: #E8DDD4;       /* warm gray */
+  --color-text: #2D2419;         /* dark brown */
+  --color-text-muted: #8B7E74;   /* warm gray text */
+  --color-accent: #B8845C;       /* warm brown accent */
+  --color-accent-hover: #A06F45;
+  --color-success: #4A8C5C;      /* green — on track */
+  --color-warning: #C4943A;      /* amber — needs attention */
+  --color-danger: #C44A4A;       /* red — overdue */
+  --color-sidebar-bg: #2D2419;   /* dark sidebar */
+  --color-sidebar-text: #E8DDD4;
+  --color-sidebar-active: #B8845C;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}

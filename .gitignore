@@ -1,0 +1,36 @@
+node_modules/
+.next/
+search/
+*.pid
+kapi-sprints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Auto-generated
+next-env.d.ts
+
+# Internal planning docs
+docs/
+.claude/plans/
+
+# Claude Code user settings (machine-specific)
+.claude/settings.json
+.claude/settings.local.json
+
+# Blackboard deps (separate Bun server)
+blackboard/node_modules/
+blackboard/bun.lock

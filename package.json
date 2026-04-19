@@ -1,0 +1,27 @@
+{
+  "name": "search-party",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "next dev --port 8791",
+    "build": "next build",
+    "start": "next start --port 8791",
+    "job-search": "bun cli/job-search.ts"
+  },
+  "dependencies": {
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "yaml": "^2.8.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

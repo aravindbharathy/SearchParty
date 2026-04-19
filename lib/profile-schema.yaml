@@ -1,0 +1,188 @@
+# Profile Schema Configuration
+# Each section maps to one YAML file in search/context/
+# All fields in a section live in that section's file.
+
+sections:
+  experience-library:
+    label: "Your Background"
+    icon: "📋"
+    description: "Work history, skills, and education"
+    fields:
+      contact.name:
+        label: "Full Name"
+        type: string
+        required: true
+      contact.email:
+        label: "Email"
+        type: string
+        required: true
+      contact.phone:
+        label: "Phone"
+        type: string
+        required: false
+      contact.linkedin:
+        label: "LinkedIn URL"
+        type: string
+        required: false
+      contact.location:
+        label: "Location"
+        type: string
+        required: true
+      summary:
+        label: "Professional Summary"
+        type: string
+        required: true
+      experiences:
+        label: "Work Experiences"
+        type: array
+        required: true
+        min_items: 1
+      education:
+        label: "Education"
+        type: array
+        required: true
+        min_items: 1
+      skills.technical:
+        label: "Technical Skills"
+        type: array
+        required: true
+        min_items: 1
+      skills.leadership:
+        label: "Leadership Skills"
+        type: array
+        required: false
+      certifications:
+        label: "Certifications"
+        type: array
+        required: false
+
+  career-plan:
+    label: "What You're Looking For"
+    icon: "🎯"
+    description: "Target roles, preferences, and priorities"
+    fields:
+      target.level:
+        label: "Target Level"
+        type: string
+        required: true
+      target.functions:
+        label: "Target Functions"
+        type: array
+        required: true
+        min_items: 1
+      target.industries:
+        label: "Industries"
+        type: array
+        required: false
+      target.locations:
+        label: "Preferred Locations"
+        type: array
+        required: true
+        min_items: 1
+      target.comp_floor:
+        label: "Minimum Total Compensation"
+        type: number
+        required: true
+      deal_breakers:
+        label: "Deal Breakers"
+        type: array
+        required: false
+      visa_status:
+        label: "Visa / Work Authorization"
+        type: string
+        required: true
+      work_style.environment:
+        label: "Work Environment"
+        type: string
+        required: true
+      role_preferences.track:
+        label: "Career Track (IC/Management)"
+        type: string
+        required: true
+      what_matters:
+        label: "What Matters Most"
+        type: array
+        required: true
+        min_items: 1
+
+  interview-answers:
+    label: "Your Story"
+    icon: "💬"
+    description: "Why you're searching, interview prep answers"
+    fields:
+      why_searching:
+        label: "Why You're Searching"
+        type: string
+        required: true
+      dream_role:
+        label: "Dream Role Description"
+        type: string
+        required: false
+      why_leaving:
+        label: "Why Leaving Current Role"
+        type: string
+        required: true
+      greatest_weakness:
+        label: "Greatest Weakness"
+        type: string
+        required: false
+      addressing_weaknesses:
+        label: "Addressing Weaknesses"
+        type: array
+        required: false
+      salary_expectations:
+        label: "Salary Range (Interview Answer)"
+        type: string
+        required: false
+      custom_qa:
+        label: "Custom Q&As"
+        type: array
+        required: false
+
+  target-companies:
+    label: "Target Companies"
+    icon: "🏢"
+    description: "Companies you want to work at"
+    fields:
+      companies:
+        label: "Companies"
+        type: array
+        required: true
+        min_items: 3
+
+  connection-tracker:
+    label: "Your Network"
+    icon: "🤝"
+    description: "People you know at target companies"
+    fields:
+      contacts:
+        label: "Contacts"
+        type: array
+        required: false
+    contact_fields:
+      name:
+        label: "Full Name"
+        required: true
+      company:
+        label: "Company"
+        required: true
+      role:
+        label: "Their Role/Title"
+        required: true
+      relationship:
+        label: "Relationship Stage"
+        type: enum
+        options: ["cold", "connected", "warm", "referred", "close", "mentor"]
+        required: true
+      how_you_know:
+        label: "How You Know Them"
+        required: false
+      linkedin_url:
+        label: "LinkedIn URL"
+        required: false
+      email:
+        label: "Email"
+        required: false
+      notes:
+        label: "Notes"
+        required: false
