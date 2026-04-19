@@ -9,28 +9,19 @@
 
 You find a role on LinkedIn. Spend 30 minutes tailoring your resume. Write a cover letter no one reads. Hit apply. Hear nothing for weeks.
 
-Repeat 50 times.
+Repeat 50 times. Nothing compounds. Your 50th application takes the same effort as your 1st.
 
 Meanwhile, the people who get hired had a warm intro from someone on the team.
 
 <br/>
 
-### Sound familiar?
+You already know the pain:
 
-> **"Is this role even worth applying to?"**
-> You don't know until you've already invested hours. The JD says "5+ years" but doesn't tell you if your background translates.
+> **"Is this role even worth my time?"** — You won't know until you've spent hours applying. The JD says "5+ years" but doesn't tell you if your background translates.
 
-> **"I'm sending the same resume everywhere."**
-> Each one takes 20-30 minutes to tailor. No compounding — your 50th application doesn't benefit from your 1st.
+> **"My outreach gets ignored."** — "Hi, I'd like to connect" doesn't work. You don't have time to research 50 people individually.
 
-> **"My LinkedIn outreach gets ignored."**
-> "Hi, I'd like to connect" doesn't work. You don't have time to research each person.
-
-> **"I keep making the same interview mistakes."**
-> No feedback loop. No tracking. No one to debrief with.
-
-> **"Everything is in my head and 47 browser tabs."**
-> Forgot to follow up with Stripe. Lost track of the Figma timeline. When did I apply to Anthropic again?
+> **"I keep making the same interview mistakes."** — No feedback loop. No debrief. No one tracking your patterns across interviews.
 
 <br/>
 
