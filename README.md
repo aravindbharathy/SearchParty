@@ -90,6 +90,14 @@ Not templates. The agents read your actual experience, your career goals, and ea
 
 ## Quick start
 
+### The 30-minute investment that changes everything
+
+The onboarding process takes about 30 minutes. The coach walks you through it — your background, what you're looking for, your story for interviews.
+
+**Why it matters:** Every agent reads your profile before doing anything. A resume tailored by an agent that knows your 6 roles, your STAR stories, and your career goals is fundamentally different from one that only has a job description. The 30 minutes you spend here is the reason application #50 will be dramatically better than what you could write manually.
+
+You can do it in phases — the coach saves as you go and picks up where you left off.
+
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) 20+
