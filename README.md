@@ -1,6 +1,6 @@
 <p align="center">
   <h1 align="center">Search Party</h1>
-  <p align="center"><strong>Your AI-powered job search team.</strong><br/>6 specialist agents that research, tailor, network, prep, and negotiate — running locally on your machine.</p>
+  <p align="center"><strong>Your AI-powered job search team.</strong><br/>6 specialist agents that coordinate, remember everything, and get better over time — running locally on your machine.</p>
 </p>
 
 <br/>
@@ -34,6 +34,14 @@ Meanwhile, the people who get hired had a warm intro from someone on the team.
 
 <br/>
 
+### "Can't AI already do this?"
+
+There are AI tools that evaluate JDs, generate resumes, and draft outreach. They're useful — but they work one command at a time. Paste a JD, get a score. Run another command, get a PDF. Each action is isolated. The tool doesn't know what it told you yesterday, doesn't connect your resume to your interview prep, and doesn't learn what's working across your search.
+
+That's a tool. What you need is a team.
+
+<br/>
+
 ## What if you had a team?
 
 Search Party gives you **6 AI specialists** that remember everything about you, coordinate with each other, and handle the grunt work — so you can focus on building relationships and performing in interviews.
@@ -53,6 +61,14 @@ Research Agent finds a role at Stripe (92% fit) → Resume Agent tailors your re
 ### Everything is personalized
 
 Not templates. The agents read your actual experience, your career goals, and each company's culture. Content follows a [writing style guide](.claude/skills/writing-style-guide.md) designed to sound like you wrote it on your best day — not like AI generated it.
+
+### Full lifecycle, not just apply
+
+Most tools focus on the evaluate-and-apply phase. Search Party covers the entire arc: finding roles → scoring fit → tailoring resumes → building warm intros → prepping for interviews → mock interviews with scoring → debriefing after → negotiating the offer. Each stage has a dedicated agent with stage-specific skills. Your coach briefs you every morning and runs a retro every week.
+
+### A real dashboard
+
+Not a terminal. A web dashboard with a kanban pipeline, live agent chat, visual resume editor, and company intel cards. You see your entire search at a glance and interact through a UI, not command-line flags.
 
 <br/>
 
@@ -81,6 +97,16 @@ Not templates. The agents read your actual experience, your career goals, and ea
 | **Follow-ups** | Forget. Miss the window. | Tracked by the daily briefing agent. Reminders surfaced proactively. |
 | **Learning** | Same mistakes every interview. | Debrief, track patterns, coach targets your weak spots. |
 | **Strategy** | Alone with no feedback. | Coach reads your pipeline every morning. "Here's what to focus on today." |
+
+<br/>
+
+## Why a team, not a tool
+
+**Single-agent tools** give you a command palette: one skill at a time, stateless, forget everything between runs. You're the project manager — you decide what to run, when, and stitch the outputs together yourself.
+
+**Search Party** gives you a team with shared memory. Agents read your structured experience library before every action. They coordinate through a [blackboard protocol](blackboard/) — when Research scores a role, Resume and Networking see it and act. Your coach tracks what's working across weeks and adjusts strategy. The system gets smarter the longer you use it, because your profile, your playbook, and your interview history compound.
+
+The difference shows up on day 30. With a tool, your 30th application looks like your 1st — same manual effort, same generic output. With a team, your 30th application benefits from 29 debriefs, a refined strategy, and agents that know exactly how to position you.
 
 <br/>
 
