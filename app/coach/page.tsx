@@ -1639,6 +1639,30 @@ export default function CoachPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Recover missing coach response on mount
+  useEffect(() => {
+    if (messages.length === 0) return
+    const lastMsg = messages[messages.length - 1]
+    if (lastMsg.role !== 'user') return // Last message is from coach — no recovery needed
+    // Last message is from user — coach response may be lost. Check session.
+    fetch('/api/agent/session/coach')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.output && data.status === 'completed') {
+          const output = data.output as string
+          if (!output.includes('session preserved for resume') && !output.includes('Dashboard restarted')) {
+            setMessages(prev => {
+              const last = prev[prev.length - 1]
+              if (last?.role === 'user') return [...prev, { role: 'coach' as const, content: output }]
+              return prev
+            })
+          }
+        }
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleCoachOutput = useCallback((output: string) => {
     // Filter out internal process manager messages
     if (output.includes('session preserved for resume') || output.includes('Dashboard restarted')) return
