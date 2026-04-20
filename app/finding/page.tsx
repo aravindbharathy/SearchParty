@@ -831,7 +831,8 @@ export default function FindingPage() {
                         <div className="flex items-center gap-2 min-w-0">
                           {role.status === 'new' && <span className="w-2 h-2 bg-accent rounded-full shrink-0" />}
                           <span className="font-semibold text-sm">{role.company}</span>
-                          <span className="text-sm text-text-muted truncate">{role.title}</span>
+                          <span className="text-text-muted text-sm">—</span>
+                          <span className="font-medium text-sm truncate">{role.title}</span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {role.resume_file && (
@@ -856,9 +857,9 @@ export default function FindingPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
+                      <div className="flex items-center gap-2 text-xs text-text-muted mt-0.5 mb-2">
                         {role.location && <><span>{role.location}</span><span>·</span></>}
-                        {role.posted_date && <><span>Posted: {role.posted_date}</span><span>·</span></>}
+                        {role.posted_date && role.posted_date !== role.discovered_date && <><span>Posted: {role.posted_date}</span><span>·</span></>}
                         <span>Found: {role.discovered_date}</span>
                       </div>
                       <div className="flex items-center gap-2">
