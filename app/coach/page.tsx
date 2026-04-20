@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { MarkdownView } from '../_components/markdown-view'
+import { AgentProgress } from '../_components/agent-progress'
 import { useAgentEvents } from '../hooks/use-agent-events'
 import { useDirectiveNotifications } from '../hooks/use-directive-notifications'
 import { usePendingAction } from '../hooks/use-pending-action'
@@ -1912,9 +1913,8 @@ export default function CoachPage() {
           {/* Processing indicator */}
           {isProcessing && (
             <div className="flex justify-start">
-              <div className="bg-bg rounded-xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
-                <span className="inline-block w-2.5 h-2.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm text-text-muted">Coach is thinking...</span>
+              <div className="max-w-[90%]">
+                <AgentProgress agentName="Coach" lastMessage={messages.filter(m => m.role === 'user').at(-1)?.content} />
               </div>
             </div>
           )}
