@@ -36,13 +36,25 @@ export function useAgentEvents(persistKey?: string) {
         const parsed = JSON.parse(saved) as SpawnState
         if (parsed.status === 'running' && parsed.spawnId) {
           // Don't restore running state — check if actually still running first
-          // Show idle until we confirm
           const spawnIdToCheck = parsed.spawnId
+          const savedAgent = (() => { try { return JSON.parse(localStorage.getItem(storageKey + '-agent') || '""') } catch { return '' } })()
           fetch(`/api/agent/spawn/${spawnIdToCheck}`)
             .then(r => r.ok ? r.json() : r.status === 404 ? { status: 'gone' } : null)
-            .then(data => {
+            .then(async data => {
               if (!data || data.status === 'gone') {
-                // Spawn no longer exists — stay idle, clear stale localStorage
+                // Spawn gone — try session fallback to recover output
+                if (savedAgent) {
+                  try {
+                    const sessionRes = await fetch(`/api/agent/session/${encodeURIComponent(savedAgent)}`)
+                    if (sessionRes.ok) {
+                      const sessionData = await sessionRes.json() as { output?: string; status?: string }
+                      if (sessionData.output && sessionData.status !== 'running') {
+                        setSpawnState(prev => ({ ...prev, status: 'completed', output: sessionData.output || null, spawnId: spawnIdToCheck }))
+                        return
+                      }
+                    }
+                  } catch {}
+                }
                 try { localStorage.removeItem(storageKey) } catch {}
                 return
               }
@@ -51,12 +63,10 @@ export function useAgentEvents(persistKey?: string) {
               } else if (data.status === 'failed') {
                 setSpawnState(prev => ({ ...prev, status: 'failed', output: data.output || null, spawnId: spawnIdToCheck }))
               } else if (data.status === 'running' || data.status === 'queued') {
-                // Actually still running — restore the running state and resume polling
                 setSpawnState(parsed)
               }
             })
             .catch(() => {
-              // Network error — don't show stale spinner
               try { localStorage.removeItem(storageKey) } catch {}
             })
         } else if (parsed.status === 'completed' || parsed.status === 'failed') {
@@ -188,6 +198,7 @@ export function useAgentEvents(persistKey?: string) {
 
     cleanup()
     lastRequestRef.current = { agent, directive }
+    if (storageKey) try { localStorage.setItem(storageKey + '-agent', JSON.stringify(agent)) } catch {}
 
     setSpawnState({
       status: 'running',
