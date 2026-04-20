@@ -37,7 +37,12 @@ export function useAgentEvents(persistKey?: string) {
         if (parsed.status === 'running' && parsed.spawnId) {
           // Don't restore running state — check if actually still running first
           const spawnIdToCheck = parsed.spawnId
-          const savedAgent = (() => { try { return JSON.parse(localStorage.getItem(storageKey + '-agent') || '""') } catch { return '' } })()
+          const savedAgent = (() => {
+            try { const v = JSON.parse(localStorage.getItem(storageKey + '-agent') || '""'); if (v) return v } catch {}
+            // Derive from persistKey as fallback
+            const keyMap: Record<string, string> = { 'coach-agent': 'coach', 'finding-chat': 'research', 'applying-chat': 'resume', 'networking-chat': 'networking', 'interviewing-chat': 'interview', 'closing-chat': 'negotiation' }
+            return persistKey ? keyMap[persistKey] || '' : ''
+          })()
           fetch(`/api/agent/spawn/${spawnIdToCheck}`)
             .then(r => r.ok ? r.json() : r.status === 404 ? { status: 'gone' } : null)
             .then(async data => {
