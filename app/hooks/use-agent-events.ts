@@ -35,24 +35,30 @@ export function useAgentEvents(persistKey?: string) {
       if (saved) {
         const parsed = JSON.parse(saved) as SpawnState
         if (parsed.status === 'running' && parsed.spawnId) {
-          setSpawnState(parsed)
-          // Immediately check if the agent already completed while we were away
-          fetch(`/api/agent/spawn/${parsed.spawnId}`)
+          // Don't restore running state — check if actually still running first
+          // Show idle until we confirm
+          const spawnIdToCheck = parsed.spawnId
+          fetch(`/api/agent/spawn/${spawnIdToCheck}`)
             .then(r => r.ok ? r.json() : r.status === 404 ? { status: 'gone' } : null)
             .then(data => {
-              if (!data) return
-              if (data.status === 'completed') {
-                setSpawnState(prev => ({ ...prev, status: 'completed', output: data.output || null }))
-              } else if (data.status === 'failed') {
-                setSpawnState(prev => ({ ...prev, status: 'failed', output: data.output || null }))
-              } else if (data.status === 'gone') {
-                // Spawn no longer exists — reset to idle
-                setSpawnState({ status: 'idle', spawnId: null, result: null, error: null, output: null })
+              if (!data || data.status === 'gone') {
+                // Spawn no longer exists — stay idle, clear stale localStorage
                 try { localStorage.removeItem(storageKey) } catch {}
+                return
               }
-              // If still running or queued, the mount effect will resume polling
+              if (data.status === 'completed') {
+                setSpawnState(prev => ({ ...prev, status: 'completed', output: data.output || null, spawnId: spawnIdToCheck }))
+              } else if (data.status === 'failed') {
+                setSpawnState(prev => ({ ...prev, status: 'failed', output: data.output || null, spawnId: spawnIdToCheck }))
+              } else if (data.status === 'running' || data.status === 'queued') {
+                // Actually still running — restore the running state and resume polling
+                setSpawnState(parsed)
+              }
             })
-            .catch(() => {})
+            .catch(() => {
+              // Network error — don't show stale spinner
+              try { localStorage.removeItem(storageKey) } catch {}
+            })
         } else if (parsed.status === 'completed' || parsed.status === 'failed') {
           setSpawnState(parsed)
         }
