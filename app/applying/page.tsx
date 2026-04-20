@@ -95,7 +95,7 @@ export default function ApplyingPage() {
   }, [])
   const chatScrollRef = useRef<HTMLDivElement>(null)
 
-  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('applying-chat')
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset, spawnId: agentSpawnId } = useAgentEvents('applying-chat')
   const chatProcessing = agentStatus === 'running'
 
   const { notifications, dismiss: dismissNotification, dismissAll: dismissAllNotifications } = useDirectiveNotifications('resume')
@@ -759,7 +759,7 @@ export default function ApplyingPage() {
           {chatProcessing && (
             <div className="flex justify-start">
               <div className="max-w-[90%]">
-                <AgentProgress agentName="Resume agent" lastMessage={chatMessages.filter(m => m.role === 'user').at(-1)?.content} />
+                <AgentProgress agentName="Resume agent" lastMessage={chatMessages.filter(m => m.role === 'user').at(-1)?.content} spawnId={agentSpawnId} />
               </div>
             </div>
           )}

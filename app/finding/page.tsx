@@ -184,7 +184,7 @@ export default function FindingPage() {
   const chatScrollRef = useRef<HTMLDivElement>(null)
 
   // Agent hook — single persistent session for all research actions
-  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('finding-chat')
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset, spawnId: agentSpawnId } = useAgentEvents('finding-chat')
 
   // Derived from agent hook — survives tab switches
   const chatProcessing = agentStatus === 'running'
@@ -1485,7 +1485,7 @@ export default function FindingPage() {
           {chatProcessing && (
             <div className="flex justify-start">
               <div className="max-w-[90%]">
-                <AgentProgress agentName="Research agent" lastMessage={chatMessages.filter(m => m.role === 'user').at(-1)?.content} />
+                <AgentProgress agentName="Research agent" lastMessage={chatMessages.filter(m => m.role === 'user').at(-1)?.content} spawnId={agentSpawnId} />
               </div>
             </div>
           )}

@@ -111,7 +111,7 @@ export default function InterviewingPage() {
   }, [])
   const chatScrollRef = useRef<HTMLDivElement>(null)
 
-  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('interviewing-chat')
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset, spawnId: agentSpawnId } = useAgentEvents('interviewing-chat')
   const chatProcessing = agentStatus === 'running'
 
   const { notifications, dismiss: dismissNotification, dismissAll: dismissAllNotifications } = useDirectiveNotifications('interview')
@@ -706,7 +706,7 @@ export default function InterviewingPage() {
           {chatProcessing && (
             <div className="flex justify-start">
               <div className="max-w-[90%]">
-                <AgentProgress agentName="Interview agent" lastMessage={chatMessages.filter(m => m.role === 'user').at(-1)?.content} />
+                <AgentProgress agentName="Interview agent" lastMessage={chatMessages.filter(m => m.role === 'user').at(-1)?.content} spawnId={agentSpawnId} />
               </div>
             </div>
           )}

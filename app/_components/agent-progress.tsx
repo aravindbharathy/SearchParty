@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
 const SKILL_STEPS: Record<string, { label: string; steps: string[]; estimate: string }> = {
   'resume-tailor': {
@@ -70,31 +70,38 @@ function detectSkill(lastMessage: string): string | null {
   return null
 }
 
-export function AgentProgress({ agentName, lastMessage }: { agentName: string; lastMessage?: string }) {
+export function AgentProgress({ agentName, lastMessage, spawnId }: { agentName: string; lastMessage?: string; spawnId?: string | null }) {
+  // Compute elapsed from spawn timestamp if available, otherwise from mount
+  const startTime = useMemo(() => {
+    if (spawnId) {
+      const ts = parseInt(spawnId.split('_')[1] || '0', 10)
+      if (ts > 0) return ts
+    }
+    return Date.now()
+  }, [spawnId])
+
   const [stepIdx, setStepIdx] = useState(0)
-  const [elapsed, setElapsed] = useState(0)
+  const [elapsed, setElapsed] = useState(() => Math.floor((Date.now() - startTime) / 1000))
 
   const skill = detectSkill(lastMessage || '')
   const info = skill ? SKILL_STEPS[skill] : null
 
   useEffect(() => {
     setStepIdx(0)
-    setElapsed(0)
-  }, [lastMessage])
+    setElapsed(Math.floor((Date.now() - startTime) / 1000))
+  }, [lastMessage, startTime])
 
   useEffect(() => {
-    const timer = setInterval(() => setElapsed(e => e + 1), 1000)
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000)
     return () => clearInterval(timer)
-  }, [])
+  }, [startTime])
 
+  // Derive step from elapsed time — ~15 seconds per step
   useEffect(() => {
     if (!info) return
-    // Advance step every ~15 seconds
-    const timer = setInterval(() => {
-      setStepIdx(prev => Math.min(prev + 1, info.steps.length - 1))
-    }, 15000)
-    return () => clearInterval(timer)
-  }, [info])
+    const step = Math.min(Math.floor(elapsed / 15), info.steps.length - 1)
+    setStepIdx(step)
+  }, [elapsed, info])
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60)

@@ -97,7 +97,7 @@ export default function ClosingPage() {
   }, [])
   const chatScrollRef = useRef<HTMLDivElement>(null)
 
-  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('closing-chat')
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset, spawnId: agentSpawnId } = useAgentEvents('closing-chat')
   const chatProcessing = agentStatus === 'running'
   const { notifications, dismiss: dismissNotification, dismissAll: dismissAllNotifications } = useDirectiveNotifications('negotiation')
 
@@ -466,7 +466,7 @@ export default function ClosingPage() {
           {chatProcessing && (
             <div className="flex justify-start">
               <div className="max-w-[90%]">
-                <AgentProgress agentName="Negotiation agent" lastMessage={chatMessages.filter(m => m.role === 'user').at(-1)?.content} />
+                <AgentProgress agentName="Negotiation agent" lastMessage={chatMessages.filter(m => m.role === 'user').at(-1)?.content} spawnId={agentSpawnId} />
               </div>
             </div>
           )}

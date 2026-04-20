@@ -1490,7 +1490,7 @@ export default function CoachPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset } = useAgentEvents('coach-agent')
+  const { spawnAgent, status: agentStatus, output: agentOutput, reset: agentReset, spawnId: agentSpawnId } = useAgentEvents('coach-agent')
 
   // Derive processing state from agent hook — survives tab switches since hook persists to localStorage
   const isProcessing = agentStatus === 'running'
@@ -1914,7 +1914,7 @@ export default function CoachPage() {
           {isProcessing && (
             <div className="flex justify-start">
               <div className="max-w-[90%]">
-                <AgentProgress agentName="Coach" lastMessage={messages.filter(m => m.role === 'user').at(-1)?.content} />
+                <AgentProgress agentName="Coach" lastMessage={messages.filter(m => m.role === 'user').at(-1)?.content} spawnId={agentSpawnId} />
               </div>
             </div>
           )}
