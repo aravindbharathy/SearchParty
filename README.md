@@ -3,6 +3,10 @@
   <p align="center"><strong>Your AI-powered job search team.</strong><br/>6 specialist agents that coordinate, remember everything, and get better over time — running locally on your machine.</p>
 </p>
 
+<p align="center">
+  <img src="demo.gif" alt="Search Party demo" width="800" />
+</p>
+
 <br/>
 
 ## The problem with job searching today
