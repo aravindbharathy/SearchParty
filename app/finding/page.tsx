@@ -827,23 +827,16 @@ export default function FindingPage() {
                         role.score >= 75 ? 'border-success/40 bg-success/5' : role.score >= 60 ? 'border-warning/40 bg-warning/5' : 'border-border'
                       ) : role.status === 'new' ? 'border-accent/30 bg-accent/5' : 'border-border'
                     }`}>
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-0.5">
                         <div className="flex items-center gap-2">
-                          {role.status === 'new' && <span className="w-2 h-2 bg-accent rounded-full" />}
-                          <span className="font-medium text-sm">{role.title}</span>
+                          {role.status === 'new' && <span className="w-2 h-2 bg-accent rounded-full shrink-0" />}
+                          <span className="font-semibold text-sm">{role.company}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                            role.fit_estimate >= 80 ? 'bg-success/10 text-success'
-                              : role.fit_estimate >= 60 ? 'bg-warning/10 text-warning'
-                                : 'bg-text-muted/10 text-text-muted'
-                          }`}>
-                            Tier {role.fit_estimate >= 80 ? '1' : role.fit_estimate >= 60 ? '2' : role.fit_estimate >= 40 ? '3' : '4'}
-                          </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
                           {role.resume_file && (
                             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-accent/10 text-accent">Resume</span>
                           )}
-                          {role.score != null && (
+                          {role.score != null ? (
                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                               role.score >= 75 ? 'bg-success/10 text-success'
                                 : role.score >= 60 ? 'bg-warning/10 text-warning'
@@ -851,11 +844,20 @@ export default function FindingPage() {
                             }`}>
                               {role.score}/100 · {role.score >= 75 ? 'Apply' : role.score >= 60 ? 'Consider' : role.score >= 40 ? 'Referral Only' : 'Skip'}
                             </span>
+                          ) : (
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                              role.fit_estimate >= 80 ? 'bg-success/10 text-success'
+                                : role.fit_estimate >= 60 ? 'bg-warning/10 text-warning'
+                                  : 'bg-text-muted/10 text-text-muted'
+                            }`}>
+                              Tier {role.fit_estimate >= 80 ? '1' : role.fit_estimate >= 60 ? '2' : role.fit_estimate >= 40 ? '3' : '4'}
+                            </span>
                           )}
                         </div>
                       </div>
+                      <p className="text-sm text-text-muted mb-1.5">{role.title}</p>
                       <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
-                        <span>{role.company}</span>
+                        <span className="sr-only">{role.company}</span>
                         {role.location && <><span>·</span><span>{role.location}</span></>}
                         {role.posted_date && <><span>·</span><span>Posted: {role.posted_date}</span></>}
                         <span>·</span>
