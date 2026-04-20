@@ -100,8 +100,8 @@ export function AgentProgress({ agentName, lastMessage, spawnId }: { agentName: 
   useEffect(() => {
     if (!info) return
     const step = Math.min(Math.floor(elapsed / 15), info.steps.length - 1)
-    setStepIdx(step)
-  }, [elapsed, info])
+    if (step !== stepIdx) setStepIdx(step)
+  }, [elapsed, info, stepIdx])
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60)
