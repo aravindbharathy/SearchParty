@@ -857,10 +857,8 @@ export default function FindingPage() {
                       </div>
                       <p className="text-sm text-text-muted mb-1.5">{role.title}</p>
                       <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
-                        <span className="sr-only">{role.company}</span>
-                        {role.location && <><span>·</span><span>{role.location}</span></>}
-                        {role.posted_date && <><span>·</span><span>Posted: {role.posted_date}</span></>}
-                        <span>·</span>
+                        {role.location && <><span>{role.location}</span><span>·</span></>}
+                        {role.posted_date && <><span>Posted: {role.posted_date}</span><span>·</span></>}
                         <span>Found: {role.discovered_date}</span>
                       </div>
                       <div className="flex items-center gap-2">
