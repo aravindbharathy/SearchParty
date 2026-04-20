@@ -1653,11 +1653,15 @@ export default function CoachPage() {
     }
   }, [])
 
-  // Watch for agent completion
+  // Watch for agent completion (including recovered responses from page restore)
   useEffect(() => {
     if (agentStatus === 'completed') {
       if (agentOutput) {
-        handleCoachOutput(agentOutput)
+        // Only add if not already the last message (prevents duplicates on restore)
+        const lastMsg = messages[messages.length - 1]
+        if (!lastMsg || lastMsg.role !== 'coach' || lastMsg.content !== agentOutput) {
+          handleCoachOutput(agentOutput)
+        }
       }
       agentReset()
       fetchContextStatus()
