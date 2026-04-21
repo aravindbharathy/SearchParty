@@ -125,7 +125,6 @@ function ensureSearchStructure(): void {
     'intel',
     'entries',
     'agents',
-    'archive',
   ]
   for (const d of dirs) {
     const p = join(DIR, d)
@@ -135,9 +134,7 @@ function ensureSearchStructure(): void {
   // Bootstrap YAML files with initial content
   const files: Record<string, string> = {
     'snapshot.yaml': YAML.stringify({ phase: 0, status: 'setup', updated: '' }),
-    'decisions.yaml': YAML.stringify({ decisions: [] }),
     'board.md': '# Board\n\n_No directives yet._\n',
-    'lessons.md': '# Lessons\n\n_No lessons yet._\n',
     'pipeline/applications.yaml': YAML.stringify({ applications: [] }),
     'pipeline/interviews.yaml': YAML.stringify({ interviews: [] }),
     'pipeline/offers.yaml': YAML.stringify({ offers: [] }),
