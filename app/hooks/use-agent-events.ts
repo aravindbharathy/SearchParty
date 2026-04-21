@@ -19,7 +19,7 @@ interface SpawnState {
   output: string | null
 }
 
-const SPAWN_TIMEOUT_MS = 300_000 // 5 minutes — Claude can take 2-4 min on complex JDs
+const SPAWN_TIMEOUT_MS = 900_000 // 15 minutes — agents can take 5-10 min on complex tasks
 
 export function useAgentEvents(persistKey?: string) {
   const storageKey = persistKey ? `agent-spawn-${persistKey}` : null
@@ -256,13 +256,26 @@ export function useAgentEvents(persistKey?: string) {
       // Start polling for status
       pollStatus(data.spawn_id)
 
-      // Set timeout
-      timeoutRef.current = setTimeout(() => {
+      // Set timeout — try session recovery before giving up
+      timeoutRef.current = setTimeout(async () => {
         cleanup()
+        // Try session recovery — agent may have finished but poll missed it
+        if (lastRequestRef.current) {
+          try {
+            const sessionRes = await fetch(`/api/agent/session/${encodeURIComponent(lastRequestRef.current.agent)}`)
+            if (sessionRes.ok) {
+              const sessionData = await sessionRes.json() as { output?: string; status?: string }
+              if (sessionData.output && sessionData.status !== 'running') {
+                setSpawnState((prev) => ({ ...prev, status: 'completed', output: sessionData.output || null }))
+                return
+              }
+            }
+          } catch {}
+        }
         setSpawnState((prev) => ({
           ...prev,
           status: 'timeout',
-          error: 'Agent timed out after 5 minutes',
+          error: 'Agent timed out. Try refreshing the page — the response may still arrive.',
         }))
       }, SPAWN_TIMEOUT_MS)
 

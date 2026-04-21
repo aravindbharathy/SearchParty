@@ -52,20 +52,21 @@ const SKILL_STEPS: Record<string, { label: string; steps: string[]; estimate: st
 
 function detectSkill(lastMessage: string): string | null {
   if (!lastMessage) return null
-  const lower = lastMessage.toLowerCase()
+  // Strip URLs so linkedin.com/in/... doesn't trigger linkedin-audit, etc.
+  const lower = lastMessage.toLowerCase().replace(/https?:\/\/\S+/g, '')
   for (const skill of Object.keys(SKILL_STEPS)) {
     if (lower.includes(skill.replace(/-/g, ''))) return skill
     if (lower.includes(skill)) return skill
   }
   // Fuzzy matches
-  if (lower.includes('resume-tailor') || lower.includes('tailor a resume')) return 'resume-tailor'
-  if (lower.includes('cover-letter') || lower.includes('cover letter')) return 'cover-letter'
-  if (lower.includes('interview-prep') || lower.includes('prep package')) return 'interview-prep'
-  if (lower.includes('score-jd') || lower.includes('score this jd') || lower.includes('score the jd')) return 'score-jd'
-  if (lower.includes('company-research') || lower.includes('research') && lower.includes('company')) return 'company-research'
-  if (lower.includes('salary-research') || lower.includes('salary')) return 'salary-research'
-  if (lower.includes('connection-request') || lower.includes('connection request')) return 'connection-request'
-  if (lower.includes('linkedin-audit') || lower.includes('linkedin')) return 'linkedin-audit'
+  if (lower.includes('tailor a resume') || lower.includes('tailor my resume')) return 'resume-tailor'
+  if (lower.includes('cover letter')) return 'cover-letter'
+  if (lower.includes('prep package') || lower.includes('interview prep')) return 'interview-prep'
+  if (lower.includes('score this jd') || lower.includes('score the jd')) return 'score-jd'
+  if (lower.includes('research') && lower.includes('company')) return 'company-research'
+  if (lower.includes('salary research') || lower.includes('salary data')) return 'salary-research'
+  if (lower.includes('connection request')) return 'connection-request'
+  if (lower.includes('linkedin audit') || lower.includes('audit my linkedin')) return 'linkedin-audit'
   if (lower.includes('negotiate') || lower.includes('negotiation')) return 'negotiate'
   return null
 }
