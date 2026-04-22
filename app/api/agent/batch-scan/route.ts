@@ -19,15 +19,20 @@ READ THESE FILES:
 
 DECISION CRITERIA — be strict:
 
-KEEP only if the role's PRIMARY function matches the user's target functions. The user should be able to do this job based on their experience.
+KEEP only if ALL of these are true:
+1. **Function match**: the role's PRIMARY function matches the user's target functions. The user should be able to do this job based on their experience.
+2. **Location match**: the role's location is compatible with the user's location preferences OR the role is remote-friendly. Check career-plan.yaml for target locations and work_style.environment.
+3. **Level match**: the role level is appropriate for the user's target level.
 
-DISMISS if:
+DISMISS if ANY of these are true:
 - Different function: "Product Manager" for a UX Researcher, "Research Engineer" for a non-engineer
 - Different research domain: "Research Scientist, Biology" or "ML Research" for a UX Researcher
 - Tangentially related but wrong core function: "Research Operations" is ops not research, "Product Management, Research" is PM not research, "Data Scientist" for a UX Researcher
 - Wrong level: too junior or too senior for the user's target
+- Wrong location: role requires on-site in a city not in the user's target locations, AND the role is not remote/hybrid (if the user prefers remote/hybrid)
+- Visa mismatch: if the user needs visa sponsorship (check career-plan.yaml for visa_status and deal_breakers), dismiss roles at companies known not to sponsor
 
-When in doubt, DISMISS. The user can always score a dismissed role manually if they want — but showing irrelevant roles wastes their time.
+When in doubt, DISMISS. The user can always score a dismissed role manually — but showing irrelevant roles wastes their time.
 
 Output ONLY a JSON array, no other text:
 [{"index": 1, "decision": "keep"}, {"index": 2, "decision": "dismiss"}]
