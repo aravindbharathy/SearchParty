@@ -137,7 +137,7 @@ export default function FindingPage() {
   const [openRoles, setOpenRoles] = useState<OpenRole[]>([])
   const [lastScan, setLastScan] = useState<string | null>(null)
   const [scanStale, setScanStale] = useState(true)
-  const [roleFilter, setRoleFilter] = useState<'all' | 'new' | 'scored' | 'applied' | 'dismissed' | 'discovered'>('scored')
+  const [roleFilter, setRoleFilter] = useState<'all' | 'new' | 'scored' | 'applied' | 'dismissed' | 'discovered'>('new')
 
   // Score JD form
   const [jdPreviewMode, setJdPreviewMode] = useState(false)
