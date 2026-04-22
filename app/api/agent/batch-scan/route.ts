@@ -260,7 +260,7 @@ ${roleList}`
 
     await postToBlackboard('findings.scan-progress', {
       type: 'progress',
-      text: `Scanning ${agentFallbackCompanies.length} Tier 1-2 companies via agent (${agentFallbackCompanies.join(', ')})...${skippedLowFit > 0 ? ` Skipping ${skippedLowFit} lower-fit companies without ATS APIs.` : ''}`,
+      text: `Scanning ${agentFallbackCompanies.length} companies via agent (${fallbackBatches.length} batches of ${BATCH_SIZE}).${skippedLowFit > 0 ? ` Skipping ${skippedLowFit} lower-fit companies without ATS APIs.` : ''}`,
       for: 'research',
       timestamp: new Date().toISOString(),
     }, `Agent scan: ${agentFallbackCompanies.length} companies`)
@@ -285,6 +285,12 @@ Scan ONLY these companies. Find matching roles, save JDs, append to open-roles.y
       if (result.ok) {
         console.log(`[batch-scan] agent fallback batch ${i + 1}/${fallbackBatches.length}: ${result.spawn_id}`)
         await waitForCompletion(result.spawn_id, 12 * 60 * 1000)
+        await postToBlackboard('findings.scan-progress', {
+          type: 'progress',
+          text: `Agent scan batch ${i + 1}/${fallbackBatches.length} complete: ${names}`,
+          for: 'research',
+          timestamp: new Date().toISOString(),
+        }, `Agent batch ${i + 1}/${fallbackBatches.length}`)
       }
     }
 
