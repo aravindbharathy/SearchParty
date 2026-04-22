@@ -998,13 +998,12 @@ export default function FindingPage() {
                 </div>
               )}
 
-              {openRoles.length === 0 && !chatProcessing ? (
+              {openRoles.length === 0 && !chatProcessing && !scanning ? (
                 <div className="text-center py-12">
                   <p className="text-text-muted text-lg mb-2">No open roles discovered yet.</p>
                   <p className="text-text-muted text-sm mb-4">Click &quot;Scan for Roles&quot; to search your target companies for matching positions.</p>
                   <button
                     onClick={() => handleBatchScan('full')}
-                    disabled={scanning || chatProcessing}
                     className="text-sm text-accent hover:text-accent-hover font-medium"
                   >
                     Run First Scan
