@@ -158,6 +158,7 @@ export default function FindingPage() {
   const [companySearch, setCompanySearch] = useState('')
   const [roleCompanyFilter, setRoleCompanyFilter] = useState('')
   const [verifyingRoles, setVerifyingRoles] = useState(false)
+  const [scoringAll, setScoringAll] = useState(false)
 
   // Intel viewer
   const [selectedIntelSlug, setSelectedIntelSlug] = useState<string | null>(null)
@@ -194,6 +195,52 @@ export default function FindingPage() {
   const { notifications, dismiss: dismissNotification, dismissAll: dismissAllNotifications } = useDirectiveNotifications('research')
 
   useAgentWelcome('research', 'I\'m your research specialist. I can help you score job descriptions, research companies, generate target lists, and scan for open roles.\n\nWhat would you like to do?', chatMessages, setChatMessages, 'finding-chat-messages')
+
+  // ─── Score All handler ──────────────────────────────────────────────────
+  const handleScoreAll = useCallback(async () => {
+    setScoringAll(true)
+    try {
+      const res = await fetch('/api/finding/open-roles/score-all', { method: 'POST' })
+      const data = await res.json() as { ok?: boolean; scoring?: number; message?: string }
+      if (data.ok) {
+        setChatMessages(prev => [...prev, {
+          role: 'agent',
+          content: data.scoring
+            ? `Scoring ${data.scoring} open roles against your profile. This will take a few minutes — progress updates will appear here.`
+            : data.message || 'No unscored roles to process.',
+        }])
+        if (!data.scoring) setScoringAll(false)
+      } else {
+        setChatMessages(prev => [...prev, { role: 'agent', content: 'Failed to start scoring.' }])
+        setScoringAll(false)
+      }
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'agent', content: 'Failed to start scoring.' }])
+      setScoringAll(false)
+    }
+  }, [setChatMessages])
+
+  // Poll for score-all completion
+  useEffect(() => {
+    if (!scoringAll) return
+    const poll = setInterval(async () => {
+      loadOpenRoles()
+      try {
+        const bbRes = await fetch('http://localhost:8790/state', { signal: AbortSignal.timeout(2000) })
+        if (bbRes.ok) {
+          const state = await bbRes.json() as { findings?: Record<string, { type?: string; text?: string }> }
+          const progress = state.findings?.['scan-progress']
+          if (progress?.type === 'category-complete' && progress.text?.startsWith('Scored')) {
+            setScoringAll(false)
+            loadOpenRoles()
+            loadScoredJDs()
+          }
+        }
+      } catch {}
+    }, 10_000)
+    return () => clearInterval(poll)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoringAll])
 
   // ─── Auto-detect company from JD text ────────────────────────────────────
   const detectedCompany = useMemo(() => {
@@ -370,9 +417,26 @@ export default function FindingPage() {
 
   const [scanning, setScanning] = useState(false)
 
+  // Restore scanning state from localStorage after mount
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('finding-scanning') === 'true') setScanning(true)
+    } catch {}
+  }, [])
+
+  const scanPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const handleBatchScan = useCallback(async (scope: string) => {
     setScanning(true)
     setActiveTab('open-roles')
+    // Clear stale scan markers from previous scan
+    try {
+      await Promise.all([
+        fetch('http://localhost:8790/write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: 'findings.scan-complete', value: null, log_entry: 'Clear scan marker' }), signal: AbortSignal.timeout(2000) }),
+        fetch('http://localhost:8790/write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: 'findings.scan-progress', value: null, log_entry: 'Clear scan progress' }), signal: AbortSignal.timeout(2000) }),
+      ])
+    } catch {}
     try {
       const res = await fetch('/api/agent/batch-scan', {
         method: 'POST',
@@ -384,11 +448,9 @@ export default function FindingPage() {
         const label = scope === 'top-fit' ? 'top-fit companies' : scope.startsWith('company:') ? scope.slice(8) : 'all companies'
         setChatMessages(prev => [...prev, {
           role: 'agent',
-          content: `Starting scan pipeline for ${label} (${data.companies} companies in ${data.batches} batches).\n\nPhases: Scan → Verify → Score top JDs → Tailor top resumes.\nProgress updates will appear here.`,
+          content: `Starting scan pipeline for ${label} (${data.companies} companies).\n\nPhases: Scan ATS APIs → Triage against your profile → Agent scan (remaining) → Verify links → Score top JDs → Tailor resumes.\nProgress updates will appear here.`,
         }])
-        // Poll for roles
-        const poll = setInterval(() => { loadOpenRoles() }, 15_000)
-        setTimeout(() => { clearInterval(poll); setScanning(false); loadOpenRoles() }, 30 * 60 * 1000)
+        // Polling is handled by the useEffect that watches `scanning` state
       } else {
         setChatMessages(prev => [...prev, { role: 'agent', content: data.error || 'Failed to start scan.' }])
         setScanning(false)
@@ -398,6 +460,50 @@ export default function FindingPage() {
       setScanning(false)
     }
   }, [setChatMessages, loadOpenRoles])
+
+  // Persist scanning state to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('finding-scanning', scanning ? 'true' : 'false') } catch {}
+  }, [scanning])
+
+  // When scanning becomes true (from button click or localStorage restore), start polling for completion
+  useEffect(() => {
+    if (!scanning) {
+      // Clear poll if scanning stopped
+      if (scanPollRef.current) { clearInterval(scanPollRef.current); scanPollRef.current = null }
+      return
+    }
+    if (scanPollRef.current) return // already polling
+    scanPollRef.current = setInterval(async () => {
+      loadOpenRoles()
+      try {
+        const bbRes = await fetch('http://localhost:8790/state', { signal: AbortSignal.timeout(2000) })
+        if (bbRes.ok) {
+          const state = await bbRes.json() as { findings?: Record<string, { type?: string }> }
+          const findings = state.findings || {}
+          if (findings['scan-complete']?.type === 'batch-complete') {
+            setScanning(false)
+            loadOpenRoles()
+            if (scanPollRef.current) { clearInterval(scanPollRef.current); scanPollRef.current = null }
+          }
+        }
+      } catch {}
+    }, 10_000)
+    // Safety timeout — clear scanning after 30 minutes
+    scanTimeoutRef.current = setTimeout(() => {
+      setScanning(false)
+      loadOpenRoles()
+    }, 30 * 60 * 1000)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanning])
+
+  // Cleanup scan poll + timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scanPollRef.current) clearInterval(scanPollRef.current)
+      if (scanTimeoutRef.current) clearTimeout(scanTimeoutRef.current)
+    }
+  }, [])
 
   // Pick up pending action from user-action bar navigation
   usePendingAction(sendChatMessage, setActiveTab as (tab: string) => void)
@@ -649,6 +755,8 @@ export default function FindingPage() {
     return { applyCount, referralCount, avgScore }
   }, [scoredJDs])
 
+  const newRoleCount = useMemo(() => openRoles.filter(r => r.status === 'new').length, [openRoles])
+
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -660,7 +768,7 @@ export default function FindingPage() {
           <h1 className="text-2xl font-bold mb-3">Finding Roles</h1>
           <div className="flex gap-3">
             {[
-              { label: 'New Roles', value: openRoles.filter(r => r.status === 'new').length },
+              { label: 'New Roles', value: newRoleCount },
               { label: 'Scored JDs', value: scoredJDs.length },
               { label: 'Apply', value: stats.applyCount },
               { label: 'Avg Score', value: stats.avgScore || '—' },
@@ -679,7 +787,7 @@ export default function FindingPage() {
         <div className="flex gap-6 border-b border-border px-5">
           {([
             { key: 'companies' as TabKey, label: `Target Companies${companies.length > 0 ? ` (${companies.length})` : ''}` },
-            { key: 'open-roles' as TabKey, label: `Open Roles${openRoles.filter(r => r.status === 'new').length > 0 ? ` (${openRoles.filter(r => r.status === 'new').length})` : ''}` },
+            { key: 'open-roles' as TabKey, label: `Open Roles${newRoleCount > 0 ? ` (${newRoleCount})` : ''}` },
             { key: 'score' as TabKey, label: 'Score JD' },
             { key: 'scored-jds' as TabKey, label: `Scored JDs${scoredJDs.length > 0 ? ` (${scoredJDs.length})` : ''}` },
           ]).map(tab => (
@@ -744,6 +852,13 @@ export default function FindingPage() {
                     {verifyingRoles ? 'Checking...' : 'Verify Links'}
                   </button>
                   <button
+                    onClick={handleScoreAll}
+                    disabled={scoringAll || scanning || chatProcessing || newRoleCount === 0}
+                    className="px-3 py-2 border border-border text-text-muted rounded-md text-sm hover:bg-bg disabled:opacity-50 shrink-0"
+                  >
+                    {scoringAll ? 'Scoring...' : 'Score All'}
+                  </button>
+                  <button
                     onClick={() => handleBatchScan('top-fit')}
                     disabled={scanning || chatProcessing}
                     className="px-3 py-2 border border-accent/30 text-accent rounded-md text-sm hover:bg-accent/10 disabled:opacity-50 shrink-0"
@@ -762,7 +877,7 @@ export default function FindingPage() {
                 <div className="flex gap-1">
                     {([
                       { key: 'all' as const, label: 'All', count: openRoles.filter(r => r.status !== 'closed').length },
-                      { key: 'new' as const, label: 'Open', count: openRoles.filter(r => r.status === 'new').length },
+                      { key: 'new' as const, label: 'Open', count: newRoleCount },
                       { key: 'scored' as const, label: 'Scored', count: openRoles.filter(r => r.status === 'scored' || r.status === 'resume-ready').length },
                       { key: 'applied' as const, label: 'In Pipeline', count: openRoles.filter(r => r.status === 'applied' || pipelineCompanies.has(`${r.company.toLowerCase()}|${r.title.toLowerCase()}`)).length },
                       { key: 'dismissed' as const, label: 'Dismissed', count: openRoles.filter(r => r.status === 'dismissed').length },
@@ -787,8 +902,8 @@ export default function FindingPage() {
                 <div className="bg-accent/5 border border-accent/20 rounded-lg p-4 mb-4 flex items-center gap-3">
                   <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                   <div>
-                    <p className="text-sm font-medium">Scanning target companies for open roles...</p>
-                    <p className="text-xs text-text-muted">The research agent is checking career pages at your high-priority companies. This may take a few minutes.</p>
+                    <p className="text-sm font-medium">Scanning for open roles...</p>
+                    <p className="text-xs text-text-muted">Checking ATS APIs, triaging against your profile, then scanning remaining companies via agent. Progress updates appear in the chat.</p>
                   </div>
                 </div>
               )}
@@ -944,6 +1059,21 @@ export default function FindingPage() {
           {/* ─── Score JD Tab ──────────────────────────────────────── */}
           {activeTab === 'score' && (
             <div className="space-y-4">
+              {newRoleCount > 0 && (
+                <div className="flex items-center gap-3 p-3 bg-accent/5 border border-accent/20 rounded-lg">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{newRoleCount} open roles haven&apos;t been scored yet.</p>
+                    <p className="text-xs text-text-muted">Score them all at once against your profile.</p>
+                  </div>
+                  <button
+                    onClick={handleScoreAll}
+                    disabled={scoringAll || scanning || chatProcessing}
+                    className="px-3 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 shrink-0"
+                  >
+                    {scoringAll ? 'Scoring...' : 'Score All Open Roles'}
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-text-muted mb-1">Company name</label>

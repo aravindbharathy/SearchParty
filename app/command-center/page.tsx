@@ -234,9 +234,9 @@ export default function CommandCenterPage() {
     (d) => d.status === 'done' || d.status === 'completed'
   )
   const findings = state?.findings ?? {}
-  const findingEntries = Object.entries(findings).sort((a, b) => {
-    const tA = a[1].timestamp ?? ''
-    const tB = b[1].timestamp ?? ''
+  const findingEntries = Object.entries(findings).filter(([, v]) => v != null).sort((a, b) => {
+    const tA = a[1]?.timestamp ?? ''
+    const tB = b[1]?.timestamp ?? ''
     return tB.localeCompare(tA)
   })
   const recentLog = (state?.log ?? [])

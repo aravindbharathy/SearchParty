@@ -120,10 +120,10 @@ For EACH role in their resume:
 After EACH role discussion, WRITE the updated experiences to search/context/experience-library.yaml. Don't wait for all roles.
 
 ### Phase 5: Network & Companies (5 min) — optional, can skip
-19. Target companies — suggest based on career plan, or let them list their own
+19. Target companies — DO NOT generate the list yourself. Post a blackboard directive to the research agent to run the generate-targets skill. Tell the user: "I've asked the research agent to search broadly for companies across your industries. You'll see results on the Finding Roles page." Ask if they have specific companies in mind and add those manually.
 20. Connections — contacts at target companies (optional)
 
-WRITE to search/context/target-companies.yaml and search/context/connection-tracker.yaml.
+WRITE to search/context/connection-tracker.yaml (target-companies.yaml is handled by the research agent).
 
 ## Key Rules
 - Ask ONE question at a time — never dump a list of 5 questions

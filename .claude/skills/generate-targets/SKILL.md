@@ -104,8 +104,11 @@ companies:
     fit_score: {0-100}
     status: "researching"
     priority: "{high|medium|low}"
+    careers_url: "{careers page URL — Greenhouse/Ashby/Lever preferred}"
     notes: "{1-2 sentence summary: why this company, key strengths, any concerns}"
 ```
+
+The `careers_url` field is critical — the zero-token ATS scanner uses it to fetch job listings directly without AI tokens. Prioritize Greenhouse (`job-boards.greenhouse.io/{slug}`), Ashby (`jobs.ashbyhq.com/{slug}`), and Lever (`jobs.lever.co/{slug}`) URLs when available. If you can't find the ATS URL, use the company's main careers page. Leave empty only as a last resort.
 
 Sort by fit_score descending. **Generate at least 50 companies, aim for 75-100.** More is better — the scan skill uses the full list.
 
@@ -128,8 +131,14 @@ These stubs will be enriched later by the `/company-research` skill.
 
 ## After Generation
 
-- Post findings to blackboard: "{N} target companies generated, {M} Tier 1"
-- Do NOT post directives to resume, networking, or other agents. Target generation is just building the list — scoring JDs and tailoring resumes happen later when the user reviews specific roles.
+1. Post findings to blackboard: "{N} target companies generated, {M} Tier 1"
+2. **Trigger the scan pipeline** — call the scan API to start discovering roles at the new companies:
+   ```bash
+   curl -s -X POST http://localhost:8791/api/agent/batch-scan -H 'Content-Type: application/json' -d '{"scope":"auto"}'
+   ```
+   This scans ALL companies via ATS APIs (free, instant) but only uses the expensive agent fallback for Tier 1+2 companies (fit >= 60). The user can scan all tiers manually from the Finding page.
+   Tell the user: "I've started scanning for open roles at your target companies. You'll see results on the Finding Roles page."
+3. Do NOT post directives to resume, networking, or other agents. Scanning and scoring happen automatically through the pipeline.
 
 ## User-Facing Output Format
 

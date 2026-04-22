@@ -242,13 +242,19 @@ custom_qa: []
 
 ## Target Companies (`/setup companies`)
 
-1. Read `search/context/career-plan.yaml` — use targets, industries, locations, visa status
-2. Generate a quick ranked list of 10-20 companies that match the user's profile. Use your knowledge + WebSearch if needed.
-3. Ask: "Here are companies I think fit your profile: [list with fit scores]. Want to add or remove any?"
-4. For each company, include: name, slug, fit_score (0-100), status ("researching"), priority ("P0"/"P1"/"P2"), notes (why it fits)
-5. Write to `search/context/target-companies.yaml`
-6. **Delegate deep research**: Post a blackboard directive for the research agent to build intel files for the top 5 companies. Tell the user: "I've asked the research agent to build detailed intel on your top companies — interview process, comp bands, culture. That'll appear on the Finding page."
-7. Move on to the next onboarding step (Network) — do NOT wait for research to complete.
+**Delegate to the research agent.** Do NOT generate the list yourself — the research agent has the generate-targets skill with web search capabilities.
+
+1. Read `search/context/career-plan.yaml` — confirm it has level, functions, industries, locations
+2. Tell the user: "Your career plan is set. I'm handing off to the research agent to find target companies across your industries — they'll search broadly, score each company, and build a ranked list. You'll see results on the Finding Roles page."
+3. **Post a blackboard directive** to the research agent:
+   - Call `read_blackboard` to get the current directives array
+   - Call `write_to_blackboard` with path "directives" and value = existing array + new entry:
+     ```
+     {"id":"dir-generate-targets-<timestamp>","text":"Generate a comprehensive target company list using the generate-targets skill. The user just completed their career plan during onboarding.","assigned_to":"research","from":"coach","priority":"high","status":"pending","posted_at":"<ISO timestamp>"}
+     ```
+4. Ask if the user has specific companies they want included: "Are there any companies you already have in mind? I'll make sure they're on the list."
+5. If they name companies, write those to `search/context/target-companies.yaml` as manual additions (the research agent will merge them with its generated list).
+6. Move on to the next onboarding step (Network) — do NOT wait for target generation to complete.
 
 ## Your Network (`/setup connections`)
 

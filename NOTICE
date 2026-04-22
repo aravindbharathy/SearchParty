@@ -27,6 +27,26 @@ Kapi Sprints
   The original Apache 2.0 license text can be found at:
   https://www.apache.org/licenses/LICENSE-2.0
 
+CareerOps
+  Copyright: Santiago Fernandez de Valderrama
+  License: MIT
+  Source: https://github.com/santifer/career-ops
+
+  The following components were adapted from CareerOps:
+  - lib/scanner/detect-ats.ts — ATS API detection from careers URLs
+  - lib/scanner/parsers.ts — Greenhouse/Ashby/Lever API response parsers
+  - lib/scanner/ats-scanner.ts — Zero-token parallel ATS scanner
+  - lib/scanner/title-filter.ts — Title keyword filtering
+  - lib/scanner/liveness.ts — URL liveness classification patterns
+  - lib/scanner/dedup.ts — Company/role deduplication
+
+  These files have been rewritten in TypeScript and adapted to Search Party's
+  YAML-based pipeline architecture but retain the core scanning logic,
+  API detection patterns, and liveness classification from CareerOps.
+
+  The original MIT license text can be found at:
+  https://opensource.org/licenses/MIT
+
 ---
 
 Apache License 2.0 Notice (for derived Kapi Sprints code):

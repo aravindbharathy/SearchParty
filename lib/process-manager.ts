@@ -358,7 +358,7 @@ CRITICAL: You MUST always end your turn with a text response to the user. After 
           }
         }
 
-        if (code === 0 && result.trim()) {
+        if (code === 0 && result.trim() && !request.directive.skipEntry) {
           this.saveAsEntry(request, result.trim(), spawnId)
         }
 
@@ -368,14 +368,14 @@ CRITICAL: You MUST always end your turn with a text response to the user. After 
         }
       })
 
-      // Safety timeout: 5 minutes
+      // Safety timeout: 15 minutes (scans with web search can take 8-12 min)
       setTimeout(() => {
         if (this.processes.has(spawnId)) {
           console.log(`[process-manager] killing ${request.agent} after timeout`)
           child.kill('SIGTERM')
           this.processes.delete(spawnId)
         }
-      }, 5 * 60 * 1000)
+      }, 15 * 60 * 1000)
 
       return { ok: true, spawn_id: spawnId, session_id: existing?.session_id }
     } catch (err) {

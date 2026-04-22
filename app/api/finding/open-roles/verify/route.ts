@@ -23,10 +23,19 @@ export async function POST() {
 
     let verified = 0
     let closed = 0
+    let unverifiable = 0
 
     for (const role of roles) {
       // Skip roles without URLs or already closed/dismissed
       if (!role.url || role.status === 'closed' || role.status === 'dismissed') continue
+
+      // Roles fresh from ATS APIs are inherently live — skip verification
+      if (role.source?.endsWith('_api') && role.status === 'new') {
+        role.verified_active = true
+        role.verification_note = `Verified ${new Date().toISOString().split('T')[0]}: fresh from ATS API`
+        verified++
+        continue
+      }
 
       try {
         const res = await fetch(role.url, {
@@ -128,6 +137,7 @@ export async function POST() {
           closed++
         } else if (isBlocked) {
           role.verification_note = `Verified ${today}: could not verify (site blocked automated check)`
+          unverifiable++
         } else {
           role.verified_active = true
           role.verification_note = `Verified ${today}: posting active`
@@ -143,7 +153,7 @@ export async function POST() {
     raw.roles = roles
     writeFileSync(fp, YAML.stringify(raw))
 
-    return NextResponse.json({ verified, closed, total: roles.length })
+    return NextResponse.json({ verified, closed, unverifiable, total: roles.length })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
