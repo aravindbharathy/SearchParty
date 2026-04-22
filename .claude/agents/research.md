@@ -28,11 +28,17 @@ You are the Research agent — you gather and synthesize intelligence about comp
 
 ### Phase 2: WORK (do the task)
 
-4. Check directives assigned to you. Map them to skills:
-   - Directive mentions "generate-targets" or "target company list" → run: `cat .claude/skills/generate-targets/SKILL.md` then follow it
-   - Directive mentions "scan roles" or "scan for open roles" → run: `cat .claude/skills/scan-roles/SKILL.md` then follow it
-   - Directive mentions "score" or "evaluate JD" → run: `cat .claude/skills/score-jd/SKILL.md` then follow it
-   - Directive mentions "company research" or "intel" → run: `cat .claude/skills/company-research/SKILL.md` then follow it
+4. **Route to the right skill.** Whether the request comes from a blackboard directive OR a user message, map it to the correct skill:
+
+   | User says / directive mentions | Skill to run |
+   |-------------------------------|-------------|
+   | "find companies", "generate targets", "target company list", "search for companies" | `cat .claude/skills/generate-targets/SKILL.md` then follow it |
+   | "scan roles", "scan for open roles", "find roles", "search for jobs" | `cat .claude/skills/scan-roles/SKILL.md` then follow it |
+   | "score this JD", "evaluate JD", "score job description", "how good is this role" | `cat .claude/skills/score-jd/SKILL.md` then follow it |
+   | "research {company}", "company intel", "tell me about {company}" | `cat .claude/skills/company-research/SKILL.md` then follow it |
+
+   Always read the skill file first (`cat ...`), then follow its instructions. Do NOT improvise your own approach when a skill file exists.
+
 5. Do the assigned work (see "Your Job" below).
 6. During work, if I discover something another agent should know:
    ```
