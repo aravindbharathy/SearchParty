@@ -2,7 +2,12 @@
  * Shared utilities for agent API routes.
  */
 
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
+import { join, dirname } from 'path'
+import YAML from 'yaml'
 import processManager from './process-manager'
+import { getSearchDir } from './paths'
+import { acquireFileLock } from './file-lock'
 
 const BLACKBOARD_URL = 'http://localhost:8790'
 
@@ -16,6 +21,35 @@ export function postToBlackboard(path: string, value: unknown, logEntry: string)
     body: JSON.stringify({ path, value, log_entry: logEntry }),
     signal: AbortSignal.timeout(3000),
   }).then(() => {}).catch(() => {})
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface OpenRolesStore { roles: any[]; last_scan: string | null; scan_count: number }
+
+/**
+ * Safely append roles to open-roles.yaml with file locking.
+ * Prevents concurrent writes from clobbering each other.
+ */
+export async function appendRolesToOpenRoles(newRoles: unknown[]): Promise<void> {
+  if (newRoles.length === 0) return
+  const orPath = join(getSearchDir(), 'pipeline', 'open-roles.yaml')
+  const dir = dirname(orPath)
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+
+  const release = await acquireFileLock(orPath)
+  try {
+    let store: OpenRolesStore = { roles: [], last_scan: null, scan_count: 0 }
+    if (existsSync(orPath)) {
+      store = YAML.parse(readFileSync(orPath, 'utf-8'), { uniqueKeys: false }) || store
+      if (!Array.isArray(store.roles)) store.roles = []
+    }
+    store.roles.push(...newRoles)
+    store.last_scan = new Date().toISOString()
+    store.scan_count = (store.scan_count || 0) + 1
+    writeFileSync(orPath, YAML.stringify(store))
+  } finally {
+    release()
+  }
 }
 
 export async function waitForCompletion(spawnId: string, timeoutMs: number): Promise<void> {

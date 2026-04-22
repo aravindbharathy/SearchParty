@@ -9,10 +9,11 @@
  */
 
 import { NextResponse } from 'next/server'
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
+import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import YAML from 'yaml'
 import { getSearchDir } from '@/lib/paths'
+import { appendRolesToOpenRoles } from '@/lib/agent-utils'
 import { scanViaAts, type TargetCompany } from '@/lib/scanner/ats-scanner'
 import { buildTitleFilter } from '@/lib/scanner/title-filter'
 import { loadExistingRoleUrls, loadExistingCompanyRoles } from '@/lib/scanner/dedup'
@@ -65,24 +66,7 @@ export async function POST(req: Request) {
       existingCompanyRoles,
     })
 
-    // Write new roles to open-roles.yaml
-    if (result.newRoles.length > 0) {
-      const orPath = join(searchDir, 'pipeline', 'open-roles.yaml')
-      const pipelineDir = join(searchDir, 'pipeline')
-      if (!existsSync(pipelineDir)) mkdirSync(pipelineDir, { recursive: true })
-
-      let existing = { roles: [] as unknown[], last_scan: null as string | null, scan_count: 0 }
-      if (existsSync(orPath)) {
-        existing = YAML.parse(readFileSync(orPath, 'utf-8'), { uniqueKeys: false }) || existing
-        if (!Array.isArray(existing.roles)) existing.roles = []
-      }
-
-      existing.roles.push(...result.newRoles)
-      existing.last_scan = new Date().toISOString()
-      existing.scan_count = (existing.scan_count || 0) + 1
-
-      writeFileSync(orPath, YAML.stringify(existing))
-    }
+    await appendRolesToOpenRoles(result.newRoles)
 
     return NextResponse.json({
       ok: true,

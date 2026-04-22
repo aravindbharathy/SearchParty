@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import YAML from 'yaml'
 import { getSearchDir } from '@/lib/paths'
-import { getProcessManager, postToBlackboard, waitForCompletion } from '@/lib/agent-utils'
+import { getProcessManager, postToBlackboard, waitForCompletion, appendRolesToOpenRoles } from '@/lib/agent-utils'
 import { scanViaAts, type TargetCompany } from '@/lib/scanner/ats-scanner'
 import { buildTitleFilter } from '@/lib/scanner/title-filter'
 import { loadExistingRoleUrls, loadExistingCompanyRoles } from '@/lib/scanner/dedup'
@@ -28,6 +28,15 @@ async function updateRoleStatus(id: string, company: string, title: string, stat
       signal: AbortSignal.timeout(5000),
     })
   } catch {}
+}
+
+function getAllNewRoles(): Array<{ id: string; company: string; title: string; location: string }> {
+  try {
+    const fp = join(getSearchDir(), 'pipeline', 'open-roles.yaml')
+    if (!existsSync(fp)) return []
+    const raw = YAML.parse(readFileSync(fp, 'utf-8'), { uniqueKeys: false }) || {}
+    return (raw.roles || []).filter((r: { status?: string }) => r.status === 'new')
+  } catch { return [] }
 }
 
 function getNewHighFitRoles(): Array<{ id: string; company: string; title: string; fit_estimate: number; jd_file: string; url: string }> {
@@ -222,19 +231,8 @@ ${roleList}`
       }
     }
 
-    // Write ONLY triaged roles to open-roles.yaml
     atsRoleCount = keptRoles.length
-    if (keptRoles.length > 0) {
-      const orPath = join(getSearchDir(), 'pipeline', 'open-roles.yaml')
-      const existing = existsSync(orPath)
-        ? YAML.parse(readFileSync(orPath, 'utf-8'), { uniqueKeys: false }) || { roles: [], last_scan: null, scan_count: 0 }
-        : { roles: [], last_scan: null, scan_count: 0 }
-      if (!Array.isArray(existing.roles)) existing.roles = []
-      existing.roles.push(...keptRoles)
-      existing.last_scan = new Date().toISOString()
-      existing.scan_count = (existing.scan_count || 0) + 1
-      writeFileSync(orPath, YAML.stringify(existing))
-    }
+    await appendRolesToOpenRoles(keptRoles)
   } catch (err) {
     console.error('[batch-scan] ATS scan failed:', err)
     // All companies fall back to agent scan
@@ -284,6 +282,62 @@ Scan ONLY these companies. Find matching roles, save JDs, append to open-roles.y
       if (result.ok) {
         console.log(`[batch-scan] agent fallback batch ${i + 1}/${fallbackBatches.length}: ${result.spawn_id}`)
         await waitForCompletion(result.spawn_id, 12 * 60 * 1000)
+      }
+    }
+
+    // Triage agent-discovered roles (they bypass ATS triage)
+    const agentNewRoles = getAllNewRoles()
+    if (agentNewRoles.length > 0) {
+      const roleList = agentNewRoles.map((r, i) => `${i + 1}. ${r.company} — ${r.title} (${r.location || 'unknown'})`).join('\n')
+      const triagePrompt = `You are triaging job listings for relevance. Read the user's experience library and career plan, then classify each role.
+
+READ THESE FILES FIRST:
+- search/context/experience-library.yaml
+- search/context/career-plan.yaml
+
+For each role, decide KEEP or DISMISS. Only dismiss roles clearly irrelevant to the user's background.
+
+Output ONLY a JSON array:
+[{"index": 1, "decision": "keep"}, {"index": 2, "decision": "dismiss"}]
+
+ROLES:
+${roleList}`
+
+      const triageResult = await getProcessManager().spawn({
+        agent: 'research',
+        directive: { skill: 'triage', text: triagePrompt, skipEntry: true },
+        oneOff: true,
+      })
+
+      if (triageResult.ok) {
+        await waitForCompletion(triageResult.spawn_id, 5 * 60 * 1000)
+        const triageOutput = getProcessManager().getOneOffStatus(triageResult.spawn_id)
+        if (triageOutput?.output) {
+          try {
+            const jsonMatch = triageOutput.output.match(/\[[\s\S]*\]/)
+            if (jsonMatch) {
+              const decisions = JSON.parse(jsonMatch[0]) as Array<{ index: number; decision: string }>
+              const dismissIndices = new Set(decisions.filter(d => d.decision === 'dismiss').map(d => d.index))
+              if (dismissIndices.size > 0) {
+                const orPath = join(getSearchDir(), 'pipeline', 'open-roles.yaml')
+                const release = await (await import('@/lib/file-lock')).acquireFileLock(orPath)
+                try {
+                  const raw = YAML.parse(readFileSync(orPath, 'utf-8'), { uniqueKeys: false }) || {}
+                  for (let i = 0; i < agentNewRoles.length; i++) {
+                    if (dismissIndices.has(i + 1)) {
+                      const role = (raw.roles || []).find((r: { id?: string }) => r.id === agentNewRoles[i].id)
+                      if (role) role.status = 'dismissed'
+                    }
+                  }
+                  writeFileSync(orPath, YAML.stringify(raw))
+                } finally { release() }
+                console.log(`[batch-scan] agent triage: ${agentNewRoles.length - dismissIndices.size} kept, ${dismissIndices.size} dismissed`)
+              }
+            }
+          } catch (err) {
+            console.warn('[batch-scan] agent triage parse failed:', err)
+          }
+        }
       }
     }
   }
@@ -445,4 +499,21 @@ Read the score report first — Block B has the experience match that guides tai
     for: 'research',
     timestamp: new Date().toISOString(),
   }, `Scan complete: ${finalRoleCount} roles, ${toTailor.slice(0, 3).length} resumes`)
+
+  // ── Trigger daily briefing if this was an auto/cron scan ──
+  if (scope === 'auto') {
+    try {
+      await getProcessManager().spawn({
+        agent: 'coach',
+        directive: {
+          skill: 'daily-briefing',
+          text: 'Run this command first: cat .claude/skills/daily-briefing/SKILL.md — then follow its instructions to produce the daily briefing.',
+        },
+        oneOff: false,
+      })
+      console.log('[batch-scan] triggered daily briefing')
+    } catch {
+      console.log('[batch-scan] daily briefing trigger failed')
+    }
+  }
 }

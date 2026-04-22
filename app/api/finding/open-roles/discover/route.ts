@@ -14,7 +14,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import YAML from 'yaml'
 import { getSearchDir } from '@/lib/paths'
-import { getProcessManager, postToBlackboard, waitForCompletion } from '@/lib/agent-utils'
+import { getProcessManager, postToBlackboard, waitForCompletion, appendRolesToOpenRoles } from '@/lib/agent-utils'
 import { loadOrGenerateQueries } from '@/lib/scanner/broad-discovery'
 
 export async function POST() {
@@ -198,15 +198,7 @@ Only include roles you're confident are relevant and have valid, specific job po
       }
     })
 
-  // Write to open-roles.yaml
-  if (newRoles.length > 0) {
-    const existing = existsSync(orPath)
-      ? YAML.parse(readFileSync(orPath, 'utf-8'), { uniqueKeys: false }) || { roles: [], last_scan: null, scan_count: 0 }
-      : { roles: [], last_scan: null, scan_count: 0 }
-    if (!Array.isArray(existing.roles)) existing.roles = []
-    existing.roles.push(...newRoles)
-    writeFileSync(orPath, YAML.stringify(existing))
-  }
+  await appendRolesToOpenRoles(newRoles)
 
   const discoveredCount = newRoles.filter(r => r.source_type === 'discovered').length
   await postToBlackboard('findings.scan-progress', {
