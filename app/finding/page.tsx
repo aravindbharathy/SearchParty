@@ -463,9 +463,23 @@ export default function FindingPage() {
   const [scanning, setScanning] = useState(false)
 
   // Restore scanning state from localStorage after mount
+  // Restore scanning state — but verify an actual scan is running
   useEffect(() => {
     try {
-      if (localStorage.getItem('finding-scanning') === 'true') setScanning(true)
+      if (localStorage.getItem('finding-scanning') !== 'true') return
+      // Check blackboard for an active scan (no scan-complete yet)
+      fetch('http://localhost:8790/state', { signal: AbortSignal.timeout(2000) })
+        .then(r => r.ok ? r.json() : null)
+        .then(state => {
+          const findings = state?.findings || {}
+          const hasComplete = findings['scan-complete']?.type === 'batch-complete'
+          if (!hasComplete && findings['scan-progress']) {
+            setScanning(true)
+          } else {
+            localStorage.removeItem('finding-scanning')
+          }
+        })
+        .catch(() => { localStorage.removeItem('finding-scanning') })
     } catch {}
   }, [])
 
