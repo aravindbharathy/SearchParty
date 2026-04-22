@@ -1430,10 +1430,20 @@ export default function FindingPage() {
                 </button>
               </div>
 
+              {batchSearching && (
+                <div className="bg-accent/5 border border-accent/20 rounded-lg p-4 mb-4 flex items-start gap-3">
+                  <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Generating target companies...</p>
+                    <p className="text-xs text-text-muted mt-1">This searches across multiple industry categories using web search — typically 10-15 minutes for all categories. Progress updates appear in the chat as each category completes.</p>
+                  </div>
+                </div>
+              )}
+
               {companies.length === 0 && (chatProcessing || batchSearching) ? (
                 <div className="text-center py-12">
-                  <p className="text-text-muted text-lg mb-2">Generating target companies...</p>
-                  <p className="text-text-muted text-sm">Searching across multiple categories. Check the chat for live progress.</p>
+                  <p className="text-text-muted text-lg mb-2">Searching for companies...</p>
+                  <p className="text-text-muted text-sm">Check the chat for live progress.</p>
                 </div>
               ) : companies.length === 0 ? (
                 <div className="text-center py-12">
