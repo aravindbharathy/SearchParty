@@ -10,6 +10,32 @@ import { loadExistingRoleUrls, loadExistingCompanyRoles } from '@/lib/scanner/de
 
 const BATCH_SIZE = 8
 
+function buildTriagePrompt(count: number, roleList: string): string {
+  return `You are triaging ${count} job listings. Your job is to DISMISS roles that don't match the user's function. Read the user's profile first.
+
+READ THESE FILES:
+- search/context/experience-library.yaml — the user's actual work history
+- search/context/career-plan.yaml — their target functions and level
+
+DECISION CRITERIA — be strict:
+
+KEEP only if the role's PRIMARY function matches the user's target functions. The user should be able to do this job based on their experience.
+
+DISMISS if:
+- Different function: "Product Manager" for a UX Researcher, "Research Engineer" for a non-engineer
+- Different research domain: "Research Scientist, Biology" or "ML Research" for a UX Researcher
+- Tangentially related but wrong core function: "Research Operations" is ops not research, "Product Management, Research" is PM not research, "Data Scientist" for a UX Researcher
+- Wrong level: too junior or too senior for the user's target
+
+When in doubt, DISMISS. The user can always score a dismissed role manually if they want — but showing irrelevant roles wastes their time.
+
+Output ONLY a JSON array, no other text:
+[{"index": 1, "decision": "keep"}, {"index": 2, "decision": "dismiss"}]
+
+ROLES:
+${roleList}`
+}
+
 function countNewRoles(): number {
   try {
     const fp = join(getSearchDir(), 'pipeline', 'open-roles.yaml')
@@ -179,23 +205,7 @@ async function runPipeline(
     if (atsResult.newRoles.length > 0) {
       const roleList = atsResult.newRoles.map((r, i) => `${i + 1}. ${r.company} — ${r.title} (${r.location || 'unknown location'})`).join('\n')
 
-      const triagePrompt = `You are triaging job listings for relevance. Read the user's experience library and career plan, then classify each role.
-
-READ THESE FILES FIRST:
-- search/context/experience-library.yaml
-- search/context/career-plan.yaml
-
-Here are ${atsResult.newRoles.length} roles discovered by scanning ATS APIs. For each, decide:
-- KEEP: the user's skills and experience genuinely transfer to this role
-- DISMISS: clearly NOT relevant (wrong domain, wrong function — e.g. "Biological Safety Research Scientist" for a UX Researcher, or "Research Engineer, Audio" for someone without audio/ML background)
-
-Be practical — keep roles where the title is ambiguous but COULD be relevant. Only dismiss roles that are clearly wrong.
-
-Output ONLY a JSON array, no other text:
-[{"index": 1, "decision": "keep"}, {"index": 2, "decision": "dismiss"}]
-
-ROLES:
-${roleList}`
+      const triagePrompt = buildTriagePrompt(atsResult.newRoles.length, roleList)
 
       const triageResult = await getProcessManager().spawn({
         agent: 'research',
@@ -298,19 +308,7 @@ Scan ONLY these companies. Find matching roles, save JDs, append to open-roles.y
     const agentNewRoles = getUntriaged()
     if (agentNewRoles.length > 0) {
       const roleList = agentNewRoles.map((r, i) => `${i + 1}. ${r.company} — ${r.title} (${r.location || 'unknown'})`).join('\n')
-      const triagePrompt = `You are triaging job listings for relevance. Read the user's experience library and career plan, then classify each role.
-
-READ THESE FILES FIRST:
-- search/context/experience-library.yaml
-- search/context/career-plan.yaml
-
-For each role, decide KEEP or DISMISS. Only dismiss roles clearly irrelevant to the user's background.
-
-Output ONLY a JSON array:
-[{"index": 1, "decision": "keep"}, {"index": 2, "decision": "dismiss"}]
-
-ROLES:
-${roleList}`
+      const triagePrompt = buildTriagePrompt(agentNewRoles.length, roleList)
 
       const triageResult = await getProcessManager().spawn({
         agent: 'research',
