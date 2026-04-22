@@ -623,13 +623,7 @@ export default function FindingPage() {
           role: 'agent',
           content: `Starting company search across ${data.total} categories:\n${(data.categories || []).map((c: string, i: number) => `${i + 1}. ${c}`).join('\n')}\n\nI'll search each category one at a time. Progress updates will appear here as each completes.`,
         }])
-        if (batchSearchPollRef.current) clearInterval(batchSearchPollRef.current)
-        batchSearchPollRef.current = setInterval(() => { loadCompanies() }, 15_000)
-        batchSearchTimeoutRef.current = setTimeout(() => {
-          if (batchSearchPollRef.current) { clearInterval(batchSearchPollRef.current); batchSearchPollRef.current = null }
-          setBatchSearching(false)
-          loadCompanies()
-        }, 20 * 60 * 1000)
+        // Polling handled by the useEffect below
       } else {
         setChatMessages(prev => [...prev, { role: 'agent', content: data.error || 'Failed to start search.' }])
         setBatchSearching(false)
@@ -639,6 +633,35 @@ export default function FindingPage() {
       setBatchSearching(false)
     }
   }
+
+  // Poll for batch-targets completion
+  useEffect(() => {
+    if (!batchSearching) {
+      if (batchSearchPollRef.current) { clearInterval(batchSearchPollRef.current); batchSearchPollRef.current = null }
+      if (batchSearchTimeoutRef.current) { clearTimeout(batchSearchTimeoutRef.current); batchSearchTimeoutRef.current = null }
+      return
+    }
+    if (batchSearchPollRef.current) return
+    batchSearchPollRef.current = setInterval(async () => {
+      loadCompanies()
+      try {
+        const bbRes = await fetch('http://localhost:8790/state', { signal: AbortSignal.timeout(2000) })
+        if (bbRes.ok) {
+          const state = await bbRes.json() as { findings?: Record<string, { type?: string }> }
+          const findings = state.findings || {}
+          if (findings['batch-targets-complete']?.type === 'batch-complete') {
+            setBatchSearching(false)
+            loadCompanies()
+          }
+        }
+      } catch {}
+    }, 10_000)
+    batchSearchTimeoutRef.current = setTimeout(() => {
+      setBatchSearching(false)
+      loadCompanies()
+    }, 20 * 60 * 1000)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchSearching])
 
   // Cleanup batch search timers on unmount
   useEffect(() => {
@@ -1426,7 +1449,7 @@ export default function FindingPage() {
                   disabled={actionProcessing || batchSearching}
                   className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                 >
-                  {batchSearching ? 'Searching...' : actionProcessing ? 'Generating...' : 'Generate Targets'}
+                  {batchSearching ? 'Searching...' : actionProcessing ? 'Generating...' : companies.length > 0 ? 'Expand Search' : 'Generate Targets'}
                 </button>
               </div>
 
@@ -1434,8 +1457,13 @@ export default function FindingPage() {
                 <div className="bg-accent/5 border border-accent/20 rounded-lg p-4 mb-4 flex items-start gap-3">
                   <span className="inline-block w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-sm font-medium">Generating target companies...</p>
-                    <p className="text-xs text-text-muted mt-1">This searches across multiple industry categories using web search — typically 10-15 minutes for all categories. Progress updates appear in the chat as each category completes.</p>
+                    <p className="text-sm font-medium">{companies.length > 0 ? 'Expanding your target list...' : 'Generating target companies...'}</p>
+                    <p className="text-xs text-text-muted mt-1">
+                      {companies.length > 0
+                        ? `Searching for companies not already in your ${companies.length}-company list. Existing companies are preserved. Typically 10-15 minutes.`
+                        : 'This searches across multiple industry categories using web search — typically 10-15 minutes for all categories.'
+                      } Progress updates appear in the chat as each category completes.
+                    </p>
                   </div>
                 </div>
               )}
