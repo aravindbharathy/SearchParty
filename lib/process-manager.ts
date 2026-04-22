@@ -280,7 +280,7 @@ CRITICAL: You MUST always end your turn with a text response to the user. After 
         this.processes.delete(spawnId)
         if (request.oneOff) {
           this.oneOffResults.set(spawnId, { status: 'failed', output: `Spawn error: ${err.message}` })
-          setTimeout(() => this.oneOffResults.delete(spawnId), 5 * 60 * 1000)
+          setTimeout(() => this.oneOffResults.delete(spawnId), 15 * 60 * 1000)
         } else {
           const errSessions = this.loadSessions()
           if (errSessions.sessions[request.agent]?.spawn_id === spawnId) {
@@ -343,7 +343,7 @@ CRITICAL: You MUST always end your turn with a text response to the user. After 
             output: truncateClean(result, 8000),
           })
           // Auto-cleanup after 5 minutes
-          setTimeout(() => this.oneOffResults.delete(spawnId), 5 * 60 * 1000)
+          setTimeout(() => this.oneOffResults.delete(spawnId), 15 * 60 * 1000)
         } else {
           const currentSessions = this.loadSessions()
           if (currentSessions.sessions[request.agent]?.spawn_id === spawnId) {
