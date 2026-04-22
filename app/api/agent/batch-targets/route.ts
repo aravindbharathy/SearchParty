@@ -2,24 +2,8 @@ import { NextResponse } from 'next/server'
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import YAML from 'yaml'
-// Import processManager normally for the request handler.
-// For the background runSequential, access via globalThis to survive Turbopack HMR.
-import processManager from '@/lib/process-manager'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getProcessManager = () => (globalThis as any).__processManager || processManager
 import { getSearchDir } from '@/lib/paths'
-
-const BLACKBOARD_URL = 'http://localhost:8790'
-
-function postToBlackboard(path: string, value: unknown, logEntry: string): Promise<void> {
-  return fetch(`${BLACKBOARD_URL}/write`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path, value, log_entry: logEntry }),
-    signal: AbortSignal.timeout(3000),
-  }).then(() => {}).catch(() => {})
-}
+import { getProcessManager, postToBlackboard, waitForCompletion } from '@/lib/agent-utils'
 
 function countCompanies(): number {
   try {
@@ -138,12 +122,7 @@ export async function POST(req: Request) {
 }
 
 async function runSequential(categories: string[], careerContext: string, weightsStr: string, startCount: number) {
-  await postToBlackboard('findings.batch-targets-start', {
-    type: 'progress',
-    text: `Generating target companies across ${categories.length} categories: ${categories.join(', ')}...`,
-    for: 'research',
-    timestamp: new Date().toISOString(),
-  }, `Searching ${categories.length} categories`)
+  // No start finding — the UI handler already shows the categories to the user
 
   for (let i = 0; i < categories.length; i++) {
     const category = categories[i]
@@ -169,8 +148,14 @@ Search category: ${category}`
 
     if (result.ok) {
       console.log(`[batch-targets] spawned ${progress}: ${result.spawn_id}`)
-      await waitForCompletion(result.spawn_id, 4 * 60 * 1000)
-      console.log(`[batch-targets] completed ${progress}`)
+      await waitForCompletion(result.spawn_id, 10 * 60 * 1000)
+      const currentCount = countCompanies()
+      await postToBlackboard('findings.batch-targets-progress', {
+        type: 'progress',
+        text: `Searched ${progress} categories (${currentCount} companies so far): ${category}`,
+        for: 'research',
+        timestamp: new Date().toISOString(),
+      }, `Targets ${progress}: ${category}`)
     } else {
       console.log(`[batch-targets] spawn failed for ${progress}: ${category}`)
     }
@@ -187,22 +172,4 @@ Search category: ${category}`
   }, `Batch targets complete: ${finalCount} companies (${totalAdded} new)`)
 }
 
-async function waitForCompletion(spawnId: string, timeoutMs: number): Promise<void> {
-  const start = Date.now()
-  while (Date.now() - start < timeoutMs) {
-    try {
-      // Poll via HTTP API — avoids Turbopack HMR issues with direct processManager access
-      const res = await fetch(`http://localhost:8791/api/agent/spawn/${spawnId}`, {
-        signal: AbortSignal.timeout(5000),
-      })
-      if (res.ok) {
-        const data = await res.json() as { status?: string }
-        if (data.status === 'completed' || data.status === 'failed') return
-      } else if (res.status === 404) {
-        // Spawn not found — may have completed and been cleaned up
-        return
-      }
-    } catch {}
-    await new Promise(r => setTimeout(r, 3000))
-  }
-}
+// waitForCompletion imported from @/lib/agent-utils
