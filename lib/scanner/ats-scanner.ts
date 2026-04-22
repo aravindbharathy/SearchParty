@@ -30,6 +30,7 @@ export interface ScannedRole {
   location: string
   discovered_date: string
   source: string
+  source_type: 'targeted' | 'discovered'
   fit_estimate: number
   status: 'new'
   jd_file: string
@@ -159,6 +160,7 @@ export async function scanViaAts(options: {
           location: job.location,
           discovered_date: today,
           source: `${company.ats.type}_api`,
+          source_type: 'targeted' as const,
           fit_estimate: 0,
           status: 'new',
           jd_file: '',

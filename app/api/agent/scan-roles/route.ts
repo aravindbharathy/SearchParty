@@ -55,17 +55,25 @@ export async function POST(req: Request) {
       })
     }
 
-    // Delegate to batch-scan pipeline (scan → verify → score → tailor)
+    // Phase A: Targeted scan (ATS + agent fallback for Tier 1+2)
     const batchRes = await fetch('http://localhost:8791/api/agent/batch-scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scope: 'full' }),
+      body: JSON.stringify({ scope: 'auto' }),
       signal: AbortSignal.timeout(10000),
     })
     const batchData = await batchRes.json()
 
+    // Phase B: Broad discovery (search beyond target companies)
+    // Fire-and-forget — runs in background after targeted scan starts
+    fetch('http://localhost:8791/api/finding/open-roles/discover', {
+      method: 'POST',
+      signal: AbortSignal.timeout(10000),
+    }).catch(() => {})
+
     return NextResponse.json({
       ok: batchData.ok || false,
+      phases: ['targeted-scan', 'broad-discovery'],
       ...batchData,
     })
   } catch (err) {

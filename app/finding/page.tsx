@@ -76,6 +76,7 @@ interface OpenRole {
   posted_date: string
   discovered_date: string
   source: string
+  source_type?: 'targeted' | 'discovered'
   fit_estimate: number
   status: 'new' | 'scored' | 'resume-ready' | 'applied' | 'dismissed' | 'closed'
   score?: number
@@ -136,7 +137,7 @@ export default function FindingPage() {
   const [openRoles, setOpenRoles] = useState<OpenRole[]>([])
   const [lastScan, setLastScan] = useState<string | null>(null)
   const [scanStale, setScanStale] = useState(true)
-  const [roleFilter, setRoleFilter] = useState<'all' | 'new' | 'scored' | 'applied' | 'dismissed'>('scored')
+  const [roleFilter, setRoleFilter] = useState<'all' | 'new' | 'scored' | 'applied' | 'dismissed' | 'discovered'>('scored')
 
   // Score JD form
   const [jdPreviewMode, setJdPreviewMode] = useState(false)
@@ -159,6 +160,7 @@ export default function FindingPage() {
   const [roleCompanyFilter, setRoleCompanyFilter] = useState('')
   const [verifyingRoles, setVerifyingRoles] = useState(false)
   const [scoringAll, setScoringAll] = useState(false)
+  const [discovering, setDiscovering] = useState(false)
 
   // Intel viewer
   const [selectedIntelSlug, setSelectedIntelSlug] = useState<string | null>(null)
@@ -195,6 +197,49 @@ export default function FindingPage() {
   const { notifications, dismiss: dismissNotification, dismissAll: dismissAllNotifications } = useDirectiveNotifications('research')
 
   useAgentWelcome('research', 'I\'m your research specialist. I can help you score job descriptions, research companies, generate target lists, and scan for open roles.\n\nWhat would you like to do?', chatMessages, setChatMessages, 'finding-chat-messages')
+
+  // ─── Discover Beyond Targets handler ────────────────────────────────────
+  const handleDiscover = useCallback(async () => {
+    setDiscovering(true)
+    setActiveTab('open-roles')
+    try {
+      const res = await fetch('/api/finding/open-roles/discover', { method: 'POST' })
+      const data = await res.json() as { ok?: boolean; queries?: number; error?: string }
+      if (data.ok) {
+        setChatMessages(prev => [...prev, {
+          role: 'agent',
+          content: `Searching for roles beyond your target companies (${data.queries} queries across Greenhouse, Ashby, Lever). This uses WebSearch to find roles at companies not on your list. Progress updates will appear here.`,
+        }])
+      } else {
+        setChatMessages(prev => [...prev, { role: 'agent', content: data.error || 'Failed to start discovery.' }])
+        setDiscovering(false)
+      }
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'agent', content: 'Failed to start discovery.' }])
+      setDiscovering(false)
+    }
+  }, [setChatMessages])
+
+  // Poll for discover completion
+  useEffect(() => {
+    if (!discovering) return
+    const poll = setInterval(async () => {
+      loadOpenRoles()
+      try {
+        const bbRes = await fetch('http://localhost:8790/state', { signal: AbortSignal.timeout(2000) })
+        if (bbRes.ok) {
+          const state = await bbRes.json() as { findings?: Record<string, { type?: string; text?: string }> }
+          const progress = state.findings?.['scan-progress']
+          if (progress?.type === 'category-complete' && progress.text?.includes('Broad discovery:')) {
+            setDiscovering(false)
+            loadOpenRoles()
+          }
+        }
+      } catch {}
+    }, 10_000)
+    return () => clearInterval(poll)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discovering])
 
   // ─── Score All handler ──────────────────────────────────────────────────
   const handleScoreAll = useCallback(async () => {
@@ -872,6 +917,14 @@ export default function FindingPage() {
                   >
                     Scan All
                   </button>
+                  <button
+                    onClick={handleDiscover}
+                    disabled={discovering || scanning || chatProcessing}
+                    className="px-3 py-2 border border-accent/30 text-accent rounded-md text-sm hover:bg-accent/10 disabled:opacity-50 shrink-0"
+                    title="Search across Greenhouse, Ashby, and Lever for matching roles at companies not on your target list"
+                  >
+                    {discovering ? 'Discovering...' : 'Discover Beyond Targets'}
+                  </button>
               </div>
               <div className="flex items-center gap-3 mb-3">
                 <div className="flex gap-1">
@@ -880,6 +933,7 @@ export default function FindingPage() {
                       { key: 'new' as const, label: 'Open', count: newRoleCount },
                       { key: 'scored' as const, label: 'Scored', count: openRoles.filter(r => r.status === 'scored' || r.status === 'resume-ready').length },
                       { key: 'applied' as const, label: 'In Pipeline', count: openRoles.filter(r => r.status === 'applied' || pipelineCompanies.has(`${r.company.toLowerCase()}|${r.title.toLowerCase()}`)).length },
+                      { key: 'discovered' as const, label: 'Discovered', count: openRoles.filter(r => r.source_type === 'discovered').length },
                       { key: 'dismissed' as const, label: 'Dismissed', count: openRoles.filter(r => r.status === 'dismissed').length },
                     ]).map(f => (
                       <button
@@ -926,6 +980,7 @@ export default function FindingPage() {
                     .filter(r => roleFilter === 'all' ? r.status !== 'closed'
                       : roleFilter === 'scored' ? (r.status === 'scored' || r.status === 'resume-ready')
                       : roleFilter === 'applied' ? (r.status === 'applied' || pipelineCompanies.has(`${r.company.toLowerCase()}|${r.title.toLowerCase()}`))
+                      : roleFilter === 'discovered' ? r.source_type === 'discovered'
                       : r.status === roleFilter)
                     .filter(r => {
                       if (!roleCompanyFilter) return true
