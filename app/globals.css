@@ -1,42 +1,73 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-bg: #FDF8F4;
+  --color-bg: #FBF5ED;
   --color-surface: #FFFFFF;
-  --color-border: #E8DDD4;
-  --color-text: #2D2419;
-  --color-text-muted: #8B7E74;
-  --color-accent: #B8845C;
-  --color-accent-hover: #A06F45;
-  --color-success: #4A8C5C;
-  --color-warning: #C4943A;
-  --color-danger: #C44A4A;
-  --color-sidebar-bg: #2D2419;
-  --color-sidebar-text: #E8DDD4;
-  --color-sidebar-active: #B8845C;
+  --color-border: #EADDCC;
+  --color-border-strong: #D6C3A8;
+  --color-text: #2A1F15;
+  --color-text-muted: #8A7A6B;
+  --color-accent: #C25A3E;
+  --color-accent-hover: #A8472C;
+  --color-accent-tint: rgba(194, 90, 62, 0.10);
+  --color-success: #5B8A3C;
+  --color-warning: #D98A1A;
+  --color-danger: #B33A30;
+  --color-success-tint: rgba(91, 138, 60, 0.10);
+  --color-warning-tint: rgba(217, 138, 26, 0.12);
+  --color-danger-tint: rgba(179, 58, 48, 0.10);
+  --color-sidebar-bg: #2A1F15;
+  --color-sidebar-text: #F0E4D5;
+  --color-sidebar-active: #C25A3E;
+  --color-sidebar-muted: rgba(240, 228, 213, 0.60);
+  --color-sidebar-hover: rgba(255, 255, 255, 0.05);
+  --color-sidebar-divider: rgba(255, 255, 255, 0.08);
 }
 
 :root {
-  /* Warm command center palette */
-  --color-bg: #FDF8F4;           /* warm cream */
+  /* Foundation — warm cream canvas */
+  --color-bg: #FBF5ED;
   --color-surface: #FFFFFF;
-  --color-border: #E8DDD4;       /* warm gray */
-  --color-text: #2D2419;         /* dark brown */
-  --color-text-muted: #8B7E74;   /* warm gray text */
-  --color-accent: #B8845C;       /* warm brown accent */
-  --color-accent-hover: #A06F45;
-  --color-success: #4A8C5C;      /* green — on track */
-  --color-warning: #C4943A;      /* amber — needs attention */
-  --color-danger: #C44A4A;       /* red — overdue */
-  --color-sidebar-bg: #2D2419;   /* dark sidebar */
-  --color-sidebar-text: #E8DDD4;
-  --color-sidebar-active: #B8845C;
+  --color-border: #EADDCC;
+  --color-border-strong: #D6C3A8;
+
+  /* Foreground — deep espresso */
+  --color-text: #2A1F15;
+  --color-text-muted: #8A7A6B;
+
+  /* Accent — terracotta (rust-orange) */
+  --color-accent: #C25A3E;
+  --color-accent-hover: #A8472C;
+  --color-accent-tint: rgba(194, 90, 62, 0.10);
+
+  /* Semantic */
+  --color-success: #5B8A3C;
+  --color-warning: #D98A1A;
+  --color-danger: #B33A30;
+  --color-success-tint: rgba(91, 138, 60, 0.10);
+  --color-warning-tint: rgba(217, 138, 26, 0.12);
+  --color-danger-tint: rgba(179, 58, 48, 0.10);
+
+  /* Sidebar — inverted dark shell */
+  --color-sidebar-bg: #2A1F15;
+  --color-sidebar-text: #F0E4D5;
+  --color-sidebar-active: #C25A3E;
+  --color-sidebar-muted: rgba(240, 228, 213, 0.60);
+  --color-sidebar-hover: rgba(255, 255, 255, 0.05);
+  --color-sidebar-divider: rgba(255, 255, 255, 0.08);
+
+  /* Elevation — warm-tinted shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(42, 31, 21, 0.05);
+  --shadow-md: 0 4px 8px -2px rgba(42, 31, 21, 0.08), 0 2px 4px -2px rgba(42, 31, 21, 0.04);
+  --shadow-lg: 0 10px 25px -8px rgba(42, 31, 21, 0.15);
+  --ring-accent: 0 0 0 2px rgba(194, 90, 62, 0.40);
 }
 
 body {
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 button:not(:disabled) {

@@ -6,12 +6,12 @@ import { useAgentEvents } from '../hooks/use-agent-events'
 import { MarkdownView } from '../_components/markdown-view'
 
 const AGENT_COLORS: Record<string, string> = {
-  research: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  resume: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  coach: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  networking: 'bg-green-500/10 text-green-400 border-green-500/20',
-  interview: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-  negotiation: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  research: 'bg-surface text-text border-border',
+  resume: 'bg-surface text-text border-border',
+  coach: 'bg-accent-tint text-text border-accent/20',
+  networking: 'bg-surface text-text border-border',
+  interview: 'bg-surface text-text border-border',
+  negotiation: 'bg-surface text-text border-border',
 }
 
 const ALL_AGENTS = [
@@ -256,7 +256,7 @@ export default function CommandCenterPage() {
             Reset All
           </button>
           <div className="flex items-center gap-2 text-xs">
-            <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-text-muted/40'}`} />
+            <span className={`w-2 h-2 rounded-full ${connected ? 'bg-success' : 'bg-text-muted/40'}`} />
             <span className="text-text-muted">{connected ? 'Live' : 'Disconnected'}</span>
           </div>
         </div>
@@ -274,10 +274,10 @@ export default function CommandCenterPage() {
 
       {/* ─── Connection Status ─────────────────────────────────── */}
       {!connected && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-6 flex items-center gap-3">
-          <span className="w-3 h-3 bg-amber-400 rounded-full shrink-0" />
+        <div className="bg-warning-tint border border-warning/30 rounded-lg p-4 mb-6 flex items-center gap-3">
+          <span className="w-3 h-3 bg-warning rounded-full shrink-0" />
           <div>
-            <div className="text-sm font-medium text-amber-400">Blackboard Disconnected</div>
+            <div className="text-sm font-medium text-warning">Blackboard Disconnected</div>
             <div className="text-xs text-text-muted">
               The blackboard server at ws://127.0.0.1:8790 is unreachable. Agent status and findings will not update until reconnected.
             </div>
@@ -299,7 +299,7 @@ export default function CommandCenterPage() {
             const isSpawning = spawningAgent === def.name && spawnStatus === 'running'
             const isActive = isProcessRunning || isSpawning
 
-            const statusDot = isActive ? 'bg-green-500 animate-pulse' : pmAgent ? 'bg-text-muted/60' : 'bg-text-muted/20'
+            const statusDot = isActive ? 'bg-success animate-pulse' : pmAgent ? 'bg-text-muted/60' : 'bg-text-muted/20'
             const statusLabel = isActive ? 'running' : pmAgent?.status === 'completed' ? 'ready' : pmAgent?.status === 'failed' ? 'error' : 'not started'
 
             // Task info: prefer blackboard (richer) but fall back to process manager
@@ -320,7 +320,7 @@ export default function CommandCenterPage() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusDot}`} />
                   <span className="font-medium text-sm capitalize">{def.name}</span>
-                  <span className={`text-xs ${isActive ? 'text-green-500' : 'opacity-70'}`}>{statusLabel}</span>
+                  <span className={`text-xs ${isActive ? 'text-success' : 'text-text-muted'}`}>{statusLabel}</span>
                   {interactions > 0 && (
                     <span className="text-xs opacity-50 ml-auto">{interactions} {interactions === 1 ? 'run' : 'runs'}</span>
                   )}
@@ -333,8 +333,8 @@ export default function CommandCenterPage() {
                 )}
                 <div className="flex items-center gap-2">
                   {isActive ? (
-                    <span className="px-3 py-1 text-xs text-green-500 border border-green-500/30 rounded bg-green-500/10 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                    <span className="px-3 py-1 text-xs text-success border border-success/30 rounded bg-success-tint flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
                       Running...
                     </span>
                   ) : pmAgent ? (
@@ -411,14 +411,14 @@ export default function CommandCenterPage() {
             {[...activeDirectives, ...completedDirectives].slice(0, 15).map((d) => {
               const isActive = !d.status || d.status === 'pending' || d.status === 'open' || d.status === 'in-progress'
               const statusColor = isActive
-                ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                ? 'bg-warning-tint text-warning border-warning/20'
                 : d.status === 'done' || d.status === 'completed'
-                  ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                  ? 'bg-success-tint text-success border-success/20'
                   : 'bg-text-muted/10 text-text-muted border-text-muted/20'
 
               return (
-                <div key={d.id} className={`flex items-start gap-3 py-2.5 px-3 rounded-lg border ${isActive ? 'border-amber-500/20 bg-amber-500/5' : 'border-border/50'}`}>
-                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isActive ? 'bg-amber-400' : 'bg-green-500'}`} />
+                <div key={d.id} className={`flex items-start gap-3 py-2.5 px-3 rounded-lg border ${isActive ? 'border-warning/20 bg-warning-tint' : 'border-border/50'}`}>
+                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isActive ? 'bg-warning' : 'bg-success'}`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       {d.from && (
@@ -560,7 +560,7 @@ export default function CommandCenterPage() {
                     <span>Session: <code className="text-text">{session.session_id?.slice(0, 8) ?? 'n/a'}...</code></span>
                     <span>Spawn: <code className="text-text">{session.spawn_id?.slice(0, 8) ?? 'n/a'}</code></span>
                     <span>{session.interactions} interactions</span>
-                    <span className={`capitalize ${session.status === 'running' ? 'text-green-400' : session.status === 'failed' ? 'text-danger' : 'text-text-muted'}`}>
+                    <span className={`capitalize ${session.status === 'running' ? 'text-success' : session.status === 'failed' ? 'text-danger' : 'text-text-muted'}`}>
                       {session.status}
                     </span>
                   </div>
@@ -659,7 +659,7 @@ export default function CommandCenterPage() {
                   {directives.map((d, i) => {
                     const isActive = !d.status || d.status === 'pending' || d.status === 'open' || d.status === 'in-progress'
                     return (
-                      <div key={d.id || i} className={`bg-bg border rounded-md p-3 text-xs ${isActive ? 'border-amber-500/30' : 'border-border/60'}`}>
+                      <div key={d.id || i} className={`bg-bg border rounded-md p-3 text-xs ${isActive ? 'border-warning/30' : 'border-border/60'}`}>
                         <div className="flex items-center gap-2 mb-1">
                           {d.from && <span className={`px-1.5 py-0.5 rounded border capitalize ${agentBadgeColor(d.from)}`}>{d.from}</span>}
                           {(d.assigned_to || d.assignee) && (
@@ -668,7 +668,7 @@ export default function CommandCenterPage() {
                               <span className={`px-1.5 py-0.5 rounded border capitalize ${agentBadgeColor(d.assigned_to || d.assignee || '')}`}>{d.assigned_to || d.assignee}</span>
                             </>
                           )}
-                          <span className={`ml-auto font-medium ${isActive ? 'text-amber-500' : 'text-success'}`}>{d.status || 'pending'}</span>
+                          <span className={`ml-auto font-medium ${isActive ? 'text-warning' : 'text-success'}`}>{d.status || 'pending'}</span>
                           {d.priority && <span className={`${d.priority === 'high' ? 'text-danger' : d.priority === 'medium' ? 'text-warning' : 'text-text-muted'}`}>{d.priority}</span>}
                         </div>
                         <p className="text-text mt-1">{d.title || d.text || d.id}</p>

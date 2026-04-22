@@ -1152,7 +1152,7 @@ function FieldProgressBar({ section }: { section: ProfileSectionStatus }) {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className={`h-1.5 flex-1 rounded-sm ${i < filledBlocks ? 'bg-green-500' : 'bg-border'}`}
+            className={`h-1.5 flex-1 rounded-sm ${i < filledBlocks ? 'bg-success' : 'bg-border'}`}
           />
         ))}
       </div>
