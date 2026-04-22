@@ -467,13 +467,15 @@ export default function FindingPage() {
   useEffect(() => {
     try {
       if (localStorage.getItem('finding-scanning') !== 'true') return
-      // Check blackboard for an active scan (no scan-complete yet)
       fetch('http://localhost:8790/state', { signal: AbortSignal.timeout(2000) })
         .then(r => r.ok ? r.json() : null)
         .then(state => {
           const findings = state?.findings || {}
           const hasComplete = findings['scan-complete']?.type === 'batch-complete'
-          if (!hasComplete && findings['scan-progress']) {
+          const progress = findings['scan-progress']
+          // Only restore if there's an active scan: progress exists, not completed, and recent (< 30 min)
+          const isRecent = progress?.timestamp && (Date.now() - new Date(progress.timestamp).getTime()) < 30 * 60 * 1000
+          if (!hasComplete && progress && isRecent) {
             setScanning(true)
           } else {
             localStorage.removeItem('finding-scanning')
