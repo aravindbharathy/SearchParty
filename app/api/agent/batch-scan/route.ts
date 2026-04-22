@@ -30,12 +30,15 @@ async function updateRoleStatus(id: string, company: string, title: string, stat
   } catch {}
 }
 
-function getAllNewRoles(): Array<{ id: string; company: string; title: string; location: string }> {
+function getUntriaged(): Array<{ id: string; company: string; title: string; location: string }> {
   try {
     const fp = join(getSearchDir(), 'pipeline', 'open-roles.yaml')
     if (!existsSync(fp)) return []
     const raw = YAML.parse(readFileSync(fp, 'utf-8'), { uniqueKeys: false }) || {}
-    return (raw.roles || []).filter((r: { status?: string }) => r.status === 'new')
+    // Only return roles that haven't been triaged yet (no source_type = they came from agent fallback)
+    return (raw.roles || []).filter((r: { status?: string; source_type?: string }) =>
+      r.status === 'new' && !r.source_type
+    )
   } catch { return [] }
 }
 
@@ -286,7 +289,7 @@ Scan ONLY these companies. Find matching roles, save JDs, append to open-roles.y
     }
 
     // Triage agent-discovered roles (they bypass ATS triage)
-    const agentNewRoles = getAllNewRoles()
+    const agentNewRoles = getUntriaged()
     if (agentNewRoles.length > 0) {
       const roleList = agentNewRoles.map((r, i) => `${i + 1}. ${r.company} — ${r.title} (${r.location || 'unknown'})`).join('\n')
       const triagePrompt = `You are triaging job listings for relevance. Read the user's experience library and career plan, then classify each role.
