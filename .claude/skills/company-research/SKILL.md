@@ -26,27 +26,13 @@ The "type":"user_action" in DIRECTIVES (not findings) triggers a visible action 
 
 ## Step A: Generate Target Company List
 
-1. Read `search/context/career-plan.yaml` for target level, functions, industries, locations, comp floor.
-2. Web-search for companies actively hiring for matching roles.
-3. Generate a ranked list of ~30-50 companies with fit scores.
-4. Write the list to `search/context/target-companies.yaml` in this format:
+**Redirect**: Run the `generate-targets` skill instead — it has the full implementation with comprehensive web search (50-100 companies), careers URL detection, and automatic scan pipeline trigger.
 
-```yaml
-companies:
-  - name: "Company Name"
-    slug: "company-slug"
-    fit_score: 85
-    status: "researching"
-    priority: "high"
-    notes: "Brief reason for fit"
+```
+cat .claude/skills/generate-targets/SKILL.md
 ```
 
-Priority rules: high (fit >= 75), medium (50-74), low (< 50). Sort by fit_score descending.
-
-5. Post to blackboard:
-```
-write_to_blackboard path="log" value={"ts":"{now}","entry":"Generated target company list: {count} companies"} log_entry="generate-targets complete"
-```
+Then follow its instructions. Do NOT use the abbreviated flow below.
 
 ## Step B: Research Single Company
 

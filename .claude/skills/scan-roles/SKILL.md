@@ -73,6 +73,7 @@ Read existing `search/pipeline/open-roles.yaml` first. If the file doesn't exist
     posted_date: "{from posting}"
     discovered_date: "{today}"
     source: "{greenhouse_api|lever_api|ashby_api|websearch}"
+    source_type: "targeted"
     fit_estimate: {0-100}
     status: "new"
     jd_file: "vault/uploads/jds/{slug}-{role-slug}.txt"
@@ -87,6 +88,10 @@ The `id` field is the unique key for this role. Other skills and the update-stat
 Before adding a role, check if a role with the same company+title already exists in the file. If so, skip it — do not create duplicates.
 
 Update `last_scan` and increment `scan_count`. Keep ALL existing roles. File must contain ONLY `last_scan`, `scan_count`, and `roles` array.
+
+## Pipeline Context
+
+This skill is often invoked by the batch-scan pipeline as a **fallback** for companies without ATS APIs (Greenhouse/Ashby/Lever). The pipeline handles ATS scanning automatically — you only run for companies where no API endpoint was found. Skip blackboard updates and curl commands when called from the pipeline (they're handled externally).
 
 ## Rules
 

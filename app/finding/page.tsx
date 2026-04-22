@@ -275,7 +275,7 @@ export default function FindingPage() {
         if (bbRes.ok) {
           const state = await bbRes.json() as { findings?: Record<string, { type?: string; text?: string }> }
           const progress = state.findings?.['scan-progress']
-          if (progress?.type === 'category-complete' && progress.text?.startsWith('Scored')) {
+          if (progress?.type === 'category-complete' && progress.text?.match(/^Scored \d+\/\d+ roles/)) {
             setScoringAll(false)
             loadOpenRoles()
             loadScoredJDs()
@@ -514,8 +514,8 @@ export default function FindingPage() {
   // When scanning becomes true (from button click or localStorage restore), start polling for completion
   useEffect(() => {
     if (!scanning) {
-      // Clear poll if scanning stopped
       if (scanPollRef.current) { clearInterval(scanPollRef.current); scanPollRef.current = null }
+      if (scanTimeoutRef.current) { clearTimeout(scanTimeoutRef.current); scanTimeoutRef.current = null }
       return
     }
     if (scanPollRef.current) return // already polling
@@ -878,12 +878,12 @@ export default function FindingPage() {
                       setVerifyingRoles(true)
                       try {
                         const res = await fetch('/api/finding/open-roles/verify', { method: 'POST' })
-                        const data = await res.json() as { verified?: number; closed?: number }
+                        const data = await res.json() as { verified?: number; closed?: number; unverifiable?: number }
+                        const parts = [`${data.verified || 0} active`, `${data.closed || 0} closed`]
+                        if (data.unverifiable) parts.push(`${data.unverifiable} could not be checked`)
                         setChatMessages(prev => [...prev, {
                           role: 'agent',
-                          content: data.closed
-                            ? `Verified ${(data.verified || 0) + data.closed} role links: ${data.verified || 0} active, ${data.closed} closed.`
-                            : `Verified ${data.verified || 0} role links — all active.`,
+                          content: `Verified role links: ${parts.join(', ')}.`,
                         }])
                         loadOpenRoles()
                       } catch {

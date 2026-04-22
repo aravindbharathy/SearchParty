@@ -79,6 +79,7 @@ export async function POST(req: Request) {
     let companies: Array<{ name: string; slug: string; fit_score: number; careers_url?: string; ats_provider?: string; ats_slug?: string }> = tc.companies || []
 
     // Filter by scope
+    // 'full' and 'auto': ATS scan all, but 'auto' limits agent fallback to Tier 1+2
     if (scope === 'top-fit') {
       companies = companies.filter(c => (c.fit_score || 0) >= 75)
     } else if (scope === 'tier-1-2') {
@@ -350,7 +351,16 @@ ${jdSource}`
       if (result.ok) {
         console.log(`[batch-scan] phase 3, scoring ${i + 1}/${highFitRoles.length}: ${role.company}`)
         await waitForCompletion(result.spawn_id, 10 * 60 * 1000)
-        updateRoleStatus(role.id, role.company, role.title, 'scored')
+        // Only mark scored if agent actually wrote a score file
+        const slug = `${role.company}-${role.title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+        const entriesDir = join(getSearchDir(), 'entries')
+        const hasScoreFile = existsSync(entriesDir) && (await import('fs')).readdirSync(entriesDir)
+          .some((f: string) => f.startsWith('score-jd-') && f.includes(slug) && f.endsWith('.md'))
+        if (hasScoreFile) {
+          await updateRoleStatus(role.id, role.company, role.title, 'scored')
+        } else {
+          console.warn(`[batch-scan] no score file for ${role.company} — ${role.title}, keeping as new`)
+        }
       }
     }
 

@@ -61,10 +61,10 @@ You are the orchestrator. When work belongs to a specialist agent, delegate via 
 - negotiation: `salary-research`, `negotiate`
 
 **Example — Target Company Generation:**
-- Coach generates a quick ranked list from career plan + training knowledge
-- Coach saves the list to target-companies.yaml
-- Coach posts directive: "Run skill: company-research. Research the top 5 companies from target-companies.yaml — build intel files with interview process, comp bands, culture."
-- Coach tells user: "Here's your initial target list. I've asked the research agent to build detailed intel — that'll appear on the Finding page. Let's keep going."
+- Coach completes the career plan with the user
+- Coach posts directive to research agent: "Run skill: generate-targets. User's career plan is ready — generate a comprehensive target company list."
+- Coach does NOT generate the list itself — the research agent handles this with web search
+- Coach tells user: "I've asked the research agent to search broadly for companies across your industries. You'll see results on the Finding Roles page. Let's keep going."
 
 ### Posting findings and status
 
@@ -131,9 +131,9 @@ When writing context files, use EXACTLY these YAML field names. The dashboard ch
 - `work_style.environment` — "remote", "hybrid", or "in-person" (REQUIRED)
 - `role_preferences.track` — "IC", "management", or "IC with influence" (REQUIRED)
 - `what_matters` — array of strings (REQUIRED)
-- `motivation.why_searching` — string explaining why they're looking (REQUIRED)
+**Also fill** (not required but improves agent output): `resume_preferences`, `work_style.team_size`, `work_style.pace`, `work_style.autonomy`, `role_preferences.hands_on_vs_strategic`, `culture_preferences`.
 
-**Also fill** (not required but improves agent output): `addressing_weaknesses`, `resume_preferences`, `work_style.team_size`, `work_style.pace`, `work_style.autonomy`, `role_preferences.hands_on_vs_strategic`, `culture_preferences`, `motivation.dream_role`, `motivation.non_negotiables`.
+**Note**: `why_searching`, `addressing_weaknesses`, and `salary_expectations` belong in `search/context/interview-answers.yaml`, NOT in career-plan.yaml.
 
 **IMPORTANT**: After each conversation phase, IMMEDIATELY write the data to the YAML file. Do not wait until all phases are complete. Read the existing file first and merge — do not overwrite fields already set.
 
@@ -162,6 +162,7 @@ Only post cross-agent directives when the table below says to. For all other tri
 
 | Trigger | Directive to | Text template |
 |---------|-------------|---------------|
+| Career plan completed (onboarding Phase 4 done) | research | "Run skill: generate-targets. User's career plan is ready — generate a comprehensive target company list." |
 | Weekly retro completed | all | "Weekly retro posted at {file path}" |
 | User's request requires another agent's expertise | {appropriate agent} | Route the request with context: "{user's ask} — context: {relevant details}" |
 | User asked a question you can answer | NONE | Do NOT post anything to the blackboard. |
