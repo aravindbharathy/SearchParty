@@ -19,18 +19,11 @@ export async function POST() {
       return NextResponse.json({ verified: 0, closed: 0 })
     }
 
-    const release = await acquireFileLock(fp)
+    // Read without lock — the fetch loop takes minutes, can't hold the lock that long
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let raw: any
+    const raw: any = YAML.parse(readFileSync(fp, 'utf-8'), { uniqueKeys: false }) || {}
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let roles: any[]
-    try {
-      raw = YAML.parse(readFileSync(fp, 'utf-8'), { uniqueKeys: false }) || {}
-      roles = Array.isArray(raw.roles) ? raw.roles : []
-    } catch (err) {
-      release()
-      throw err
-    }
+    const roles: any[] = Array.isArray(raw.roles) ? raw.roles : []
 
     let verified = 0
     let closed = 0
@@ -161,9 +154,12 @@ export async function POST() {
     }
 
     // Write updated roles back
-    raw.roles = roles
-    writeFileSync(fp, YAML.stringify(raw))
-    release()
+    // Lock only for the write — the fetch loop above ran unlocked
+    const release = await acquireFileLock(fp)
+    try {
+      raw.roles = roles
+      writeFileSync(fp, YAML.stringify(raw))
+    } finally { release() }
 
     return NextResponse.json({ verified, closed, unverifiable, total: roles.length })
   } catch (err) {

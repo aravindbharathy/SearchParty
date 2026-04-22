@@ -66,13 +66,24 @@ function loadStore(): OpenRolesStore {
   }
 }
 
-async function saveStore(store: OpenRolesStore): Promise<void> {
+function writeStore(store: OpenRolesStore): void {
   const fp = getStorePath()
   const dir = join(fp, '..')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(fp, YAML.stringify(store))
+}
+
+/**
+ * Lock, read, modify, write. Prevents concurrent lost updates.
+ */
+async function modifyStore(fn: (store: OpenRolesStore) => void): Promise<OpenRolesStore> {
+  const fp = getStorePath()
   const release = await acquireFileLock(fp)
   try {
-    writeFileSync(fp, YAML.stringify(store))
+    const store = loadStore()
+    fn(store)
+    writeStore(store)
+    return store
   } finally { release() }
 }
 
@@ -118,34 +129,36 @@ export async function POST(req: Request) {
       role_id?: string
     }
 
-    const store = loadStore()
-
     if (body.action === 'mark_scanned') {
-      store.last_scan = new Date().toISOString()
-      store.scan_count = (store.scan_count || 0) + 1
-      await saveStore(store)
+      const store = await modifyStore(s => {
+        s.last_scan = new Date().toISOString()
+        s.scan_count = (s.scan_count || 0) + 1
+      })
       return NextResponse.json({ ok: true, last_scan: store.last_scan })
     }
 
     if (body.action === 'add_roles' && body.roles) {
-      // Deduplicate by URL or company+title
-      const existing = new Set(store.roles.map(r => r.url || `${r.company}:${r.title}`))
-      const newRoles = body.roles.filter(r => !existing.has(r.url || `${r.company}:${r.title}`))
-      store.roles.push(...newRoles)
-      store.last_scan = new Date().toISOString()
-      store.scan_count = (store.scan_count || 0) + 1
-      await saveStore(store)
-      return NextResponse.json({ ok: true, added: newRoles.length, total: store.roles.length })
+      let added = 0
+      const store = await modifyStore(s => {
+        const existing = new Set(s.roles.map(r => r.url || `${r.company}:${r.title}`))
+        const newRoles = (body.roles || []).filter(r => !existing.has(r.url || `${r.company}:${r.title}`))
+        s.roles.push(...newRoles)
+        s.last_scan = new Date().toISOString()
+        s.scan_count = (s.scan_count || 0) + 1
+        added = newRoles.length
+      })
+      return NextResponse.json({ ok: true, added, total: store.roles.length })
     }
 
     if (body.action === 'dismiss' && body.role_id) {
-      const idx = store.roles.findIndex(r => r.id === body.role_id)
-      if (idx !== -1) {
-        store.roles[idx].status = 'dismissed'
-        await saveStore(store)
-        return NextResponse.json({ ok: true })
-      }
-      return NextResponse.json({ error: 'Role not found' }, { status: 404 })
+      let found = false
+      await modifyStore(s => {
+        const idx = s.roles.findIndex(r => r.id === body.role_id)
+        if (idx !== -1) { s.roles[idx].status = 'dismissed'; found = true }
+      })
+      return found
+        ? NextResponse.json({ ok: true })
+        : NextResponse.json({ error: 'Role not found' }, { status: 404 })
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
@@ -163,16 +176,19 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json() as { id: string; field: string; value: unknown }
-    const store = loadStore()
-    const idx = store.roles.findIndex(r => r.id === body.id)
-    if (idx === -1) {
-      return NextResponse.json({ error: 'Role not found' }, { status: 404 })
-    }
-
-    (store.roles[idx] as unknown as Record<string, unknown>)[body.field] = body.value
-    await saveStore(store)
-
-    return NextResponse.json({ ok: true, role: store.roles[idx] })
+    let role: OpenRole | undefined
+    let found = false
+    await modifyStore(s => {
+      const idx = s.roles.findIndex(r => r.id === body.id)
+      if (idx !== -1) {
+        (s.roles[idx] as unknown as Record<string, unknown>)[body.field] = body.value
+        role = s.roles[idx]
+        found = true
+      }
+    })
+    return found
+      ? NextResponse.json({ ok: true, role })
+      : NextResponse.json({ error: 'Role not found' }, { status: 404 })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },
