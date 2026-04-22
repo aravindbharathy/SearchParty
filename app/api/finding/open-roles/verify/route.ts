@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import YAML from 'yaml'
 import { getSearchDir } from '@/lib/paths'
+import { acquireFileLock } from '@/lib/file-lock'
 
 /**
  * POST /api/finding/open-roles/verify
@@ -18,8 +19,18 @@ export async function POST() {
       return NextResponse.json({ verified: 0, closed: 0 })
     }
 
-    const raw = YAML.parse(readFileSync(fp, 'utf-8'), { uniqueKeys: false }) || {}
-    const roles = Array.isArray(raw.roles) ? raw.roles : []
+    const release = await acquireFileLock(fp)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let raw: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let roles: any[]
+    try {
+      raw = YAML.parse(readFileSync(fp, 'utf-8'), { uniqueKeys: false }) || {}
+      roles = Array.isArray(raw.roles) ? raw.roles : []
+    } catch (err) {
+      release()
+      throw err
+    }
 
     let verified = 0
     let closed = 0
@@ -152,6 +163,7 @@ export async function POST() {
     // Write updated roles back
     raw.roles = roles
     writeFileSync(fp, YAML.stringify(raw))
+    release()
 
     return NextResponse.json({ verified, closed, unverifiable, total: roles.length })
   } catch (err) {

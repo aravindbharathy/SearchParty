@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import YAML from 'yaml'
 import { getSearchDir } from '@/lib/paths'
+import { acquireFileLock } from '@/lib/file-lock'
 
 export interface OpenRole {
   id: string
@@ -65,11 +66,14 @@ function loadStore(): OpenRolesStore {
   }
 }
 
-function saveStore(store: OpenRolesStore): void {
+async function saveStore(store: OpenRolesStore): Promise<void> {
   const fp = getStorePath()
   const dir = join(fp, '..')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  writeFileSync(fp, YAML.stringify(store))
+  const release = await acquireFileLock(fp)
+  try {
+    writeFileSync(fp, YAML.stringify(store))
+  } finally { release() }
 }
 
 /**
@@ -119,7 +123,7 @@ export async function POST(req: Request) {
     if (body.action === 'mark_scanned') {
       store.last_scan = new Date().toISOString()
       store.scan_count = (store.scan_count || 0) + 1
-      saveStore(store)
+      await saveStore(store)
       return NextResponse.json({ ok: true, last_scan: store.last_scan })
     }
 
@@ -130,7 +134,7 @@ export async function POST(req: Request) {
       store.roles.push(...newRoles)
       store.last_scan = new Date().toISOString()
       store.scan_count = (store.scan_count || 0) + 1
-      saveStore(store)
+      await saveStore(store)
       return NextResponse.json({ ok: true, added: newRoles.length, total: store.roles.length })
     }
 
@@ -138,7 +142,7 @@ export async function POST(req: Request) {
       const idx = store.roles.findIndex(r => r.id === body.role_id)
       if (idx !== -1) {
         store.roles[idx].status = 'dismissed'
-        saveStore(store)
+        await saveStore(store)
         return NextResponse.json({ ok: true })
       }
       return NextResponse.json({ error: 'Role not found' }, { status: 404 })
@@ -166,7 +170,7 @@ export async function PUT(req: Request) {
     }
 
     (store.roles[idx] as unknown as Record<string, unknown>)[body.field] = body.value
-    saveStore(store)
+    await saveStore(store)
 
     return NextResponse.json({ ok: true, role: store.roles[idx] })
   } catch (err) {

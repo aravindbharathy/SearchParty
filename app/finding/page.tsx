@@ -607,6 +607,8 @@ export default function FindingPage() {
   }
 
   const [batchSearching, setBatchSearching] = useState(false)
+  const batchSearchPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const batchSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleBatchGenerateTargets = async () => {
     setBatchSearching(true)
     try {
@@ -621,10 +623,13 @@ export default function FindingPage() {
           role: 'agent',
           content: `Starting company search across ${data.total} categories:\n${(data.categories || []).map((c: string, i: number) => `${i + 1}. ${c}`).join('\n')}\n\nI'll search each category one at a time. Progress updates will appear here as each completes.`,
         }])
-        // Poll for new companies while batch runs
-        const poll = setInterval(() => { loadCompanies() }, 15_000)
-        // Stop polling after 20 minutes (generous timeout for sequential runs)
-        setTimeout(() => { clearInterval(poll); setBatchSearching(false); loadCompanies() }, 20 * 60 * 1000)
+        if (batchSearchPollRef.current) clearInterval(batchSearchPollRef.current)
+        batchSearchPollRef.current = setInterval(() => { loadCompanies() }, 15_000)
+        batchSearchTimeoutRef.current = setTimeout(() => {
+          if (batchSearchPollRef.current) { clearInterval(batchSearchPollRef.current); batchSearchPollRef.current = null }
+          setBatchSearching(false)
+          loadCompanies()
+        }, 20 * 60 * 1000)
       } else {
         setChatMessages(prev => [...prev, { role: 'agent', content: data.error || 'Failed to start search.' }])
         setBatchSearching(false)
@@ -634,6 +639,14 @@ export default function FindingPage() {
       setBatchSearching(false)
     }
   }
+
+  // Cleanup batch search timers on unmount
+  useEffect(() => {
+    return () => {
+      if (batchSearchPollRef.current) clearInterval(batchSearchPollRef.current)
+      if (batchSearchTimeoutRef.current) clearTimeout(batchSearchTimeoutRef.current)
+    }
+  }, [])
 
   const handleScoreVaultJD = (filename: string) => {
     lastActionRef.current = 'score'

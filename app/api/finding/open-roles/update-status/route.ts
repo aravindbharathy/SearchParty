@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import YAML from 'yaml'
 import { getSearchDir } from '@/lib/paths'
+import { acquireFileLock } from '@/lib/file-lock'
 
 interface UpdateBody {
   id?: string
@@ -48,6 +49,8 @@ export async function POST(req: Request) {
       writeFileSync(fp, 'roles: []\n')
     }
 
+    const release = await acquireFileLock(fp)
+    try {
     const raw = YAML.parse(readFileSync(fp, 'utf-8'), { uniqueKeys: false }) || {}
     const roles = raw.roles || []
     const validFrom = body.status ? ALLOWED_FROM[body.status] : undefined
@@ -123,6 +126,7 @@ export async function POST(req: Request) {
     raw.roles = roles
     writeFileSync(fp, YAML.stringify(raw))
     return NextResponse.json({ ok: true, id: match.id })
+    } finally { release() }
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
