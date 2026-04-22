@@ -463,25 +463,33 @@ export default function FindingPage() {
   const [scanning, setScanning] = useState(false)
 
   // Restore scanning state from localStorage after mount
-  // Restore scanning state — but verify an actual scan is running
+  // Restore scanning state — but verify the scan we started is still running
   useEffect(() => {
     try {
       if (localStorage.getItem('finding-scanning') !== 'true') return
+      const startedAt = parseInt(localStorage.getItem('finding-scanning-started') || '0', 10)
+      // If we don't know when the scan started, or it's been more than 2 hours, it's stale
+      if (!startedAt || Date.now() - startedAt > 2 * 60 * 60 * 1000) {
+        localStorage.removeItem('finding-scanning')
+        localStorage.removeItem('finding-scanning-started')
+        return
+      }
+      // Check blackboard — only restore if scan hasn't completed
       fetch('http://localhost:8790/state', { signal: AbortSignal.timeout(2000) })
         .then(r => r.ok ? r.json() : null)
         .then(state => {
           const findings = state?.findings || {}
-          const hasComplete = findings['scan-complete']?.type === 'batch-complete'
-          const progress = findings['scan-progress']
-          // Only restore if there's an active scan: progress exists, not completed, and recent (< 30 min)
-          const isRecent = progress?.timestamp && (Date.now() - new Date(progress.timestamp).getTime()) < 30 * 60 * 1000
-          if (!hasComplete && progress && isRecent) {
-            setScanning(true)
-          } else {
+          if (findings['scan-complete']?.type === 'batch-complete') {
             localStorage.removeItem('finding-scanning')
+            localStorage.removeItem('finding-scanning-started')
+          } else {
+            setScanning(true)
           }
         })
-        .catch(() => { localStorage.removeItem('finding-scanning') })
+        .catch(() => {
+          localStorage.removeItem('finding-scanning')
+          localStorage.removeItem('finding-scanning-started')
+        })
     } catch {}
   }, [])
 
@@ -524,7 +532,11 @@ export default function FindingPage() {
 
   // Persist scanning state to localStorage
   useEffect(() => {
-    try { localStorage.setItem('finding-scanning', scanning ? 'true' : 'false') } catch {}
+    try {
+      localStorage.setItem('finding-scanning', scanning ? 'true' : 'false')
+      if (scanning) localStorage.setItem('finding-scanning-started', String(Date.now()))
+      else localStorage.removeItem('finding-scanning-started')
+    } catch {}
   }, [scanning])
 
   // When scanning becomes true (from button click or localStorage restore), start polling for completion
