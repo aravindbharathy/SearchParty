@@ -1307,15 +1307,13 @@ export default function NetworkingPage() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
-                        const companies = Object.entries(importResult.by_company)
-                          .map(([co, people]) => `${co}: ${people.map(p => `${p.name} (${p.position})`).join(', ')}`)
-                          .join('\n')
-                        sendChatMessage(`I just imported my LinkedIn connections. Here are the ones at my target companies:\n\n${companies}\n\nHelp me review these — for each person, I'll tell you if I know them personally and how. Start with the first company.`)
+                        setContactFilter('needs-review')
                         setShowImportModal(false)
+                        setImportResult(null)
                       }}
                       className="flex-1 px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover"
                     >
-                      Review with Agent
+                      Review Contacts
                     </button>
                     <button
                       onClick={() => { setShowImportModal(false); setImportResult(null) }}
