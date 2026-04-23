@@ -774,7 +774,9 @@ export default function NetworkingPage() {
                                         headers: { 'Content-Type': 'application/json' },
                                         body: JSON.stringify({ id: contact.id, field: 'reviewed', value: true }),
                                       })
-                                      loadContacts()
+                                      await loadContacts()
+                                      // If warm, expand card so user can add context
+                                      if (opt.rel === 'warm') setExpandedContact(contact.id)
                                     } catch {}
                                   }}
                                   className={`text-[10px] px-2 py-1 rounded border transition-colors ${
