@@ -1340,35 +1340,42 @@ export default function FindingPage() {
                   {filteredScoredJDs.map(jd => (
                     <div
                       key={jd.filename}
-                      className="p-3 rounded-lg border border-border"
+                      className={`p-4 rounded-lg border transition-colors ${
+                        jd.score >= SCORE_APPLY_THRESHOLD ? 'border-success/40 bg-success/5'
+                          : jd.score >= SCORE_REFERRAL_THRESHOLD ? 'border-warning/40 bg-warning/5'
+                            : 'border-border'
+                      }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{jd.company}</span>
-                            {jd.url && (
-                              <a href={jd.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover text-xs">
-                                Open ↗
-                              </a>
-                            )}
-                          </div>
-                          <div className="text-text-muted text-xs mt-0.5">{jd.role}{jd.date ? ` · ${jd.date}` : ''}</div>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-semibold text-sm">{jd.company}</span>
+                          <span className="text-text-muted text-sm">—</span>
+                          <span className="font-medium text-sm truncate">{jd.role}</span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0 ml-3">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           {openRoles.some(r => r.resume_file && r.company.toLowerCase() === jd.company.toLowerCase()) && (
                             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-accent/10 text-accent">Resume</span>
                           )}
-                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                             jd.score >= SCORE_APPLY_THRESHOLD ? 'bg-success/10 text-success' : jd.score >= SCORE_REFERRAL_THRESHOLD ? 'bg-warning/10 text-warning' : 'bg-text-muted/10 text-text-muted'
                           }`}>
                             {jd.score}/100 · {jd.recommendation}
                           </span>
                         </div>
                       </div>
-                      <div className="mt-2 flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-xs text-text-muted mt-1 mb-2">
+                        {jd.url && (
+                          <a href={jd.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover font-medium">
+                            Open ↗
+                          </a>
+                        )}
+                        {jd.url && jd.date && <span>·</span>}
+                        {jd.date && <span>{jd.date}</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => viewScoredJD(jd)}
-                          className="text-xs px-2.5 py-1 text-accent hover:bg-accent/10 rounded-md transition-colors font-medium"
+                          className="text-xs text-accent hover:text-accent-hover font-medium"
                         >
                           View Analysis
                         </button>
@@ -1384,7 +1391,7 @@ export default function FindingPage() {
                         )}
                         <button
                           onClick={() => deleteScoredJD(jd.filename)}
-                          className="text-xs px-2.5 py-1 text-text-muted hover:text-danger hover:bg-danger/10 rounded-md transition-colors cursor-pointer"
+                          className="text-xs text-text-muted hover:text-danger font-medium ml-auto"
                         >
                           Delete
                         </button>

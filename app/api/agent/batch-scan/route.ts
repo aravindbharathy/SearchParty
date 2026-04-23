@@ -379,6 +379,8 @@ Scan ONLY these companies. Find matching roles, save JDs, append to open-roles.y
       for: 'research',
       timestamp: new Date().toISOString(),
     }, verifyText)
+    // Brief pause so the chat poll catches the verify message before scoring overwrites it
+    await new Promise(r => setTimeout(r, 12_000))
   } catch {
     console.log('[batch-scan] verify failed, continuing')
   }
