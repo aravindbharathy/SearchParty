@@ -202,7 +202,9 @@ export function ResumeEditor({ resume, onChange, onAskAgent }: ResumeEditorProps
             <input value={resume.contact.location} onChange={e => update({ contact: { ...resume.contact, location: e.target.value } })}
               placeholder="Location" className={INPUT} />
             <input value={resume.contact.linkedin} onChange={e => update({ contact: { ...resume.contact, linkedin: e.target.value } })}
-              placeholder="LinkedIn URL" className={`col-span-2 ${INPUT}`} />
+              placeholder="LinkedIn URL" className={INPUT} />
+            <input value={resume.contact.website || ''} onChange={e => update({ contact: { ...resume.contact, website: e.target.value } })}
+              placeholder="Portfolio / Website (optional)" className={INPUT} />
           </div>
         </div>
 
