@@ -1865,6 +1865,7 @@ export default function CoachPage() {
             }}
             disabled={isProcessing}
             className="px-3 py-1.5 text-xs font-medium border border-accent/30 text-accent rounded-full hover:bg-accent/10 transition-colors whitespace-nowrap disabled:opacity-50"
+            title="Get a morning briefing — pipeline status, pending tasks, what to focus on today"
           >
             Daily Briefing
           </button>
@@ -1872,6 +1873,7 @@ export default function CoachPage() {
             onClick={() => sendMessage('Run this command first: cat .claude/skills/weekly-retro/SKILL.md — then follow its instructions for my weekly retro.')}
             disabled={isProcessing}
             className="px-3 py-1.5 text-xs font-medium border border-border text-text-muted rounded-full hover:bg-bg hover:text-text transition-colors whitespace-nowrap disabled:opacity-50"
+            title="End-of-week review — what worked, what didn't, plan for next week"
           >
             Weekly Retro
           </button>
@@ -1879,6 +1881,7 @@ export default function CoachPage() {
             onClick={() => sendMessage('Review my pipeline and suggest what I should focus on next.')}
             disabled={isProcessing}
             className="px-3 py-1.5 text-xs font-medium border border-border text-text-muted rounded-full hover:bg-bg hover:text-text transition-colors whitespace-nowrap disabled:opacity-50"
+            title="Quick suggestion on your highest-priority next action based on your pipeline"
           >
             What&apos;s Next?
           </button>
@@ -1886,6 +1889,7 @@ export default function CoachPage() {
             onClick={() => sendMessage('Review my profile sections and suggest improvements or missing information.')}
             disabled={isProcessing}
             className="px-3 py-1.5 text-xs font-medium border border-border text-text-muted rounded-full hover:bg-bg hover:text-text transition-colors whitespace-nowrap disabled:opacity-50"
+            title="Check your profile for gaps — missing experience details, career plan fields, interview answers"
           >
             Profile Review
           </button>

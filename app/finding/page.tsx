@@ -973,6 +973,7 @@ export default function FindingPage() {
                     }}
                     disabled={verifyingRoles || openRoles.length === 0}
                     className="px-3 py-2 border border-border text-text-muted rounded-md text-sm hover:bg-bg disabled:opacity-50 shrink-0"
+                    title="Check if job posting URLs are still active — marks dead links as closed"
                   >
                     {verifyingRoles ? 'Checking...' : 'Verify Links'}
                   </button>
@@ -980,6 +981,7 @@ export default function FindingPage() {
                     onClick={handleScoreAll}
                     disabled={scoringAll || scanning || chatProcessing || newRoleCount === 0}
                     className="px-3 py-2 border border-border text-text-muted rounded-md text-sm hover:bg-bg disabled:opacity-50 shrink-0"
+                    title="Score all unscored open roles against your profile — takes a few minutes per role"
                   >
                     {scoringAll ? 'Scoring...' : 'Score All'}
                   </button>
@@ -987,6 +989,7 @@ export default function FindingPage() {
                     onClick={() => handleBatchScan('top-fit')}
                     disabled={scanning || chatProcessing}
                     className="px-3 py-2 border border-accent/30 text-accent rounded-md text-sm hover:bg-accent/10 disabled:opacity-50 shrink-0"
+                    title="Scan only your top-fit companies (score 75+) for new job postings"
                   >
                     Scan Tier 1
                   </button>
@@ -994,6 +997,7 @@ export default function FindingPage() {
                     onClick={() => handleBatchScan('full')}
                     disabled={scanning || chatProcessing}
                     className="px-3 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 shrink-0"
+                    title="Scan all target companies for new job postings — uses ATS APIs first, then agents for companies without APIs"
                   >
                     Scan All
                   </button>
@@ -1218,6 +1222,7 @@ export default function FindingPage() {
                     onClick={handleScoreAll}
                     disabled={scoringAll || scanning || chatProcessing}
                     className="px-3 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 shrink-0"
+                    title="Score all unscored open roles against your experience library and career plan"
                   >
                     {scoringAll ? 'Scoring...' : 'Score All Open Roles'}
                   </button>
@@ -1513,6 +1518,7 @@ export default function FindingPage() {
                   onClick={handleBatchGenerateTargets}
                   disabled={actionProcessing || batchSearching}
                   className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  title={companies.length > 0 ? 'Search for additional companies not already in your list — existing companies are preserved' : 'Search across your target industries to build a ranked list of 50-100 companies'}
                 >
                   {batchSearching ? 'Searching...' : actionProcessing ? 'Generating...' : companies.length > 0 ? 'Expand Search' : 'Generate Targets'}
                 </button>
