@@ -151,11 +151,12 @@ Dashboard opens at **http://localhost:8791**
 ### 4. Start finding roles
 
 1. Go to **Finding Roles** in the sidebar
-2. On the **Target Companies** tab, click **Generate Targets** — the research agent builds a ranked list from your career plan
-3. Click **Get Intel** on any company card to research their interview process, compensation, and culture
-4. Switch to **Score JD** tab — paste a job description and the agent scores it against your profile (0-100)
-5. High-scoring JDs (75+) get an **Add to Pipeline** button — this creates a tracked application
-6. The pipeline detail view guides you through each stage with contextual next steps
+2. On the **Target Companies** tab, click **Generate Targets** — the research agent searches broadly across your target industries and builds a ranked list of 50-100 companies with fit scores
+3. Click **Scan All** — the zero-token scanner checks ATS APIs (Greenhouse, Ashby, Lever, Workday, BambooHR, Teamtailor) instantly, then an agent triages results against your profile before they appear. Companies without ATS APIs are scanned via agent with WebSearch.
+4. Click **Discover Beyond Targets** to search across ATS platforms for matching roles at companies not on your list
+5. Click **Score All** to score all open roles against your profile, or use the **Score JD** tab to paste and score a specific job description
+6. High-scoring JDs (75+) get an **Add to Pipeline** button — this creates a tracked application
+7. The pipeline detail view guides you through each stage with contextual next steps
 
 ### 5. Work through the pipeline
 
@@ -175,9 +176,11 @@ Add a cron job to scan for new roles automatically:
 
 ```bash
 crontab -e
-# Add this line — scans careers pages at 7am daily
+# Add this line — scans at 7am daily (ATS APIs + broad discovery + scoring)
 0 7 * * * curl -s -X POST http://localhost:8791/api/agent/scan-roles
 ```
+
+The daily scan: checks all target companies via ATS APIs (instant, zero tokens) → triages against your profile → scans Tier 1-2 companies without APIs via agent → discovers roles beyond your target list via WebSearch → verifies links → scores and tailors top matches → triggers your daily briefing.
 
 <br/>
 
@@ -328,10 +331,10 @@ Markdown files that control agent behavior. Edit without code changes:
   weekly-retro/             End-of-week analysis + next week plan
 
   # Research
-  scan-roles/               Find open roles (ATS APIs + web search)
+  scan-roles/               Find open roles (agent fallback for non-ATS companies)
   score-jd/                 Score JD against profile (4-block evaluation)
   company-research/         Build company intel profiles
-  generate-targets/         Rank target companies by fit
+  generate-targets/         Search broadly for 50-100 target companies with fit scores
 
   # Resume
   resume-tailor/            Tailor resume to specific JD (flexible sections)
@@ -397,7 +400,7 @@ For commercial licensing, contact [@aravindbharathy](https://github.com/aravindb
 
 ## Acknowledgments
 
-Blackboard architecture adapted from [Kapi Sprints](https://github.com/Kapi-IDE/kapi-sprints) by Balaji Viswanathan (Apache 2.0). See [NOTICE](NOTICE).
+Blackboard architecture adapted from [Kapi Sprints](https://github.com/Kapi-IDE/kapi-sprints) by Balaji Viswanathan (Apache 2.0). ATS scanning adapted from [CareerOps](https://github.com/santifer/career-ops) by Santiago Fernandez de Valderrama (MIT). See [NOTICE](NOTICE).
 
 ---
 
