@@ -82,6 +82,9 @@ export default function ApplyingPage() {
   const [editingResume, setEditingResume] = useState<ResumeData | null>(null)
   const [templates, setTemplates] = useState<TemplateFile[]>([])
   const [processingTemplates, setProcessingTemplates] = useState<Set<string>>(new Set())
+  const [scoredJDs, setScoredJDs] = useState<Array<{ filename: string; company: string; role: string; score: number; recommendation: string; role_id: string; url: string }>>([])
+  const [openRoles, setOpenRoles] = useState<Array<{ id: string; company: string; title: string; score?: number; resume_file?: string; cover_letter_file?: string }>>([])
+
 
   // ─── Chat state ──────────────────────────────────────────────────────────
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
@@ -158,20 +161,38 @@ export default function ApplyingPage() {
     setWorkProducts(await loadMarkdownDir('vault/generated/outreach'))
   }, [loadMarkdownDir])
 
+  const loadScoredJDs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/finding/scored-jds')
+      if (res.ok) { const data = await res.json(); setScoredJDs(data.scoredJDs || []) }
+    } catch {}
+  }, [])
+
+  const loadOpenRoles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/finding/open-roles')
+      if (res.ok) { const data = await res.json(); setOpenRoles(data.roles || []) }
+    } catch {}
+  }, [])
+
   useEffect(() => {
     loadResumes()
     loadCoverLetters()
     loadWorkProducts()
     loadTemplates()
+    loadScoredJDs()
+    loadOpenRoles()
 
     const interval = setInterval(() => {
       loadResumes()
       loadCoverLetters()
       loadWorkProducts()
       loadTemplates()
+      loadScoredJDs()
+      loadOpenRoles()
     }, 30_000)
     return () => clearInterval(interval)
-  }, [loadResumes, loadCoverLetters, loadWorkProducts, loadTemplates])
+  }, [loadResumes, loadCoverLetters, loadWorkProducts, loadTemplates, loadScoredJDs, loadOpenRoles])
 
   // ─── Persistence ─────────────────────────────────────────────────────────
 
@@ -229,13 +250,40 @@ export default function ApplyingPage() {
 
   usePendingAction(sendChatMessage, setActiveTab as (tab: string) => void)
 
-  // ─── Stats ───────────────────────────────────────────────────────────────
+  // ─── Pipeline stages ─────────────────────────────────────────────────────
 
-  const stats = useMemo(() => ({
-    resumes: resumes.length + structuredResumes.length,
-    coverLetters: coverLetters.length,
-    workProducts: workProducts.length,
-  }), [resumes, structuredResumes, coverLetters, workProducts])
+  const pipeline = useMemo(() => {
+    const qualifiedJDs = scoredJDs.filter(jd => jd.score >= 75).sort((a, b) => b.score - a.score)
+
+    // Build sets of companies that have artifacts (fuzzy match by company name)
+    const resumeCompanies = new Set([
+      ...structuredResumes.map(sr => sr.target_company.toLowerCase()),
+      ...resumes.map(r => (r.company || r.title.split('—')[0] || '').trim().toLowerCase()),
+    ])
+    const coverLetterCompanies = new Set(
+      coverLetters.map(cl => {
+        const match = cl.title.match(/^(.+?)(?:\s*[-—])/)?.[1]?.trim().toLowerCase()
+        return match || cl.filename.split('-')[0]?.toLowerCase() || ''
+      })
+    )
+    const outreachCompanies = new Set(
+      workProducts.map(wp => {
+        const match = wp.title.match(/^(.+?)(?:\s*[-—])/)?.[1]?.trim().toLowerCase()
+        return match || wp.filename.split('-')[0]?.toLowerCase() || ''
+      })
+    )
+
+    const hasResume = (jd: { company: string }) => resumeCompanies.has(jd.company.toLowerCase())
+    const hasCoverLetter = (jd: { company: string }) => coverLetterCompanies.has(jd.company.toLowerCase())
+    const hasOutreach = (jd: { company: string }) => outreachCompanies.has(jd.company.toLowerCase())
+
+    return {
+      needsResume: qualifiedJDs.filter(jd => !hasResume(jd)),
+      needsCoverLetter: qualifiedJDs.filter(jd => hasResume(jd) && !hasCoverLetter(jd)),
+      needsOutreach: qualifiedJDs.filter(jd => hasResume(jd) && hasCoverLetter(jd) && !hasOutreach(jd)),
+      readyToApply: qualifiedJDs.filter(jd => hasResume(jd) && hasCoverLetter(jd) && hasOutreach(jd)),
+    }
+  }, [scoredJDs, resumes, structuredResumes, coverLetters, workProducts])
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -270,13 +318,14 @@ export default function ApplyingPage() {
           <h1 className="text-2xl font-bold mb-3">Applying</h1>
           <div className="flex gap-3">
             {[
-              { label: 'Resumes', value: stats.resumes },
-              { label: 'Cover Letters', value: stats.coverLetters },
-              { label: 'Outreach', value: stats.workProducts },
+              { label: 'Needs Resume', value: pipeline.needsResume.length, color: pipeline.needsResume.length > 0 ? 'text-warning' : '' },
+              { label: 'Needs Cover Letter', value: pipeline.needsCoverLetter.length, color: pipeline.needsCoverLetter.length > 0 ? 'text-warning' : '' },
+              { label: 'Needs Outreach', value: pipeline.needsOutreach.length, color: pipeline.needsOutreach.length > 0 ? 'text-warning' : '' },
+              { label: 'Ready to Apply', value: pipeline.readyToApply.length, color: pipeline.readyToApply.length > 0 ? 'text-success' : '' },
             ].map(s => (
               <div key={s.label} className="flex-1 bg-surface border border-border rounded-lg px-3 py-2">
                 <div className="text-xs text-text-muted">{s.label}</div>
-                <div className="text-lg font-bold">{s.value}</div>
+                <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
               </div>
             ))}
           </div>
@@ -334,18 +383,49 @@ export default function ApplyingPage() {
                 </div>
                 <button
                   onClick={() => {
-                    sendChatMessage(`Run this command first: cat .claude/skills/resume-tailor/SKILL.md — then help me tailor a resume. Use the "${defaultTemplate}" template for the resume. Ask me which company and role to target.`)
+                    const jdsList = pipeline.needsResume.slice(0, 10).map(jd => `- ${jd.company} — ${jd.role} (${jd.score}/100)`).join('\n')
+                    const prompt = jdsList
+                      ? `Run this command first: cat .claude/skills/resume-tailor/SKILL.md — then help me tailor a resume. Use the "${defaultTemplate}" template.\n\nThese scored JDs need resumes (sorted by score):\n${jdsList}\n\nStart with the highest-scoring role.`
+                      : `Run this command first: cat .claude/skills/resume-tailor/SKILL.md — then help me tailor a resume. Use the "${defaultTemplate}" template. Ask me which company and role to target.`
+                    sendChatMessage(prompt)
                   }}
                   disabled={chatProcessing}
                   className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
+                  title="Tailor a resume for a scored role — prioritizes highest-scoring JDs"
                 >
                   Tailor New Resume
                 </button>
               </div>
 
-              <p className="text-[10px] text-text-muted bg-bg rounded px-3 py-2 mb-4">
-                Upload your resume template (DOCX or PDF) in the Templates tab — we&apos;ll convert it to match the editor&apos;s format.
-              </p>
+              {/* Needs Resume section */}
+              {pipeline.needsResume.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-xs font-semibold text-warning uppercase tracking-wide mb-2">Needs Resume ({pipeline.needsResume.length})</h3>
+                  <div className="space-y-2">
+                    {pipeline.needsResume.map(jd => (
+                      <div key={jd.filename} className="p-3 border border-warning/30 bg-warning-tint rounded-lg flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${jd.score >= 85 ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>{jd.score}</span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{jd.company} — {jd.role}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => sendChatMessage(`Run this command first: cat .claude/skills/resume-tailor/SKILL.md — then tailor a resume for:\nCompany: ${jd.company}\nRole: ${jd.role}\nUse the "${defaultTemplate}" template. The JD score report is at search/entries/${jd.filename} — read Block B for experience match.`)}
+                          disabled={chatProcessing}
+                          className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover disabled:opacity-50 shrink-0 ml-3"
+                        >
+                          Tailor Resume
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(structuredResumes.length > 0 || resumes.length > 0) && (
+                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Tailored ({structuredResumes.length + resumes.length})</h3>
+              )}
 
               {/* Structured resumes (editable) */}
               {structuredResumes.map(sr => (
@@ -396,18 +476,53 @@ export default function ApplyingPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-text-muted">Cover Letters</h2>
                 <button
-                  onClick={() => sendChatMessage('Run this command first: cat .claude/skills/cover-letter/SKILL.md — then follow its instructions to write a cover letter. Ask me which company and role to target.')}
+                  onClick={() => {
+                    const jdsList = pipeline.needsCoverLetter.slice(0, 10).map(jd => `- ${jd.company} — ${jd.role} (${jd.score}/100)`).join('\n')
+                    const prompt = jdsList
+                      ? `Run this command first: cat .claude/skills/cover-letter/SKILL.md — then write a cover letter.\n\nThese roles have resumes but need cover letters:\n${jdsList}\n\nStart with the highest-scoring.`
+                      : 'Run this command first: cat .claude/skills/cover-letter/SKILL.md — then follow its instructions to write a cover letter. Ask me which company and role to target.'
+                    sendChatMessage(prompt)
+                  }}
                   disabled={chatProcessing}
                   className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
+                  title="Write a cover letter — prioritizes roles that already have a tailored resume"
                 >
                   Write Cover Letter
                 </button>
               </div>
 
-              {coverLetters.length === 0 ? (
+              {/* Needs Cover Letter section */}
+              {pipeline.needsCoverLetter.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-xs font-semibold text-warning uppercase tracking-wide mb-2">Needs Cover Letter ({pipeline.needsCoverLetter.length})</h3>
+                  <div className="space-y-2">
+                    {pipeline.needsCoverLetter.map(jd => (
+                      <div key={jd.filename} className="p-3 border border-warning/30 bg-warning-tint rounded-lg flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${jd.score >= 85 ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>{jd.score}</span>
+                          <p className="font-medium text-sm truncate">{jd.company} — {jd.role}</p>
+                        </div>
+                        <button
+                          onClick={() => sendChatMessage(`Run this command first: cat .claude/skills/cover-letter/SKILL.md — then write a cover letter for:\nCompany: ${jd.company}\nRole: ${jd.role}\nThe JD score report is at search/entries/${jd.filename}.`)}
+                          disabled={chatProcessing}
+                          className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover disabled:opacity-50 shrink-0 ml-3"
+                        >
+                          Write Cover Letter
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {coverLetters.length > 0 && (
+                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Written ({coverLetters.length})</h3>
+              )}
+
+              {coverLetters.length === 0 && pipeline.needsCoverLetter.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-text-muted text-lg mb-2">No cover letters yet.</p>
-                  <p className="text-text-muted text-sm">Ask the resume agent to write one for a specific company.</p>
+                  <p className="text-text-muted text-sm">Tailor a resume first, then come back to write a cover letter.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -440,6 +555,7 @@ export default function ApplyingPage() {
                     onClick={() => sendChatMessage('Run this command first: cat .claude/skills/hiring-manager-msg/SKILL.md — then follow its instructions. Ask me which company and role to target.')}
                     disabled={chatProcessing}
                     className="px-4 py-2 border border-accent text-accent rounded-md text-sm font-medium hover:bg-accent/10 disabled:opacity-50"
+                    title="Craft a personalized message to the hiring manager — leads with product insight"
                   >
                     Hiring Manager Message
                   </button>
@@ -447,16 +563,45 @@ export default function ApplyingPage() {
                     onClick={() => sendChatMessage('Run this command first: cat .claude/skills/company-insight/SKILL.md — then follow its instructions. Ask me which company to target.')}
                     disabled={chatProcessing}
                     className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
+                    title="1-2 page brief showing you understand their product — attach with your application"
                   >
                     Company Insight Brief
                   </button>
                 </div>
               </div>
 
-              {workProducts.length === 0 ? (
+              {/* Needs Outreach section */}
+              {pipeline.needsOutreach.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-xs font-semibold text-warning uppercase tracking-wide mb-2">Needs Outreach ({pipeline.needsOutreach.length})</h3>
+                  <div className="space-y-2">
+                    {pipeline.needsOutreach.map(jd => (
+                      <div key={jd.filename} className="p-3 border border-warning/30 bg-warning-tint rounded-lg flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${jd.score >= 85 ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>{jd.score}</span>
+                          <p className="font-medium text-sm truncate">{jd.company} — {jd.role}</p>
+                        </div>
+                        <button
+                          onClick={() => sendChatMessage(`Run this command first: cat .claude/skills/hiring-manager-msg/SKILL.md — then write a hiring manager message for:\nCompany: ${jd.company}\nRole: ${jd.role}`)}
+                          disabled={chatProcessing}
+                          className="px-3 py-1.5 bg-accent text-white rounded-md text-xs font-medium hover:bg-accent-hover disabled:opacity-50 shrink-0 ml-3"
+                        >
+                          Write Outreach
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {workProducts.length > 0 && (
+                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Created ({workProducts.length})</h3>
+              )}
+
+              {workProducts.length === 0 && pipeline.needsOutreach.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-text-muted text-lg mb-2">No outreach materials yet.</p>
-                  <p className="text-text-muted text-sm">Create a <strong>hiring manager message</strong> to reach out directly, or a <strong>company insight brief</strong> showing you&apos;ve done your homework on their product.</p>
+                  <p className="text-text-muted text-sm">Tailor a resume and write a cover letter first, then create outreach materials.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
