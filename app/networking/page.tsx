@@ -1137,7 +1137,7 @@ export default function NetworkingPage() {
                       ) : (
                         <>
                           <p className="text-sm font-medium text-accent">Click to upload Connections.csv</p>
-                          <p className="text-xs text-text-muted mt-1">or drag and drop</p>
+                          <p className="text-xs text-text-muted mt-1">or drop it directly into <code className="bg-bg px-1 py-0.5 rounded">search/vault/uploads/</code></p>
                         </>
                       )}
                     </label>
