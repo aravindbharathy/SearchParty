@@ -1069,7 +1069,7 @@ export default function FindingPage() {
                         r.location?.toLowerCase().includes(q) ||
                         r.company_slug?.includes(q.replace(/[^a-z0-9]+/g, '-'))
                     })
-                    .sort((a, b) => b.fit_estimate - a.fit_estimate)
+                    .sort((a, b) => (b.score ?? b.fit_estimate) - (a.score ?? a.fit_estimate))
                     .map(role => (
                     <div key={role.id} className={`p-4 rounded-lg border transition-colors ${
                       role.status === 'scored' && role.score ? (
