@@ -258,7 +258,17 @@ custom_qa: []
 
 ## Your Network (`/setup connections`)
 
-Ask conversationally. The goal is to map the user's real relationships, not just collect names.
+Offer the user two options:
+
+> "For your network, you have two options:
+> 1. **Import LinkedIn connections** — go to the **Networking** page in the sidebar and click **Import LinkedIn**. It'll match your connections against target companies automatically. Much faster if you have a large network.
+> 2. **Add key contacts here** — tell me about people you know at your target companies and I'll add them.
+>
+> Which would you prefer? You can always do both."
+
+If they choose option 1, say "Head over to the Networking page — the Import LinkedIn button has step-by-step instructions. Once you've imported and reviewed, come back and we'll continue with interview prep." Then skip to the next section.
+
+If they choose option 2 or want to add contacts manually:
 
 ### Step 1: Discover Contacts
 1. "Who do you know at your target companies? Think former colleagues, alumni, conference contacts."

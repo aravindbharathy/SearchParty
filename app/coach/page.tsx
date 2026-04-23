@@ -121,7 +121,7 @@ After EACH role discussion, WRITE the updated experiences to search/context/expe
 
 ### Phase 5: Network & Companies (5 min) — optional, can skip
 19. Target companies — DO NOT generate the list yourself. Post a blackboard directive to the research agent to run the generate-targets skill. Tell the user: "I've asked the research agent to search broadly for companies across your industries. You'll see results on the Finding Roles page." Ask if they have specific companies in mind and add those manually.
-20. Connections — contacts at target companies (optional)
+20. Connections — offer two options: (a) Import LinkedIn connections on the Networking page (faster for large networks), or (b) add key contacts manually here. If they choose import, skip this step and move on.
 
 WRITE to search/context/connection-tracker.yaml (target-companies.yaml is handled by the research agent).
 
