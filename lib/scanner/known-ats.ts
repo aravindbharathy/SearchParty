@@ -93,6 +93,23 @@ const KNOWN_COMPANIES: KnownCompany[] = [
   // ── Teamtailor ─────────────────────────────────────────────────
   { name: 'Pleo', aliases: ['pleo'], careers_url: 'https://pleo.teamtailor.com/jobs' },
   { name: 'Einride', aliases: ['einride'], careers_url: 'https://einride.teamtailor.com/jobs' },
+
+  // ── India — Greenhouse ────────────────────────────────────────
+  { name: 'Razorpay', aliases: ['razorpay'], careers_url: 'https://job-boards.greenhouse.io/razorpaysoftwareprivatelimited' },
+  { name: 'Postman', aliases: ['postman'], careers_url: 'https://job-boards.greenhouse.io/postman' },
+  { name: 'PhonePe', aliases: ['phonepe'], careers_url: 'https://job-boards.greenhouse.io/phonepe' },
+  { name: 'Groww', aliases: ['groww'], careers_url: 'https://job-boards.eu.greenhouse.io/groww' },
+  { name: 'Druva', aliases: ['druva'], careers_url: 'https://job-boards.greenhouse.io/druva' },
+
+  // ── India — Lever ─────────────────────────────────────────────
+  { name: 'CRED', aliases: ['cred'], careers_url: 'https://jobs.lever.co/cred' },
+  { name: 'Meesho', aliases: ['meesho'], careers_url: 'https://jobs.lever.co/meesho' },
+  { name: 'Dream11', aliases: ['dream11', 'dream sports', 'dreamsports'], careers_url: 'https://jobs.lever.co/dreamsports' },
+
+  // ── India — Workday ───────────────────────────────────────────
+  { name: 'BrowserStack', aliases: ['browserstack'], careers_url: 'https://browserstack.wd3.myworkdayjobs.com/External' },
+  { name: 'Samsung', aliases: ['samsung', 'samsung india'], careers_url: 'https://sec.wd3.myworkdayjobs.com/Samsung_Careers' },
+  { name: 'Walmart', aliases: ['walmart', 'walmart india', 'walmart global tech'], careers_url: 'https://walmart.wd5.myworkdayjobs.com/WalmartExternal' },
 ]
 
 /**
