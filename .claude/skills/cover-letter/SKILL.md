@@ -19,6 +19,10 @@ Step A: read_blackboard. Step B: Get "directives" array. Step C: write_to_blackb
 
 READ `.claude/skills/writing-style-guide.md` before generating any content. Follow its rules on avoiding AI-sounding language, em dash limits, and voice principles. Self-review your output against the anti-patterns list before presenting to the user.
 
+## Prioritization
+
+If no specific role is provided, suggest roles that already have a tailored resume but no cover letter yet. Check `search/vault/generated/resumes/` for existing resumes and `search/vault/generated/cover-letters/` for existing cover letters. Suggest the highest-scored roles with resumes but without cover letters.
+
 ## Step 1: Understand the Target
 
 - Read the JD (provided as text or file path)

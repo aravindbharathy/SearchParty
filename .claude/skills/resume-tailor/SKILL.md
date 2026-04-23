@@ -26,8 +26,9 @@ READ `.claude/skills/writing-style-guide.md` before generating any content. Foll
 ## Parse $ARGUMENTS
 
 The argument is either:
-- Pasted JD text
+- Pasted JD text with company/role specified
 - A file path to a JD file (read it)
+- No specific role → **prioritize by JD score.** Read `search/entries/` for `score-jd-*.md` files. List roles with scores >= 75 that do NOT already have a resume in `search/vault/generated/resumes/`. Suggest the highest-scoring role first. Do NOT list roles from `search/pipeline/open-roles.yaml` that haven't been scored — only suggest roles with score reports.
 
 ## Step 1: Load Context
 
