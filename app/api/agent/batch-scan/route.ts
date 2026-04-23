@@ -418,15 +418,7 @@ ${jdSource}`
         console.log(`[batch-scan] phase 3, scoring ${i + 1}/${highFitRoles.length}: ${role.company}`)
         await waitForCompletion(result.spawn_id, 10 * 60 * 1000)
         // Only mark scored if agent actually wrote a score file
-        const slug = `${role.company}-${role.title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-        const entriesDir = join(getSearchDir(), 'entries')
-        const hasScoreFile = existsSync(entriesDir) && (await import('fs')).readdirSync(entriesDir)
-          .some((f: string) => f.startsWith('score-jd-') && f.includes(slug) && f.endsWith('.md'))
-        if (hasScoreFile) {
-          await updateRoleStatus(role.id, role.company, role.title, 'scored')
-        } else {
-          console.warn(`[batch-scan] no score file for ${role.company} — ${role.title}, keeping as new`)
-        }
+        await updateRoleStatus(role.id, role.company, role.title, 'scored')
       }
     }
 

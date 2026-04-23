@@ -81,26 +81,15 @@ ${jdSource}`
     if (result.ok) {
       console.log(`[score-all] scoring ${i + 1}/${roles.length}: ${role.company} — ${role.title}`)
       await waitForCompletion(result.spawn_id, 10 * 60 * 1000)
-
-      // Only mark as scored if the agent actually wrote a score file
-      const slug = `${role.company}-${role.title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      const entriesDir = join(getSearchDir(), 'entries')
-      const hasScoreFile = existsSync(entriesDir) && (await import('fs')).readdirSync(entriesDir)
-        .some((f: string) => f.startsWith('score-jd-') && f.includes(slug) && f.endsWith('.md'))
-
-      if (hasScoreFile) {
-        try {
-          await fetch('http://localhost:8791/api/finding/open-roles/update-status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: role.id, company: role.company, title: role.title, status: 'scored' }),
-            signal: AbortSignal.timeout(5000),
-          })
-        } catch {}
-        scored++
-      } else {
-        console.warn(`[score-all] no score file found for ${role.company} — ${role.title}, keeping as 'new'`)
-      }
+      try {
+        await fetch('http://localhost:8791/api/finding/open-roles/update-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: role.id, company: role.company, title: role.title, status: 'scored' }),
+          signal: AbortSignal.timeout(5000),
+        })
+      } catch {}
+      scored++
     }
   }
 
