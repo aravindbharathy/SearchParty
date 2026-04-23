@@ -142,6 +142,9 @@ export default function NetworkingPage() {
   // Data state
   const [contacts, setContacts] = useState<Contact[]>([])
   const [stats, setStats] = useState<NetworkingStats | null>(null)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importResult, setImportResult] = useState<{ total: number; at_target_companies: number; by_company: Record<string, Array<{ name: string; position: string }>> } | null>(null)
+  const [importing, setImporting] = useState(false)
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
@@ -572,6 +575,13 @@ export default function NetworkingPage() {
                   <option value="relationship">Sort: Relationship</option>
                   <option value="name">Sort: Name</option>
                 </select>
+                <button
+                  onClick={() => setShowImportModal(true)}
+                  className="px-4 py-2 border border-accent/30 text-accent rounded-lg text-sm font-medium hover:bg-accent/10 transition-colors whitespace-nowrap"
+                  title="Import your LinkedIn connections from a CSV export"
+                >
+                  Import LinkedIn
+                </button>
                 <button
                   onClick={() => setShowAddForm(!showAddForm)}
                   className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors whitespace-nowrap"
@@ -1055,6 +1065,140 @@ export default function NetworkingPage() {
           })()}
         </div>
       </div>
+
+      {/* LinkedIn Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-sm flex items-center justify-center" onClick={() => { if (!importing) setShowImportModal(false) }}>
+          <div className="bg-surface border border-border rounded-xl shadow-lg w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <h2 className="text-lg font-bold mb-4">Import LinkedIn Connections</h2>
+
+              {!importResult ? (
+                <>
+                  <div className="space-y-4 mb-6">
+                    <div className="flex items-start gap-3">
+                      <span className="w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+                      <div>
+                        <p className="text-sm font-medium">Export your connections from LinkedIn</p>
+                        <p className="text-xs text-text-muted mt-1">Go to <a href="https://www.linkedin.com/mypreferences/d/download-my-data" target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover">LinkedIn Settings → Data Privacy → Get a copy of your data</a></p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+                      <div>
+                        <p className="text-sm font-medium">Select &quot;Connections&quot; and request the archive</p>
+                        <p className="text-xs text-text-muted mt-1">LinkedIn will email you a download link — usually within 10 minutes.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+                      <div>
+                        <p className="text-sm font-medium">Upload the Connections.csv file below</p>
+                        <p className="text-xs text-text-muted mt-1">The file is named <code className="text-xs bg-bg px-1 py-0.5 rounded">Connections.csv</code> inside the downloaded archive.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                    <input
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      id="linkedin-csv-upload"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        setImporting(true)
+                        try {
+                          const text = await file.text()
+                          const res = await fetch('/api/networking/import-connections', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ csv: text }),
+                          })
+                          const data = await res.json()
+                          if (data.ok) {
+                            setImportResult(data)
+                            loadContacts()
+                          } else {
+                            setChatMessages(prev => [...prev, { role: 'agent', content: `Import failed: ${data.error}` }])
+                            setShowImportModal(false)
+                          }
+                        } catch {
+                          setChatMessages(prev => [...prev, { role: 'agent', content: 'Import failed — could not parse CSV.' }])
+                          setShowImportModal(false)
+                        }
+                        setImporting(false)
+                      }}
+                    />
+                    <label htmlFor="linkedin-csv-upload" className="cursor-pointer">
+                      {importing ? (
+                        <p className="text-sm text-text-muted">Importing...</p>
+                      ) : (
+                        <>
+                          <p className="text-sm font-medium text-accent">Click to upload Connections.csv</p>
+                          <p className="text-xs text-text-muted mt-1">or drag and drop</p>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-success-tint border border-success/20 rounded-lg p-4 mb-4">
+                    <p className="text-sm font-medium text-success">Imported {importResult.total} connections</p>
+                    <p className="text-xs text-text-muted mt-1">{importResult.at_target_companies} at your target companies</p>
+                  </div>
+
+                  {importResult.at_target_companies > 0 && (
+                    <div className="mb-4">
+                      <h3 className="text-sm font-semibold mb-2">Connections at Target Companies</h3>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {Object.entries(importResult.by_company).map(([company, people]) => (
+                          <div key={company} className="bg-bg rounded-lg p-3">
+                            <p className="text-xs font-semibold text-accent mb-1">{company} ({people.length})</p>
+                            {people.slice(0, 5).map((p, i) => (
+                              <p key={i} className="text-xs text-text-muted">{p.name} · {p.position}</p>
+                            ))}
+                            {people.length > 5 && <p className="text-xs text-text-muted">+{people.length - 5} more</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        const companies = Object.entries(importResult.by_company)
+                          .map(([co, people]) => `${co}: ${people.map(p => `${p.name} (${p.position})`).join(', ')}`)
+                          .join('\n')
+                        sendChatMessage(`I just imported my LinkedIn connections. Here are the ones at my target companies:\n\n${companies}\n\nHelp me review these — for each person, I'll tell you if I know them personally and how. Start with the first company.`)
+                        setShowImportModal(false)
+                      }}
+                      className="flex-1 px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-hover"
+                    >
+                      Review with Agent
+                    </button>
+                    <button
+                      onClick={() => { setShowImportModal(false); setImportResult(null) }}
+                      className="px-4 py-2 border border-border rounded-lg text-sm text-text-muted hover:bg-bg"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {!importResult && (
+                <div className="flex justify-end mt-4">
+                  <button onClick={() => setShowImportModal(false)} className="text-sm text-text-muted hover:text-text">Cancel</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Message Overlay */}
       {viewingMessage && (
