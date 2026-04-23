@@ -7,7 +7,7 @@
  */
 
 import { detectAts } from './detect-ats'
-import { PARSERS, type ScannedJob } from './parsers'
+import { PARSERS, parseWorkday, parseBambooHR, parseTeamtailor, type ScannedJob } from './parsers'
 import { normalizeCompany, normalizeRole } from './dedup'
 import { lookupKnownAts } from './known-ats'
 
@@ -60,6 +60,42 @@ async function fetchJson(url: string): Promise<unknown> {
   } finally {
     clearTimeout(timer)
   }
+}
+
+/**
+ * Fetch Workday jobs with pagination.
+ * Workday API uses POST with offset-based pagination.
+ */
+async function fetchWorkdayJobs(apiUrl: string, companyName: string): Promise<ScannedJob[]> {
+  const allJobs: ScannedJob[] = []
+  let offset = 0
+  const limit = 20
+
+  for (let page = 0; page < 50; page++) { // safety: max 1000 jobs
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+    try {
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appliedFacets: {}, limit, offset, searchText: '' }),
+        signal: controller.signal,
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      const jobs = parseWorkday(json, companyName, apiUrl)
+      allJobs.push(...jobs)
+
+      // Check if there are more pages
+      const total = json.total || 0
+      offset += limit
+      if (offset >= total || jobs.length === 0) break
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  return allJobs
 }
 
 async function parallelFetch<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
@@ -124,14 +160,35 @@ export async function scanViaAts(options: {
 
   const tasks = withAts.map(company => async () => {
     try {
-      const json = await fetchJson(company.ats.apiUrl)
-      const parser = PARSERS[company.ats.type]
-      if (!parser) {
-        errors.push({ company: company.name, error: `Unknown ATS type: ${company.ats.type}` })
-        return
-      }
+      let jobs: ScannedJob[]
 
-      const jobs: ScannedJob[] = parser(json, company.name)
+      if (company.ats.type === 'workday') {
+        // Workday: POST with JSON body, paginate
+        jobs = await fetchWorkdayJobs(company.ats.apiUrl, company.name)
+      } else if (company.ats.type === 'bamboohr') {
+        const json = await fetchJson(company.ats.apiUrl)
+        const slug = company.ats.apiUrl.match(/([\w-]+)\.bamboohr\.com/)?.[1] || company.slug
+        jobs = parseBambooHR(json, company.name, slug)
+      } else if (company.ats.type === 'teamtailor') {
+        // Teamtailor: RSS feed (XML)
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+        try {
+          const res = await fetch(company.ats.apiUrl, { signal: controller.signal })
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const text = await res.text()
+          jobs = parseTeamtailor(text, company.name)
+        } finally { clearTimeout(timer) }
+      } else {
+        // Greenhouse, Ashby, Lever — standard JSON
+        const json = await fetchJson(company.ats.apiUrl)
+        const parser = PARSERS[company.ats.type]
+        if (!parser) {
+          errors.push({ company: company.name, error: `Unknown ATS type: ${company.ats.type}` })
+          return
+        }
+        jobs = parser(json, company.name)
+      }
       totalFound += jobs.length
 
       for (const job of jobs) {

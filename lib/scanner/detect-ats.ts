@@ -1,10 +1,10 @@
 /**
  * ATS API detection from careers URLs.
- * Adapted from CareerOps scan.mjs (MIT, Santiago Fernandez de Valderrama).
+ * Adapted from CareerOps scan.mjs + scan.md (MIT, Santiago Fernandez de Valderrama).
  */
 
 export interface AtsEndpoint {
-  type: 'greenhouse' | 'ashby' | 'lever'
+  type: 'greenhouse' | 'ashby' | 'lever' | 'workday' | 'bamboohr' | 'teamtailor'
   apiUrl: string
 }
 
@@ -28,6 +28,12 @@ export function detectAts(
         return { type: 'ashby', apiUrl: `https://api.ashbyhq.com/posting-api/job-board/${slug}?includeCompensation=true` }
       case 'lever':
         return { type: 'lever', apiUrl: `https://api.lever.co/v0/postings/${slug}` }
+      case 'workday':
+        return { type: 'workday', apiUrl: careersUrl }
+      case 'bamboohr':
+        return { type: 'bamboohr', apiUrl: `https://${slug}.bamboohr.com/careers/list` }
+      case 'teamtailor':
+        return { type: 'teamtailor', apiUrl: `https://${slug}.teamtailor.com/jobs.rss` }
     }
   }
 
@@ -66,6 +72,34 @@ export function detectAts(
     return {
       type: 'greenhouse',
       apiUrl: `https://boards-api.greenhouse.io/v1/boards/${ghApiMatch[1]}/jobs`,
+    }
+  }
+
+  // Workday: {company}.{shard}.myworkdayjobs.com/{site}
+  // e.g., https://salesforce.wd12.myworkdayjobs.com/External_Career_Site
+  const wdMatch = url.match(/([\w-]+)\.(wd\d+)\.myworkdayjobs\.com\/([^/?#]+)/)
+  if (wdMatch) {
+    return {
+      type: 'workday',
+      apiUrl: `https://${wdMatch[1]}.${wdMatch[2]}.myworkdayjobs.com/wday/cxs/${wdMatch[1]}/${wdMatch[3]}/jobs`,
+    }
+  }
+
+  // BambooHR: {company}.bamboohr.com/careers
+  const bbMatch = url.match(/([\w-]+)\.bamboohr\.com/)
+  if (bbMatch) {
+    return {
+      type: 'bamboohr',
+      apiUrl: `https://${bbMatch[1]}.bamboohr.com/careers/list`,
+    }
+  }
+
+  // Teamtailor: {company}.teamtailor.com
+  const ttMatch = url.match(/([\w-]+)\.teamtailor\.com/)
+  if (ttMatch) {
+    return {
+      type: 'teamtailor',
+      apiUrl: `https://${ttMatch[1]}.teamtailor.com/jobs.rss`,
     }
   }
 

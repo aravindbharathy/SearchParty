@@ -76,6 +76,23 @@ const KNOWN_COMPANIES: KnownCompany[] = [
   // ── Lever ──────────────────────────────────────────────────────
   { name: 'Netflix', aliases: ['netflix'], careers_url: 'https://jobs.lever.co/netflix' },
   { name: 'Spotify', aliases: ['spotify'], careers_url: 'https://jobs.lever.co/spotify' },
+
+  // ── Workday ────────────────────────────────────────────────────
+  { name: 'Microsoft', aliases: ['microsoft', 'microsoft ai'], careers_url: 'https://gcsservices.wd1.myworkdayjobs.com/en-US/Microsoft_Careers' },
+  { name: 'Adobe', aliases: ['adobe'], careers_url: 'https://adobe.wd5.myworkdayjobs.com/external_experienced' },
+  { name: 'Salesforce', aliases: ['salesforce', 'salesforce / tableau', 'tableau'], careers_url: 'https://salesforce.wd12.myworkdayjobs.com/External_Career_Site' },
+  { name: 'Amazon', aliases: ['amazon', 'amazon / aws', 'aws', 'amazon / aws ai'], careers_url: 'https://amazon.wd5.myworkdayjobs.com/AmazonNew' },
+  { name: 'Apple', aliases: ['apple', 'apple ai'], careers_url: 'https://jobs.apple.com/api/role/search' },
+  { name: 'NVIDIA', aliases: ['nvidia'], careers_url: 'https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite' },
+  { name: 'Uber', aliases: ['uber'], careers_url: 'https://uber.wd5.myworkdayjobs.com/Uber' },
+  { name: 'Zillow', aliases: ['zillow'], careers_url: 'https://zillow.wd5.myworkdayjobs.com/Zillow_Group_External' },
+  { name: 'T-Mobile', aliases: ['t-mobile'], careers_url: 'https://tmobile.wd1.myworkdayjobs.com/External' },
+  { name: 'ServiceNow', aliases: ['servicenow'], careers_url: 'https://servicenow.wd1.myworkdayjobs.com/ServiceNowCareers' },
+  { name: 'Mastercard', aliases: ['mastercard'], careers_url: 'https://mastercard.wd1.myworkdayjobs.com/CorporateCareers' },
+
+  // ── Teamtailor ─────────────────────────────────────────────────
+  { name: 'Pleo', aliases: ['pleo'], careers_url: 'https://pleo.teamtailor.com/jobs' },
+  { name: 'Einride', aliases: ['einride'], careers_url: 'https://einride.teamtailor.com/jobs' },
 ]
 
 /**
