@@ -255,27 +255,51 @@ export default function ApplyingPage() {
   const pipeline = useMemo(() => {
     const qualifiedJDs = scoredJDs.filter(jd => jd.score >= 75).sort((a, b) => b.score - a.score)
 
-    // Build sets of companies that have artifacts (fuzzy match by company name)
-    const resumeCompanies = new Set([
-      ...structuredResumes.map(sr => sr.target_company.toLowerCase()),
-      ...resumes.map(r => (r.company || r.title.split('—')[0] || '').trim().toLowerCase()),
-    ])
-    const coverLetterCompanies = new Set(
+    // Normalize for fuzzy matching: lowercase company slug
+    const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')
+
+    // Build sets of company+role keys that have artifacts
+    // For resumes: structured resumes have exact company+role; markdown resumes use filename
+    const resumeKeys = new Set<string>()
+    for (const sr of structuredResumes) {
+      resumeKeys.add(`${slug(sr.target_company)}|${slug(sr.target_role)}`)
+    }
+    for (const r of resumes) {
+      // Markdown resume: filename like "microsoft-ai-senior-uxr-m365-copilot-v1.md"
+      // Best effort: extract company from title "Microsoft AI — Senior UXR..."
+      const parts = r.title.split(/\s*[—-]\s*/)
+      if (parts.length >= 2) resumeKeys.add(`${slug(parts[0])}|${slug(parts[1])}`)
+    }
+
+    // For cover letters and outreach: match by company slug only (filenames don't reliably contain role)
+    const coverLetterCompanySlugs = new Set(
       coverLetters.map(cl => {
-        const match = cl.title.match(/^(.+?)(?:\s*[-—])/)?.[1]?.trim().toLowerCase()
-        return match || cl.filename.split('-')[0]?.toLowerCase() || ''
+        const match = cl.title.match(/^(.+?)(?:\s*[-—])/)?.[1]?.trim()
+        return slug(match || cl.filename.split('-')[0] || '')
       })
     )
-    const outreachCompanies = new Set(
+    const outreachCompanySlugs = new Set(
       workProducts.map(wp => {
-        const match = wp.title.match(/^(.+?)(?:\s*[-—])/)?.[1]?.trim().toLowerCase()
-        return match || wp.filename.split('-')[0]?.toLowerCase() || ''
+        const match = wp.title.match(/^(.+?)(?:\s*[-—])/)?.[1]?.trim()
+        return slug(match || wp.filename.split('-')[0] || '')
       })
     )
 
-    const hasResume = (jd: { company: string }) => resumeCompanies.has(jd.company.toLowerCase())
-    const hasCoverLetter = (jd: { company: string }) => coverLetterCompanies.has(jd.company.toLowerCase())
-    const hasOutreach = (jd: { company: string }) => outreachCompanies.has(jd.company.toLowerCase())
+    // Check if a JD has a matching resume (by company+role fuzzy match)
+    const hasResume = (jd: { company: string; role: string }) => {
+      const jdCompany = slug(jd.company)
+      const jdRole = slug(jd.role)
+      // Exact match
+      if (resumeKeys.has(`${jdCompany}|${jdRole}`)) return true
+      // Fuzzy: check if any resume key's company matches and role partially overlaps
+      for (const key of resumeKeys) {
+        const [rc, rr] = key.split('|')
+        if (rc === jdCompany && (rr.includes(jdRole.slice(0, 15)) || jdRole.includes(rr.slice(0, 15)))) return true
+      }
+      return false
+    }
+    const hasCoverLetter = (jd: { company: string }) => coverLetterCompanySlugs.has(slug(jd.company))
+    const hasOutreach = (jd: { company: string }) => outreachCompanySlugs.has(slug(jd.company))
 
     return {
       needsResume: qualifiedJDs.filter(jd => !hasResume(jd)),
