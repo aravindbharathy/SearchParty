@@ -28,6 +28,8 @@ READ `.claude/skills/writing-style-guide.md` before generating any content. Foll
 
 Read `search/context/connection-tracker.yaml` to find the contact and any prior interactions.
 
+**Also check `search/pipeline/open-roles.yaml`** for active scored roles at the contact's company. If specific roles exist (especially with scores 75+), reference them in the messages. This makes the referral request concrete: "I saw the Senior UX Researcher role on your team" is much stronger than a generic "any openings."
+
 ## Step 2: Generate 3-Message Sequence
 
 Create three messages with escalating urgency:

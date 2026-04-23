@@ -52,7 +52,7 @@ interface Contact {
   [key: string]: unknown
 }
 
-type ContactFilter = 'all' | 'target-company' | 'needs-review' | 'warm'
+type ContactFilter = 'all' | 'target-company' | 'needs-review' | 'warm' | 'has-roles'
 
 interface NetworkingStats {
   totalContacts: number
@@ -74,6 +74,7 @@ type SortKey = 'name' | 'company' | 'relationship'
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const RELATIONSHIP_BADGES: Record<string, { label: string; bg: string; text: string }> = {
+  unknown: { label: 'Unreviewed', bg: 'bg-border', text: 'text-text-muted' },
   cold: { label: 'Cold', bg: 'bg-text-muted/10', text: 'text-text-muted' },
   connected: { label: 'Connected', bg: 'bg-accent/10', text: 'text-accent' },
   warm: { label: 'Warm', bg: 'bg-warning/10', text: 'text-warning' },
@@ -148,6 +149,7 @@ export default function NetworkingPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [stats, setStats] = useState<NetworkingStats | null>(null)
   const [contactFilter, setContactFilter] = useState<ContactFilter>('all')
+  const [scoredRoles, setScoredRoles] = useState<Array<{ company: string; title: string; score: number }>>([])
   const [showImportModal, setShowImportModal] = useState(false)
   const [importResult, setImportResult] = useState<{ total: number; at_target_companies: number; by_company: Record<string, Array<{ name: string; position: string }>> } | null>(null)
   const [importing, setImporting] = useState(false)
@@ -261,11 +263,22 @@ export default function NetworkingPage() {
     finally { setAuditLoading(false) }
   }, [])
 
+  const loadScoredRoles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/finding/scored-jds')
+      if (res.ok) {
+        const data = await res.json()
+        setScoredRoles((data.scoredJDs || []).filter((jd: { score: number }) => jd.score >= 75))
+      }
+    } catch {}
+  }, [])
+
   useEffect(() => {
     loadContacts()
     loadStats()
     loadSavedMessages()
     loadAuditFile()
+    loadScoredRoles()
     // Fetch user's LinkedIn URL from experience library
     fetch('/api/context/experience-library').then(r => r.json()).then(data => {
       const linkedin = data?.contact?.linkedin
@@ -472,12 +485,27 @@ export default function NetworkingPage() {
 
   // ─── Filtered & Sorted Contacts ─────────────────────────────────────────
 
+  // Map company names to scored roles for pipeline integration
+  const companyRolesMap = useMemo(() => {
+    const map = new Map<string, Array<{ title: string; score: number }>>()
+    for (const role of scoredRoles) {
+      const key = role.company.toLowerCase()
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push({ title: role.title, score: role.score })
+    }
+    return map
+  }, [scoredRoles])
+
+  const contactHasRoles = (c: Contact) => companyRolesMap.has(c.company.toLowerCase())
+
   const filterCounts = useMemo(() => ({
     all: contacts.length,
     'target-company': contacts.filter(c => c.at_target_company).length,
     'needs-review': contacts.filter(c => c.at_target_company && !c.reviewed).length,
     warm: contacts.filter(c => ['warm', 'close', 'mentor', 'referred'].includes(c.relationship)).length,
-  }), [contacts])
+    'has-roles': contacts.filter(c => contactHasRoles(c)).length,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [contacts, companyRolesMap])
 
   const sortedContacts = useMemo(() => {
     let filtered = contacts
@@ -486,6 +514,7 @@ export default function NetworkingPage() {
     if (contactFilter === 'target-company') filtered = filtered.filter(c => c.at_target_company)
     else if (contactFilter === 'needs-review') filtered = filtered.filter(c => c.at_target_company && !c.reviewed)
     else if (contactFilter === 'warm') filtered = filtered.filter(c => ['warm', 'close', 'mentor', 'referred'].includes(c.relationship))
+    else if (contactFilter === 'has-roles') filtered = filtered.filter(c => contactHasRoles(c))
 
     // Apply search
     filtered = filtered.filter(c => {
@@ -505,7 +534,7 @@ export default function NetworkingPage() {
       if (sortBy === 'relationship') return (RELATIONSHIP_ORDER[a.relationship] ?? 5) - (RELATIONSHIP_ORDER[b.relationship] ?? 5)
       return 0
     })
-  }, [contacts, searchQuery, sortBy])
+  }, [contacts, searchQuery, sortBy, contactFilter])
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
 
@@ -618,6 +647,7 @@ export default function NetworkingPage() {
                   { key: 'target-company' as ContactFilter, label: 'At Target Companies', count: filterCounts['target-company'] },
                   { key: 'needs-review' as ContactFilter, label: 'Needs Review', count: filterCounts['needs-review'] },
                   { key: 'warm' as ContactFilter, label: 'Warm Contacts', count: filterCounts.warm },
+                  { key: 'has-roles' as ContactFilter, label: 'Has Open Roles', count: filterCounts['has-roles'] },
                 ]).map(f => (
                   <button
                     key={f.key}
@@ -704,6 +734,11 @@ export default function NetworkingPage() {
                                   <span className={`text-xs px-1.5 py-0 rounded-full ${badge.bg} ${badge.text}`}>{badge.label}</span>
                                   {contact.at_target_company && (
                                     <span className="text-[9px] px-1.5 py-0 rounded-full bg-accent/10 text-accent font-medium">Target</span>
+                                  )}
+                                  {contactHasRoles(contact) && (
+                                    <span className="text-[9px] px-1.5 py-0 rounded-full bg-success/10 text-success font-medium">
+                                      {companyRolesMap.get(contact.company.toLowerCase())?.length} {companyRolesMap.get(contact.company.toLowerCase())?.length === 1 ? 'Role' : 'Roles'}
+                                    </span>
                                   )}
                                 </div>
                                 {contact.role && (
@@ -891,15 +926,37 @@ export default function NetworkingPage() {
                                 </div>
                               )}
 
+                              {/* Roles at this company */}
+                              {contactHasRoles(contact) && (
+                                <div className="bg-success-tint border border-success/20 rounded-lg p-3">
+                                  <p className="text-xs font-semibold text-success mb-1.5">Open Roles at {contact.company}</p>
+                                  {companyRolesMap.get(contact.company.toLowerCase())?.map((role, i) => (
+                                    <p key={i} className="text-xs text-text-muted">{role.title} — <span className="font-medium text-success">{role.score}/100</span></p>
+                                  ))}
+                                </div>
+                              )}
+
                               {/* Actions */}
                               <div className="flex items-center gap-2 pt-2">
-                                <button
-                                  onClick={() => handleRequestReferral(contact)}
-                                  disabled={chatProcessing}
-                                  className="px-3 py-1.5 bg-accent text-white rounded text-xs font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                  Request Referral
-                                </button>
+                                {['warm', 'close', 'mentor', 'referred', 'connected'].includes(contact.relationship) ? (
+                                  <button
+                                    onClick={() => handleRequestReferral(contact)}
+                                    disabled={chatProcessing}
+                                    className="px-3 py-1.5 bg-accent text-white rounded text-xs font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                                    title="Draft a 3-message referral sequence for this contact"
+                                  >
+                                    Request Referral
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => sendChatMessage(`Run this command first: cat .claude/skills/connection-request/SKILL.md — then generate a personalized connection request for: ${contact.name} at ${contact.company}. Their role: ${contact.role || 'unknown'}. This is a single contact, not a batch.`)}
+                                    disabled={chatProcessing}
+                                    className="px-3 py-1.5 bg-accent text-white rounded text-xs font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                                    title="Draft a personalized connection request message"
+                                  >
+                                    Draft Connection Request
+                                  </button>
+                                )}
                                 {(contact.linkedin_url || contact.linkedin) && (
                                   <a
                                     href={String(contact.linkedin_url || contact.linkedin)}

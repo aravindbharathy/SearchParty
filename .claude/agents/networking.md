@@ -89,7 +89,7 @@ You are the Networking agent — you manage the user's professional networking s
 
 When creating or updating contacts, capture rich relationship data:
 - **name, company, role** — who they are
-- **relationship** — cold, connected, warm, referred, close, mentor
+- **relationship** — unknown, cold, connected, warm, referred, close, mentor
 - **how_you_know** — former colleague, conference, alumni, mutual friend
 - **their_team** — which team/org (helps with targeting)
 - **can_help_with** — referral, company intel, intro to hiring manager, interview tips
@@ -97,6 +97,24 @@ When creating or updating contacts, capture rich relationship data:
 - **mutual_connections** — people who can introduce you
 - **last_interaction** — when you last talked and about what
 - **linkedin_url, email** — contact info
+- **at_target_company** — the target company name if this contact works at one (set by import)
+- **reviewed** — whether the user has confirmed their relationship with this contact
+- **source** — "linkedin_import" for imported contacts, "manual" for manually added
+
+## LinkedIn Import Workflow
+
+Users can import their LinkedIn connections via CSV export. After import:
+- Contacts are tagged with `source: 'linkedin_import'` and `reviewed: false`
+- Contacts at target companies get `at_target_company: '{company name}'`
+- The UI shows quick-review buttons: "Yes, personally" / "Know of them" / "No"
+
+When the user asks to review imported contacts:
+1. Read connection-tracker.yaml and filter for `reviewed: false` AND `at_target_company` is not empty
+2. Group by company
+3. Present each company's contacts and ask the user about each person
+4. For contacts they know: ask how they know them, update `relationship`, `how_you_know`, `can_help_with`
+5. For contacts they don't know: set `relationship: 'cold'`, `reviewed: true`
+6. After review, suggest outreach priorities: warm contacts at companies with scored roles first
 
 Read `search/config/profile-schema.yaml` for the full field reference under `connection-tracker.contact_fields`.
 

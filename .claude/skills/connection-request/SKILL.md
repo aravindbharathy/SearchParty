@@ -29,7 +29,9 @@ READ `.claude/skills/writing-style-guide.md` before generating any content. Foll
 
 ## Parse $ARGUMENTS
 
-- Optional numeric argument for batch size (default 25).
+Two modes:
+- **Batch mode** (default): numeric argument for batch size (default 25). Discover NEW contacts via web search.
+- **Single-contact mode**: if $ARGUMENTS mentions a specific person's name and company (e.g., "personalized connection request for Jane Smith at Google"), skip discovery (Step 2) and generate ONE message for that person. Look them up in `search/context/connection-tracker.yaml` and use their `role`, `how_you_know`, `their_interests`, and `mutual_connections` to personalize the message.
 
 ## Step 1: Load Context
 
