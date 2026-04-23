@@ -166,17 +166,22 @@ export async function POST(req: Request) {
         const target = matchCompany(conn.company)
 
         tracker.contacts.push({
+          id: `conn-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           name,
           company: conn.company,
-          position: conn.position,
+          role: conn.position,
           email: conn.email || '',
           linkedin_url: conn.url || '',
+          linkedin: conn.url || '',
           connected_on: conn.connectedOn,
           source: 'linkedin_import',
           at_target_company: target || '',
           relationship: 'unknown',
-          context: '',
+          how_you_know: '',
           can_help_with: [],
+          outreach: [],
+          follow_ups: [],
+          notes: '',
           reviewed: false,
         })
         added++

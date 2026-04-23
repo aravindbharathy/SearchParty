@@ -30,7 +30,7 @@ interface Contact {
   name: string
   company: string
   role: string
-  relationship: 'cold' | 'connected' | 'warm' | 'referred' | 'close' | 'mentor'
+  relationship: 'cold' | 'connected' | 'warm' | 'referred' | 'close' | 'mentor' | 'unknown'
   linkedin_url: string
   outreach: Outreach[]
   follow_ups: FollowUp[]
@@ -46,8 +46,13 @@ interface Contact {
   last_interaction?: string | Record<string, unknown>
   email?: string
   linkedin?: string
+  at_target_company?: string
+  reviewed?: boolean
+  source?: string
   [key: string]: unknown
 }
+
+type ContactFilter = 'all' | 'target-company' | 'needs-review' | 'warm'
 
 interface NetworkingStats {
   totalContacts: number
@@ -142,6 +147,7 @@ export default function NetworkingPage() {
   // Data state
   const [contacts, setContacts] = useState<Contact[]>([])
   const [stats, setStats] = useState<NetworkingStats | null>(null)
+  const [contactFilter, setContactFilter] = useState<ContactFilter>('all')
   const [showImportModal, setShowImportModal] = useState(false)
   const [importResult, setImportResult] = useState<{ total: number; at_target_companies: number; by_company: Record<string, Array<{ name: string; position: string }>> } | null>(null)
   const [importing, setImporting] = useState(false)
@@ -466,8 +472,23 @@ export default function NetworkingPage() {
 
   // ─── Filtered & Sorted Contacts ─────────────────────────────────────────
 
+  const filterCounts = useMemo(() => ({
+    all: contacts.length,
+    'target-company': contacts.filter(c => c.at_target_company).length,
+    'needs-review': contacts.filter(c => c.at_target_company && !c.reviewed).length,
+    warm: contacts.filter(c => ['warm', 'close', 'mentor', 'referred'].includes(c.relationship)).length,
+  }), [contacts])
+
   const sortedContacts = useMemo(() => {
-    const filtered = contacts.filter(c => {
+    let filtered = contacts
+
+    // Apply contact filter
+    if (contactFilter === 'target-company') filtered = filtered.filter(c => c.at_target_company)
+    else if (contactFilter === 'needs-review') filtered = filtered.filter(c => c.at_target_company && !c.reviewed)
+    else if (contactFilter === 'warm') filtered = filtered.filter(c => ['warm', 'close', 'mentor', 'referred'].includes(c.relationship))
+
+    // Apply search
+    filtered = filtered.filter(c => {
       if (!searchQuery) return true
       const q = searchQuery.toLowerCase()
       return (
@@ -590,6 +611,24 @@ export default function NetworkingPage() {
                 </button>
               </div>
 
+              {/* Filter pills */}
+              <div className="flex gap-1 mb-3">
+                {([
+                  { key: 'all' as ContactFilter, label: 'All', count: filterCounts.all },
+                  { key: 'target-company' as ContactFilter, label: 'At Target Companies', count: filterCounts['target-company'] },
+                  { key: 'needs-review' as ContactFilter, label: 'Needs Review', count: filterCounts['needs-review'] },
+                  { key: 'warm' as ContactFilter, label: 'Warm Contacts', count: filterCounts.warm },
+                ]).map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => setContactFilter(f.key)}
+                    className={`text-xs px-3 py-1.5 rounded-md ${contactFilter === f.key ? 'bg-accent/10 text-accent font-medium' : 'text-text-muted hover:text-text hover:bg-bg'}`}
+                  >
+                    {f.label} ({f.count})
+                  </button>
+                ))}
+              </div>
+
               {/* Add Contact Form */}
               {showAddForm && (
                 <div className="bg-surface border border-border rounded-lg p-4 mb-4">
@@ -663,6 +702,9 @@ export default function NetworkingPage() {
                                   <span className="text-xs text-text-muted">{contact.company}</span>
                                   <span className="text-text-muted/40">&#183;</span>
                                   <span className={`text-xs px-1.5 py-0 rounded-full ${badge.bg} ${badge.text}`}>{badge.label}</span>
+                                  {contact.at_target_company && (
+                                    <span className="text-[9px] px-1.5 py-0 rounded-full bg-accent/10 text-accent font-medium">Target</span>
+                                  )}
                                 </div>
                                 {contact.role && (
                                   <p className="text-xs text-text-muted mt-1">{truncate(contact.role, 40)}</p>
@@ -673,6 +715,45 @@ export default function NetworkingPage() {
                               </div>
                             </div>
                           </button>
+
+                          {/* Quick Review Buttons — for unreviewed target company contacts */}
+                          {!contact.reviewed && contact.at_target_company && !isExpanded && (
+                            <div className="px-3 pb-3 flex items-center gap-2">
+                              <span className="text-[10px] text-text-muted mr-1">Know them?</span>
+                              {[
+                                { label: 'Yes, personally', rel: 'warm' as const, icon: '✓' },
+                                { label: 'Know of them', rel: 'connected' as const, icon: '~' },
+                                { label: 'No', rel: 'cold' as const, icon: '✗' },
+                              ].map(opt => (
+                                <button
+                                  key={opt.rel}
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    try {
+                                      await fetch('/api/networking/contacts', {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ id: contact.id, field: 'relationship', value: opt.rel }),
+                                      })
+                                      await fetch('/api/networking/contacts', {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ id: contact.id, field: 'reviewed', value: true }),
+                                      })
+                                      loadContacts()
+                                    } catch {}
+                                  }}
+                                  className={`text-[10px] px-2 py-1 rounded border transition-colors ${
+                                    opt.rel === 'warm' ? 'border-success/30 text-success hover:bg-success-tint' :
+                                    opt.rel === 'connected' ? 'border-warning/30 text-warning hover:bg-warning-tint' :
+                                    'border-border text-text-muted hover:bg-bg'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
 
                           {/* Expanded Detail */}
                           {isExpanded && (
