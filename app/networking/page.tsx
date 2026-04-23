@@ -728,15 +728,14 @@ export default function NetworkingPage() {
                                   <span className="font-semibold text-sm">{contact.name}</span>
                                   {hasPendingFU && <span className="w-2 h-2 bg-warning rounded-full flex-shrink-0" title="Follow-up due" />}
                                 </div>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <span className="text-xs text-text-muted">{contact.company}</span>
-                                  <span className="text-text-muted/40">&#183;</span>
-                                  <span className={`text-xs px-1.5 py-0 rounded-full ${badge.bg} ${badge.text}`}>{badge.label}</span>
+                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                  <span className="text-xs text-text-muted truncate max-w-[140px]">{contact.company}</span>
+                                  <span className={`text-[10px] px-1.5 py-0 rounded-full shrink-0 ${badge.bg} ${badge.text}`}>{badge.label}</span>
                                   {contact.at_target_company && (
-                                    <span className="text-[9px] px-1.5 py-0 rounded-full bg-accent/10 text-accent font-medium">Target</span>
+                                    <span className="text-[9px] px-1.5 py-0 rounded-full bg-accent/10 text-accent font-medium shrink-0">Target</span>
                                   )}
                                   {contactHasRoles(contact) && (
-                                    <span className="text-[9px] px-1.5 py-0 rounded-full bg-success/10 text-success font-medium">
+                                    <span className="text-[9px] px-1.5 py-0 rounded-full bg-success/10 text-success font-medium shrink-0">
                                       {companyRolesMap.get(contact.company.toLowerCase())?.length} {companyRolesMap.get(contact.company.toLowerCase())?.length === 1 ? 'Role' : 'Roles'}
                                     </span>
                                   )}
@@ -753,12 +752,12 @@ export default function NetworkingPage() {
 
                           {/* Quick Review Buttons — for unreviewed target company contacts */}
                           {!contact.reviewed && contact.at_target_company && !isExpanded && (
-                            <div className="px-3 pb-3 flex items-center gap-2">
-                              <span className="text-[10px] text-text-muted mr-1">Know them?</span>
+                            <div className="px-3 pb-3 flex items-center gap-1.5">
+                              <span className="text-[10px] text-text-muted shrink-0">Know?</span>
                               {[
-                                { label: 'Yes, personally', rel: 'warm' as const, icon: '✓' },
-                                { label: 'Know of them', rel: 'connected' as const, icon: '~' },
-                                { label: 'No', rel: 'cold' as const, icon: '✗' },
+                                { label: 'Yes', rel: 'warm' as const },
+                                { label: 'Kinda', rel: 'connected' as const },
+                                { label: 'No', rel: 'cold' as const },
                               ].map(opt => (
                                 <button
                                   key={opt.rel}
