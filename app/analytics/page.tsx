@@ -565,10 +565,10 @@ export default function AnalyticsPage() {
                         'bg-bg text-text-muted'
                       }`}>{offer.status}</span>
                     </td>
-                    <td className="py-2 text-right font-mono text-xs">{fmtK(offer.comp.base)}</td>
-                    <td className="py-2 text-right font-mono text-xs">{fmtK(offer.comp.equity / 4)}</td>
-                    <td className="py-2 text-right font-mono text-xs">{fmtK(offer.comp.bonus)}</td>
-                    <td className="py-2 text-right font-mono text-xs font-bold">{fmtK(totalComp(offer.comp))}/yr</td>
+                    <td className="py-2 text-right font-mono text-xs">{fmtK(offer.comp?.base)}</td>
+                    <td className="py-2 text-right font-mono text-xs">{fmtK((offer.comp?.equity || 0) / 4)}</td>
+                    <td className="py-2 text-right font-mono text-xs">{fmtK(offer.comp?.bonus)}</td>
+                    <td className="py-2 text-right font-mono text-xs font-bold">{offer.comp ? `${fmtK(totalComp(offer.comp))}/yr` : '—'}</td>
                   </tr>
                 ))}
               </tbody>
