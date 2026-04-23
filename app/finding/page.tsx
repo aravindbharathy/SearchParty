@@ -866,6 +866,22 @@ export default function FindingPage() {
 
   const newRoleCount = useMemo(() => openRoles.filter(r => r.status === 'new').length, [openRoles])
 
+  // Enrich open roles with scores from scored JDs
+  const enrichedRoles = useMemo(() => {
+    const scoreMap = new Map<string, { score: number; recommendation: string }>()
+    for (const jd of scoredJDs) {
+      const key = `${jd.company.toLowerCase()}|${jd.role.toLowerCase()}`
+      scoreMap.set(key, { score: jd.score, recommendation: jd.recommendation })
+    }
+    return openRoles.map(role => {
+      if (role.score != null) return role
+      const key = `${role.company.toLowerCase()}|${role.title.toLowerCase()}`
+      const match = scoreMap.get(key)
+      if (match) return { ...role, score: match.score }
+      return role
+    })
+  }, [openRoles, scoredJDs])
+
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -1039,7 +1055,7 @@ export default function FindingPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {openRoles
+                  {enrichedRoles
                     .filter(r => roleFilter === 'all' ? r.status !== 'closed'
                       : roleFilter === 'scored' ? (r.status === 'scored' || r.status === 'resume-ready')
                       : roleFilter === 'applied' ? (r.status === 'applied' || pipelineCompanies.has(`${r.company.toLowerCase()}|${r.title.toLowerCase()}`))
@@ -1102,20 +1118,35 @@ export default function FindingPage() {
                           </a>
                         )}
                         {role.status === 'scored' && role.score ? (
-                          <button
-                            onClick={() => {
-                              setActiveTab('scored-jds')
-                              // Find and select the matching scored JD
-                              const match = scoredJDs.find(jd =>
-                                jd.company.toLowerCase() === role.company.toLowerCase() &&
-                                jd.role.toLowerCase().includes(role.title.toLowerCase().slice(0, 20))
-                              )
-                              if (match) viewScoredJD(match)
-                            }}
-                            className="text-xs text-accent hover:text-accent-hover font-medium"
-                          >
-                            View Score
-                          </button>
+                          <>
+                            <button
+                              onClick={() => {
+                                setActiveTab('scored-jds')
+                                const match = scoredJDs.find(jd =>
+                                  jd.company.toLowerCase() === role.company.toLowerCase() &&
+                                  jd.role.toLowerCase().includes(role.title.toLowerCase().slice(0, 20))
+                                )
+                                if (match) viewScoredJD(match)
+                              }}
+                              className="text-xs text-accent hover:text-accent-hover font-medium"
+                            >
+                              View Analysis
+                            </button>
+                            <button
+                              onClick={async () => {
+                                setActiveTab('score')
+                                setJdCompany(role.company)
+                                setJdRole(role.title)
+                                setJdUrl(role.url)
+                                setJdRoleId(role.id)
+                                setJdText('')
+                                if (role.url) setJdText(`[JD not saved locally. Please fetch from: ${role.url}]`)
+                              }}
+                              className="text-xs text-text-muted hover:text-accent font-medium"
+                            >
+                              Re-score
+                            </button>
+                          </>
                         ) : (
                           <button
                             onClick={async () => {
