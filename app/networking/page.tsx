@@ -496,7 +496,17 @@ export default function NetworkingPage() {
     return map
   }, [scoredRoles])
 
-  const contactHasRoles = (c: Contact) => companyRolesMap.has(c.company.toLowerCase())
+  const getRolesForContact = (c: Contact): Array<{ title: string; score: number }> => {
+    const cc = c.company.toLowerCase()
+    if (companyRolesMap.has(cc)) return companyRolesMap.get(cc)!
+    for (const [key, roles] of companyRolesMap) {
+      const kw = key.split(/[\s/]+/)[0]
+      if (kw.length >= 3 && (cc.includes(kw) || kw.includes(cc.split(/[\s/]+/)[0]))) return roles
+    }
+    return []
+  }
+
+  const contactHasRoles = (c: Contact) => getRolesForContact(c).length > 0
 
   const filterCounts = useMemo(() => ({
     all: contacts.length,
@@ -537,6 +547,18 @@ export default function NetworkingPage() {
   }, [contacts, searchQuery, sortBy, contactFilter])
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+
+  // Group contacts by company for filtered views
+  const groupedContacts = useMemo(() => {
+    if (contactFilter === 'all' || contactFilter === 'warm') return null
+    const groups = new Map<string, Contact[]>()
+    for (const c of sortedContacts) {
+      const key = c.at_target_company || c.company
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(c)
+    }
+    return [...groups.entries()]
+  }, [sortedContacts, contactFilter])
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -643,11 +665,11 @@ export default function NetworkingPage() {
               {/* Filter pills */}
               <div className="flex gap-1 mb-3">
                 {([
-                  { key: 'all' as ContactFilter, label: 'All', count: filterCounts.all },
+                  { key: 'has-roles' as ContactFilter, label: 'Has Open Roles', count: filterCounts['has-roles'] },
                   { key: 'target-company' as ContactFilter, label: 'At Target Companies', count: filterCounts['target-company'] },
                   { key: 'needs-review' as ContactFilter, label: 'Needs Review', count: filterCounts['needs-review'] },
                   { key: 'warm' as ContactFilter, label: 'Warm Contacts', count: filterCounts.warm },
-                  { key: 'has-roles' as ContactFilter, label: 'Has Open Roles', count: filterCounts['has-roles'] },
+                  { key: 'all' as ContactFilter, label: 'All', count: filterCounts.all },
                 ]).map(f => (
                   <button
                     key={f.key}
@@ -707,6 +729,71 @@ export default function NetworkingPage() {
                 </div>
               ) : (
                 <>
+                  {groupedContacts ? (
+                    groupedContacts.map(([company, groupContacts]) => (
+                      <div key={company} className="mb-5">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{company}</h3>
+                          <span className="text-[10px] text-text-muted/60">({groupContacts.length})</span>
+                          {groupContacts[0] && getRolesForContact(groupContacts[0]).length > 0 && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">
+                              {getRolesForContact(groupContacts[0]).map(r => `${r.title} · ${r.score}`).join(', ')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {groupContacts.map(contact => {
+                            const badge = RELATIONSHIP_BADGES[contact.relationship] || RELATIONSHIP_BADGES.cold
+                            const isExpanded = expandedContact === contact.id
+                            const hasPendingFU = contact.follow_ups.some(fu => fu.status === 'pending' && fu.due <= todayStr)
+                            const canHelp = displayValue(contact.can_help_with)
+
+                            return (
+                        <div key={contact.id} className={`border rounded-lg transition-all ${
+                          isExpanded ? 'col-span-1 md:col-span-2 xl:col-span-3 border-accent/30 shadow-md' : 'border-border hover:shadow-sm hover:border-border/80'
+                        }`}>
+                          <div
+                            onClick={(e) => {
+                              if ((e.target as HTMLElement).closest('[data-review-btn]')) return
+                              setExpandedContact(isExpanded ? null : contact.id)
+                            }}
+                            className="w-full text-left p-3 cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm">{contact.name}</span>
+                              <span className={`text-[10px] px-1.5 py-0 rounded-full shrink-0 ${badge.bg} ${badge.text}`}>{badge.label}</span>
+                            </div>
+                            {contact.role && <p className="text-xs text-text-muted mt-0.5">{truncate(contact.role, 50)}</p>}
+                          </div>
+                          {/* Inline review */}
+                          {!contact.reviewed && contact.at_target_company && !isExpanded && (
+                            <div className="px-3 pb-3 flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                              <select
+                                defaultValue="unknown"
+                                onChange={(ev) => {
+                                  const rel = ev.target.value
+                                  setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, relationship: rel as Contact['relationship'], reviewed: true } : c))
+                                  if (['warm','close','mentor'].includes(rel)) setExpandedContact(contact.id)
+                                  fetch('/api/networking/contacts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: contact.id, fields: { relationship: rel, reviewed: true } }) }).catch(() => {})
+                                }}
+                                className="text-[10px] px-1.5 py-1 border border-border rounded bg-bg text-text"
+                              >
+                                <option value="unknown">Relationship...</option>
+                                {RELATIONSHIP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                              <input type="text" placeholder="How you know..." className="text-[10px] flex-1 px-2 py-1 border border-border rounded bg-bg text-text"
+                                onBlur={(ev) => { const v = ev.target.value.trim(); if (!v) return; fetch('/api/networking/contacts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: contact.id, fields: { how_you_know: v } }) }).catch(() => {}) }}
+                                onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {sortedContacts.map(contact => {
                       const badge = RELATIONSHIP_BADGES[contact.relationship] || RELATIONSHIP_BADGES.cold
@@ -754,41 +841,48 @@ export default function NetworkingPage() {
                             </div>
                           </div>
 
-                          {/* Quick Review Buttons — for unreviewed target company contacts */}
+                          {/* Inline review — for unreviewed target company contacts */}
                           {!contact.reviewed && contact.at_target_company && !isExpanded && (
-                            <div className="px-3 pb-3 flex items-center gap-1.5">
-                              <span className="text-[10px] text-text-muted shrink-0">Know?</span>
-                              {[
-                                { label: 'Yes', rel: 'warm' as const },
-                                { label: 'Kinda', rel: 'connected' as const },
-                                { label: 'No', rel: 'cold' as const },
-                              ].map(opt => (
-                                <button
-                                  key={opt.rel}
-                                  data-review-btn
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    // Optimistic update — instant UI feedback
-                                    setContacts(prev => prev.map(c =>
-                                      c.id === contact.id ? { ...c, relationship: opt.rel as Contact['relationship'], reviewed: true } : c
-                                    ))
-                                    if (opt.rel === 'warm') setExpandedContact(contact.id)
-                                    // Persist in background (single call)
-                                    fetch('/api/networking/contacts', {
-                                      method: 'PUT',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ id: contact.id, fields: { relationship: opt.rel, reviewed: true } }),
-                                    }).catch(() => {})
-                                  }}
-                                  className={`text-[10px] px-2 py-1 rounded border transition-colors ${
-                                    opt.rel === 'warm' ? 'border-success/30 text-success hover:bg-success-tint' :
-                                    opt.rel === 'connected' ? 'border-warning/30 text-warning hover:bg-warning-tint' :
-                                    'border-border text-text-muted hover:bg-bg'
-                                  }`}
-                                >
-                                  {opt.label}
-                                </button>
-                              ))}
+                            <div className="px-3 pb-3 flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                              <select
+                                defaultValue="unknown"
+                                onChange={(e) => {
+                                  const rel = e.target.value
+                                  setContacts(prev => prev.map(c =>
+                                    c.id === contact.id ? { ...c, relationship: rel as Contact['relationship'], reviewed: true } : c
+                                  ))
+                                  if (rel === 'warm' || rel === 'close' || rel === 'mentor') setExpandedContact(contact.id)
+                                  fetch('/api/networking/contacts', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ id: contact.id, fields: { relationship: rel, reviewed: true } }),
+                                  }).catch(() => {})
+                                }}
+                                className="text-[10px] px-1.5 py-1 border border-border rounded bg-bg text-text"
+                              >
+                                <option value="unknown">Relationship...</option>
+                                {RELATIONSHIP_OPTIONS.map(opt => (
+                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                              </select>
+                              <input
+                                type="text"
+                                placeholder="How you know them..."
+                                className="text-[10px] flex-1 px-2 py-1 border border-border rounded bg-bg text-text"
+                                onBlur={(e) => {
+                                  const val = e.target.value.trim()
+                                  if (!val) return
+                                  setContacts(prev => prev.map(c =>
+                                    c.id === contact.id ? { ...c, how_you_know: val } : c
+                                  ))
+                                  fetch('/api/networking/contacts', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ id: contact.id, fields: { how_you_know: val } }),
+                                  }).catch(() => {})
+                                }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                              />
                             </div>
                           )}
 
@@ -976,6 +1070,7 @@ export default function NetworkingPage() {
                       )
                     })}
                   </div>
+                  )}
                 </>
               )}
             </div>
