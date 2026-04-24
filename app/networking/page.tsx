@@ -719,7 +719,11 @@ export default function NetworkingPage() {
                           isExpanded ? 'col-span-1 md:col-span-2 xl:col-span-3 border-accent/30 shadow-md' : 'border-border hover:shadow-sm hover:border-border/80'
                         }`}>
                           <div
-                            onClick={() => setExpandedContact(isExpanded ? null : contact.id)}
+                            onClick={(e) => {
+                              // Don't toggle expand if a review button was clicked
+                              if ((e.target as HTMLElement).closest('[data-review-btn]')) return
+                              setExpandedContact(isExpanded ? null : contact.id)
+                            }}
                             className="w-full text-left p-3 cursor-pointer"
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -761,9 +765,9 @@ export default function NetworkingPage() {
                               ].map(opt => (
                                 <button
                                   key={opt.rel}
-                                  onClickCapture={(e) => {
+                                  data-review-btn
+                                  onClick={(e) => {
                                     e.stopPropagation()
-                                    e.preventDefault()
                                     const contactId = contact.id
                                     const rel = opt.rel
                                     fetch('/api/networking/contacts', {
@@ -777,8 +781,11 @@ export default function NetworkingPage() {
                                         body: JSON.stringify({ id: contactId, field: 'reviewed', value: true }),
                                       })
                                     ).then(() => {
-                                      loadContacts()
-                                      if (rel === 'warm') setExpandedContact(contactId)
+                                      // Delay to let dev server settle after file write
+                                      setTimeout(() => {
+                                        loadContacts()
+                                        if (rel === 'warm') setExpandedContact(contactId)
+                                      }, 600)
                                     }).catch(() => {})
                                   }}
                                   className={`text-[10px] px-2 py-1 rounded border transition-colors ${
