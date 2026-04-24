@@ -718,9 +718,9 @@ export default function NetworkingPage() {
                         <div key={contact.id} className={`border rounded-lg transition-all ${
                           isExpanded ? 'col-span-1 md:col-span-2 xl:col-span-3 border-accent/30 shadow-md' : 'border-border hover:shadow-sm hover:border-border/80'
                         }`}>
-                          <button
+                          <div
                             onClick={() => setExpandedContact(isExpanded ? null : contact.id)}
-                            className="w-full text-left p-3"
+                            className="w-full text-left p-3 cursor-pointer"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
@@ -748,7 +748,7 @@ export default function NetworkingPage() {
                                 )}
                               </div>
                             </div>
-                          </button>
+                          </div>
 
                           {/* Quick Review Buttons — for unreviewed target company contacts */}
                           {!contact.reviewed && contact.at_target_company && !isExpanded && (
