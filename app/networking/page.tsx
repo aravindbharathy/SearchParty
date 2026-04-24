@@ -768,25 +768,23 @@ export default function NetworkingPage() {
                                   data-review-btn
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    const contactId = contact.id
-                                    const rel = opt.rel
+                                    // Optimistic update — instant UI feedback
+                                    setContacts(prev => prev.map(c =>
+                                      c.id === contact.id ? { ...c, relationship: opt.rel as Contact['relationship'], reviewed: true } : c
+                                    ))
+                                    if (opt.rel === 'warm') setExpandedContact(contact.id)
+                                    // Persist in background (two fields)
                                     fetch('/api/networking/contacts', {
                                       method: 'PUT',
                                       headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ id: contactId, field: 'relationship', value: rel }),
+                                      body: JSON.stringify({ id: contact.id, field: 'relationship', value: opt.rel }),
                                     }).then(() =>
                                       fetch('/api/networking/contacts', {
                                         method: 'PUT',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ id: contactId, field: 'reviewed', value: true }),
+                                        body: JSON.stringify({ id: contact.id, field: 'reviewed', value: true }),
                                       })
-                                    ).then(() => {
-                                      // Delay to let dev server settle after file write
-                                      setTimeout(() => {
-                                        loadContacts()
-                                        if (rel === 'warm') setExpandedContact(contactId)
-                                      }, 600)
-                                    }).catch(() => {})
+                                    ).catch(() => {})
                                   }}
                                   className={`text-[10px] px-2 py-1 rounded border transition-colors ${
                                     opt.rel === 'warm' ? 'border-success/30 text-success hover:bg-success-tint' :
