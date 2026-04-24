@@ -761,23 +761,25 @@ export default function NetworkingPage() {
                               ].map(opt => (
                                 <button
                                   key={opt.rel}
-                                  onClick={async (e) => {
+                                  onClickCapture={(e) => {
                                     e.stopPropagation()
-                                    try {
-                                      await fetch('/api/networking/contacts', {
+                                    e.preventDefault()
+                                    const contactId = contact.id
+                                    const rel = opt.rel
+                                    fetch('/api/networking/contacts', {
+                                      method: 'PUT',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ id: contactId, field: 'relationship', value: rel }),
+                                    }).then(() =>
+                                      fetch('/api/networking/contacts', {
                                         method: 'PUT',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ id: contact.id, field: 'relationship', value: opt.rel }),
+                                        body: JSON.stringify({ id: contactId, field: 'reviewed', value: true }),
                                       })
-                                      await fetch('/api/networking/contacts', {
-                                        method: 'PUT',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ id: contact.id, field: 'reviewed', value: true }),
-                                      })
-                                      await loadContacts()
-                                      // If warm, expand card so user can add context
-                                      if (opt.rel === 'warm') setExpandedContact(contact.id)
-                                    } catch {}
+                                    ).then(() => {
+                                      loadContacts()
+                                      if (rel === 'warm') setExpandedContact(contactId)
+                                    }).catch(() => {})
                                   }}
                                   className={`text-[10px] px-2 py-1 rounded border transition-colors ${
                                     opt.rel === 'warm' ? 'border-success/30 text-success hover:bg-success-tint' :
