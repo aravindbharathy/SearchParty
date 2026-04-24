@@ -773,18 +773,12 @@ export default function NetworkingPage() {
                                       c.id === contact.id ? { ...c, relationship: opt.rel as Contact['relationship'], reviewed: true } : c
                                     ))
                                     if (opt.rel === 'warm') setExpandedContact(contact.id)
-                                    // Persist in background (two fields)
+                                    // Persist in background (single call)
                                     fetch('/api/networking/contacts', {
                                       method: 'PUT',
                                       headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ id: contact.id, field: 'relationship', value: opt.rel }),
-                                    }).then(() =>
-                                      fetch('/api/networking/contacts', {
-                                        method: 'PUT',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ id: contact.id, field: 'reviewed', value: true }),
-                                      })
-                                    ).catch(() => {})
+                                      body: JSON.stringify({ id: contact.id, fields: { relationship: opt.rel, reviewed: true } }),
+                                    }).catch(() => {})
                                   }}
                                   className={`text-[10px] px-2 py-1 rounded border transition-colors ${
                                     opt.rel === 'warm' ? 'border-success/30 text-success hover:bg-success-tint' :

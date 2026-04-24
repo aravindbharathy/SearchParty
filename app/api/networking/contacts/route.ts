@@ -98,17 +98,18 @@ export async function POST(req: Request) {
 
 interface UpdateContact {
   id: string
-  field: string
-  value: unknown
+  field?: string
+  value?: unknown
+  fields?: Record<string, unknown>
 }
 
 export async function PUT(req: Request) {
   try {
     const body = (await req.json()) as UpdateContact
 
-    if (!body.id || !body.field) {
+    if (!body.id || (!body.field && !body.fields)) {
       return NextResponse.json(
-        { error: 'id and field are required' },
+        { error: 'id and (field or fields) are required' },
         { status: 400 },
       )
     }
@@ -128,7 +129,13 @@ export async function PUT(req: Request) {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const contact = contacts[idx] as any
-      contact[body.field] = body.value
+      if (body.fields) {
+        for (const [k, v] of Object.entries(body.fields)) {
+          contact[k] = v
+        }
+      } else if (body.field) {
+        contact[body.field] = body.value
+      }
       contacts[idx] = contact as ConnectionTracker['contacts'][number]
 
       await writeContext('connection-tracker', { contacts })
