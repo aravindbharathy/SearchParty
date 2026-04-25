@@ -103,14 +103,17 @@ function importFromAgentFiles(): Message[] {
         const content = readFileSync(filePath, 'utf-8')
         const titleMatch = content.match(/^#\s+(.+)/m)
         const title = titleMatch?.[1] || file.replace('.md', '')
-        // Extract date from filename (connection-batch-2026-04-12.md → 2026-04-12)
+        // Extract recipient and company from title like "Referral Request: Name at Company"
+        const rcMatch = title.match(/(?:Referral|Connection|Message).*?:\s*(.+?)\s+at\s+(.+)/i)
+        const contactMatch = content.match(/\*\*Contact\*\*:\s*(.+?)(?:\s*[—-]|$)/m)
+        const recipient = rcMatch?.[1] || contactMatch?.[1] || title
+        const company = rcMatch?.[2] || ''
         const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})/)
         const date = dateMatch?.[1] || new Date().toISOString().split('T')[0]
-        // Import as a single "message" with the full content
         imported.push({
           id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          recipient: '',
-          company: '',
+          recipient,
+          company,
           role: '',
           text: content,
           charCount: content.length,
