@@ -148,7 +148,7 @@ export default function NetworkingPage() {
   // Data state
   const [contacts, setContacts] = useState<Contact[]>([])
   const [stats, setStats] = useState<NetworkingStats | null>(null)
-  const [contactFilter, setContactFilter] = useState<ContactFilter>('all')
+  const [contactFilter, setContactFilter] = useState<ContactFilter>('has-roles')
   const [scoredRoles, setScoredRoles] = useState<Array<{ company: string; role: string; score: number }>>([])
   const [showImportModal, setShowImportModal] = useState(false)
   const [importResult, setImportResult] = useState<{ total: number; at_target_companies: number; by_company: Record<string, Array<{ name: string; position: string }>> } | null>(null)
