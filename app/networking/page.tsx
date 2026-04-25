@@ -596,7 +596,7 @@ export default function NetworkingPage() {
               { label: 'Outreach', value: stats?.totalOutreach ?? 0 },
               { label: 'Reply Rate', value: `${stats?.replyRate ?? 0}%` },
               { label: 'Referrals', value: stats?.referrals ?? 0 },
-              { label: 'Pending F/Us', value: stats?.pendingFollowUps ?? 0 },
+              { label: 'Pending Follow-ups', value: stats?.pendingFollowUps ?? 0 },
             ].map(s => (
               <div key={s.label} className="flex-1 bg-surface border border-border rounded-lg px-3 py-2">
                 <div className="text-xs text-text-muted">{s.label}</div>
