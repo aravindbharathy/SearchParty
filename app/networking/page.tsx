@@ -1146,17 +1146,26 @@ export default function NetworkingPage() {
                     <div key={idx} className={`border rounded-lg p-4 ${
                       msg.sent ? 'border-success/20 bg-success/5 opacity-60' : 'border-border'
                     }`}>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-sm">{msg.recipient || msg.text.match(/^#\s+(?:Referral|Connection).*?:\s*(.+?)(?:\s+at\s+|$)/m)?.[1] || msg.text.match(/^#\s+(.+)/m)?.[1] || 'Untitled'}</span>
-                          {msg.company && <span className="text-text-muted text-xs ml-2">{msg.company}</span>}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-text-muted">{msg.text.length} chars</span>
-                          {msg.sent && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success/10 text-success">Sent</span>}
-                        </div>
-                      </div>
-                      <p className="text-xs text-text-muted mt-1 line-clamp-2">{msg.text.slice(0, 120)}{msg.text.length > 120 ? '...' : ''}</p>
+                      {(() => {
+                        const title = msg.recipient || msg.text.match(/^#\s+(?:Referral|Connection).*?:\s*(.+?)(?:\s+at\s+|$)/m)?.[1] || msg.text.match(/^#\s+(.+)/m)?.[1] || 'Untitled'
+                        const company = msg.company || msg.text.match(/\*\*Company\*\*:\s*(.+)/m)?.[1] || msg.text.match(/at\s+(.+)/m)?.[1]?.split('\n')[0] || ''
+                        const role = msg.text.match(/\*\*Target role\*\*:\s*(.+)/m)?.[1] || msg.text.match(/\*\*Role\*\*:\s*(.+)/m)?.[1] || ''
+                        const preview = msg.text.replace(/^#.+$/gm, '').replace(/\*\*/g, '').replace(/---/g, '').trim().slice(0, 120)
+                        return (<>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium text-sm">{title}</span>
+                              {company && <span className="text-text-muted text-xs ml-2">{company}</span>}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-text-muted">{msg.text.length} chars</span>
+                              {msg.sent && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success/10 text-success">Sent</span>}
+                            </div>
+                          </div>
+                          {role && <p className="text-xs text-accent mt-0.5">{role}</p>}
+                          <p className="text-xs text-text-muted mt-1 line-clamp-2">{preview}{preview.length >= 120 ? '...' : ''}</p>
+                        </>)
+                      })()}
                       <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/30">
                         <button onClick={() => setViewingMessage({ recipient: msg.recipient, company: msg.company, text: msg.text })}
                           className="text-xs text-accent hover:text-accent-hover font-medium">View</button>
