@@ -148,7 +148,8 @@ export default function NetworkingPage() {
   // Data state
   const [contacts, setContacts] = useState<Contact[]>([])
   const [stats, setStats] = useState<NetworkingStats | null>(null)
-  const [contactFilter, setContactFilter] = useState<ContactFilter>('has-roles')
+  const [contactFilter, setContactFilter] = useState<ContactFilter>('all')
+  const [hasSetInitialFilter, setHasSetInitialFilter] = useState(false)
   const [scoredRoles, setScoredRoles] = useState<Array<{ company: string; role: string; score: number }>>([])
   const [showImportModal, setShowImportModal] = useState(false)
   const [importResult, setImportResult] = useState<{ total: number; at_target_companies: number; by_company: Record<string, Array<{ name: string; position: string }>> } | null>(null)
@@ -510,6 +511,14 @@ export default function NetworkingPage() {
   }
 
   const contactHasRoles = (c: Contact) => getRolesForContact(c).length > 0
+
+  // Auto-switch to "Has Open Roles" once data loads
+  useEffect(() => {
+    if (!hasSetInitialFilter && scoredRoles.length > 0 && contacts.length > 0) {
+      setContactFilter('has-roles')
+      setHasSetInitialFilter(true)
+    }
+  }, [scoredRoles, contacts, hasSetInitialFilter])
 
   const filterCounts = useMemo(() => ({
     all: contacts.length,
