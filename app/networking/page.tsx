@@ -1424,7 +1424,7 @@ export default function NetworkingPage() {
                 className="px-3 py-1.5 border border-border rounded-md text-xs font-medium text-text hover:bg-bg">Edit with Agent</button>
             </div>
             <div className="flex-1 overflow-y-auto p-5">
-              <div className="whitespace-pre-wrap text-sm leading-relaxed">{viewingMessage.text}</div>
+              <MarkdownView content={viewingMessage.text} />
             </div>
           </div>
         </div>
