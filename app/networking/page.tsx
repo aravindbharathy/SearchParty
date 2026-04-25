@@ -1291,7 +1291,7 @@ export default function NetworkingPage() {
                       <span className="w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
                       <div>
                         <p className="text-sm font-medium">Download and unzip the archive, then upload Connections.csv</p>
-                        <p className="text-xs text-text-muted mt-1">LinkedIn emails you a download link. Unzip the file and find <code className="text-xs bg-bg px-1 py-0.5 rounded">Connections.csv</code> inside.</p>
+                        <p className="text-xs text-text-muted mt-1">LinkedIn may email you a download link, or you can revisit the same page to find it. Unzip the file and find <code className="text-xs bg-bg px-1 py-0.5 rounded">Connections.csv</code> inside.</p>
                       </div>
                     </div>
                   </div>
