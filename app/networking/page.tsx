@@ -1082,6 +1082,30 @@ export default function NetworkingPage() {
                 </div>
               </div>
 
+              {/* Pending Follow-ups */}
+              {(() => {
+                const pendingFUs = contacts.flatMap(c =>
+                  (c.follow_ups || [])
+                    .filter(fu => fu.status === 'pending')
+                    .map(fu => ({ contact: c.name, company: c.company, type: fu.type || 'Follow up', due: fu.due || '' }))
+                )
+                return pendingFUs.length > 0 ? (
+                  <div className="mb-4">
+                    <h3 className="text-xs font-semibold text-warning uppercase tracking-wide mb-2">Pending Follow-ups ({pendingFUs.length})</h3>
+                    <div className="space-y-2">
+                      {pendingFUs.map((fu, i) => (
+                        <div key={i} className="p-3 border border-warning/30 bg-warning-tint rounded-lg flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">{fu.contact}</p>
+                            <p className="text-xs text-text-muted">{fu.company}{fu.due ? ` · Due: ${fu.due}` : ''}{fu.type ? ` · ${fu.type}` : ''}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null
+              })()}
+
               {/* Search messages */}
               {parsedMessages.length > 0 && (
                 <div className="mb-3">

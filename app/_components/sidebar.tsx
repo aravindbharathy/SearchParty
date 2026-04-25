@@ -68,11 +68,6 @@ export function Sidebar({ connected, urgencyCount, networkingCount = 0, activePa
             {urgencyCount}
           </span>
         )}
-        {item.href === '/networking' && networkingCount > 0 && (
-          <span className="ml-auto inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold bg-warning text-white rounded-full">
-            {networkingCount}
-          </span>
-        )}
       </Link>
     )
   }
