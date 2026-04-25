@@ -149,7 +149,7 @@ export default function NetworkingPage() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [stats, setStats] = useState<NetworkingStats | null>(null)
   const [contactFilter, setContactFilter] = useState<ContactFilter>('all')
-  const [scoredRoles, setScoredRoles] = useState<Array<{ company: string; title: string; score: number }>>([])
+  const [scoredRoles, setScoredRoles] = useState<Array<{ company: string; role: string; score: number }>>([])
   const [showImportModal, setShowImportModal] = useState(false)
   const [importResult, setImportResult] = useState<{ total: number; at_target_companies: number; by_company: Record<string, Array<{ name: string; position: string }>> } | null>(null)
   const [importing, setImporting] = useState(false)
@@ -487,16 +487,16 @@ export default function NetworkingPage() {
 
   // Map company names to scored roles for pipeline integration
   const companyRolesMap = useMemo(() => {
-    const map = new Map<string, Array<{ title: string; score: number }>>()
-    for (const role of scoredRoles) {
-      const key = role.company.toLowerCase()
+    const map = new Map<string, Array<{ role: string; score: number }>>()
+    for (const r of scoredRoles) {
+      const key = r.company.toLowerCase()
       if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push({ title: role.title, score: role.score })
+      map.get(key)!.push({ role: r.role, score: r.score })
     }
     return map
   }, [scoredRoles])
 
-  const getRolesForContact = (c: Contact): Array<{ title: string; score: number }> => {
+  const getRolesForContact = (c: Contact): Array<{ role: string; score: number }> => {
     const cc = c.company.toLowerCase()
     if (companyRolesMap.has(cc)) return companyRolesMap.get(cc)!
     for (const [key, roles] of companyRolesMap) {
@@ -553,11 +553,17 @@ export default function NetworkingPage() {
     if (contactFilter === 'all' || contactFilter === 'warm') return null
     const groups = new Map<string, Contact[]>()
     for (const c of sortedContacts) {
-      const key = c.at_target_company || c.company
+      const key = c.at_target_company || c.company || 'Unknown'
       if (!groups.has(key)) groups.set(key, [])
       groups.get(key)!.push(c)
     }
-    return [...groups.entries()]
+    // Sort groups: companies with open roles first
+    return [...groups.entries()].sort((a, b) => {
+      const aRoles = a[1][0] ? getRolesForContact(a[1][0]).length : 0
+      const bRoles = b[1][0] ? getRolesForContact(b[1][0]).length : 0
+      if (bRoles !== aRoles) return bRoles - aRoles
+      return a[0].localeCompare(b[0])
+    })
   }, [sortedContacts, contactFilter])
 
   // ─── Render ─────────────────────────────────────────────────────────────
@@ -737,7 +743,7 @@ export default function NetworkingPage() {
                           <span className="text-[10px] text-text-muted/60">({groupContacts.length})</span>
                           {groupContacts[0] && getRolesForContact(groupContacts[0]).length > 0 && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">
-                              {getRolesForContact(groupContacts[0]).map(r => `${r.title} · ${r.score}`).join(', ')}
+                              {getRolesForContact(groupContacts[0]).map(r => `${r.role} · ${r.score}`).join(', ')}
                             </span>
                           )}
                         </div>
@@ -827,7 +833,7 @@ export default function NetworkingPage() {
                                   )}
                                   {contactHasRoles(contact) && (
                                     <span className="text-[9px] px-1.5 py-0 rounded-full bg-success/10 text-success font-medium shrink-0">
-                                      {companyRolesMap.get(contact.company.toLowerCase())?.length} {companyRolesMap.get(contact.company.toLowerCase())?.length === 1 ? 'Role' : 'Roles'}
+                                      {getRolesForContact(contact).length} {getRolesForContact(contact).length === 1 ? 'Role' : 'Roles'}
                                     </span>
                                   )}
                                 </div>
@@ -1027,7 +1033,7 @@ export default function NetworkingPage() {
                                 <div className="bg-success-tint border border-success/20 rounded-lg p-3">
                                   <p className="text-xs font-semibold text-success mb-1.5">Open Roles at {contact.company}</p>
                                   {companyRolesMap.get(contact.company.toLowerCase())?.map((role, i) => (
-                                    <p key={i} className="text-xs text-text-muted">{role.title} — <span className="font-medium text-success">{role.score}/100</span></p>
+                                    <p key={i} className="text-xs text-text-muted">{role.role} — <span className="font-medium text-success">{role.score}/100</span></p>
                                   ))}
                                 </div>
                               )}
