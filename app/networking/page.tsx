@@ -1148,7 +1148,7 @@ export default function NetworkingPage() {
                     }`}>
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="font-medium text-sm">{msg.recipient || 'Untitled'}</span>
+                          <span className="font-medium text-sm">{msg.recipient || msg.text.match(/^#\s+(?:Referral|Connection).*?:\s*(.+?)(?:\s+at\s+|$)/m)?.[1] || msg.text.match(/^#\s+(.+)/m)?.[1] || 'Untitled'}</span>
                           {msg.company && <span className="text-text-muted text-xs ml-2">{msg.company}</span>}
                         </div>
                         <div className="flex items-center gap-1.5">
