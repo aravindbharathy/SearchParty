@@ -1276,22 +1276,22 @@ export default function NetworkingPage() {
                     <div className="flex items-start gap-3">
                       <span className="w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
                       <div>
-                        <p className="text-sm font-medium">Export your connections from LinkedIn</p>
-                        <p className="text-xs text-text-muted mt-1">Go to <a href="https://www.linkedin.com/mypreferences/d/download-my-data" target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover">LinkedIn Settings → Data Privacy → Get a copy of your data</a></p>
+                        <p className="text-sm font-medium">Go to LinkedIn&apos;s data export page</p>
+                        <p className="text-xs text-text-muted mt-1">Open <a href="https://www.linkedin.com/mypreferences/d/download-my-data" target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover">linkedin.com/mypreferences/d/download-my-data</a></p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <span className="w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
                       <div>
-                        <p className="text-sm font-medium">Select &quot;Connections&quot; and request the archive</p>
-                        <p className="text-xs text-text-muted mt-1">LinkedIn will email you a download link — usually within 10 minutes.</p>
+                        <p className="text-sm font-medium">Select &quot;Download larger data archive&quot; and click Request archive</p>
+                        <p className="text-xs text-text-muted mt-1">This includes connections, contacts, and profile data. LinkedIn says up to 24 hours but it&apos;s usually much faster.</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <span className="w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
                       <div>
-                        <p className="text-sm font-medium">Upload the Connections.csv file below</p>
-                        <p className="text-xs text-text-muted mt-1">The file is named <code className="text-xs bg-bg px-1 py-0.5 rounded">Connections.csv</code> inside the downloaded archive.</p>
+                        <p className="text-sm font-medium">Download and unzip the archive, then upload Connections.csv</p>
+                        <p className="text-xs text-text-muted mt-1">LinkedIn emails you a download link. Unzip the file and find <code className="text-xs bg-bg px-1 py-0.5 rounded">Connections.csv</code> inside.</p>
                       </div>
                     </div>
                   </div>
