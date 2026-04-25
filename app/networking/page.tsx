@@ -979,14 +979,17 @@ export default function NetworkingPage() {
                               )}
 
                               {/* Roles at this company */}
-                              {contactHasRoles(contact) && (
-                                <div className="bg-success-tint border border-success/20 rounded-lg p-3">
-                                  <p className="text-xs font-semibold text-success mb-1.5">Open Roles at {contact.company}</p>
-                                  {companyRolesMap.get(contact.company.toLowerCase())?.map((role, i) => (
-                                    <p key={i} className="text-xs text-text-muted">{role.role} — <span className="font-medium text-success">{role.score}/100</span></p>
-                                  ))}
-                                </div>
-                              )}
+                              {(() => {
+                                const roles = getRolesForContact(contact)
+                                return roles.length > 0 ? (
+                                  <div className="bg-success-tint border border-success/20 rounded-lg p-3">
+                                    <p className="text-xs font-semibold text-success mb-1.5">Open Roles at {contact.company}</p>
+                                    {roles.map((r, i) => (
+                                      <p key={i} className="text-xs text-text-muted">{r.role} — <span className="font-medium text-success">{r.score}/100</span></p>
+                                    ))}
+                                  </div>
+                                ) : null
+                              })()}
 
                               {/* Actions */}
                               <div className="flex items-center gap-2 pt-2">
