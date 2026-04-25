@@ -735,79 +735,29 @@ export default function NetworkingPage() {
                 </div>
               ) : (
                 <>
-                  {groupedContacts ? (
-                    groupedContacts.map(([company, groupContacts]) => (
-                      <div key={company} className="mb-5">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{company}</h3>
-                          <span className="text-[10px] text-text-muted/60">({groupContacts.length})</span>
-                          {groupContacts[0] && getRolesForContact(groupContacts[0]).length > 0 && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">
-                              {getRolesForContact(groupContacts[0]).map(r => `${r.role} · ${r.score}`).join(', ')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                          {groupContacts.map(contact => {
-                            const badge = RELATIONSHIP_BADGES[contact.relationship] || RELATIONSHIP_BADGES.cold
-                            const isExpanded = expandedContact === contact.id
-                            const hasPendingFU = contact.follow_ups.some(fu => fu.status === 'pending' && fu.due <= todayStr)
-                            const canHelp = displayValue(contact.can_help_with)
-
-                            return (
-                        <div key={contact.id} className={`border rounded-lg transition-all ${
-                          isExpanded ? 'col-span-1 md:col-span-2 xl:col-span-3 border-accent/30 shadow-md' : 'border-border hover:shadow-sm hover:border-border/80'
-                        }`}>
-                          <div
-                            onClick={(e) => {
-                              if ((e.target as HTMLElement).closest('[data-review-btn]')) return
-                              setExpandedContact(isExpanded ? null : contact.id)
-                            }}
-                            className="w-full text-left p-3 cursor-pointer"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm">{contact.name}</span>
-                              <span className={`text-[10px] px-1.5 py-0 rounded-full shrink-0 ${badge.bg} ${badge.text}`}>{badge.label}</span>
-                            </div>
-                            {contact.role && <p className="text-xs text-text-muted mt-0.5">{truncate(contact.role, 50)}</p>}
-                          </div>
-                          {/* Inline review */}
-                          {!contact.reviewed && contact.at_target_company && !isExpanded && (
-                            <div className="px-3 pb-3 flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                              <select
-                                defaultValue="unknown"
-                                onChange={(ev) => {
-                                  const rel = ev.target.value
-                                  setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, relationship: rel as Contact['relationship'], reviewed: true } : c))
-                                  if (['warm','close','mentor'].includes(rel)) setExpandedContact(contact.id)
-                                  fetch('/api/networking/contacts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: contact.id, fields: { relationship: rel, reviewed: true } }) }).catch(() => {})
-                                }}
-                                className="text-[10px] px-1.5 py-1 border border-border rounded bg-bg text-text"
-                              >
-                                <option value="unknown">Relationship...</option>
-                                {RELATIONSHIP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                              </select>
-                              <input type="text" placeholder="How you know..." className="text-[10px] flex-1 px-2 py-1 border border-border rounded bg-bg text-text"
-                                onBlur={(ev) => { const v = ev.target.value.trim(); if (!v) return; fetch('/api/networking/contacts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: contact.id, fields: { how_you_know: v } }) }).catch(() => {}) }}
-                                onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur() }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
+                  {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {sortedContacts.map(contact => {
+                    {sortedContacts.map((contact, idx) => {
                       const badge = RELATIONSHIP_BADGES[contact.relationship] || RELATIONSHIP_BADGES.cold
+                      // Inject group header when company changes (only in grouped views)
+                      const companyKey = contact.at_target_company || contact.company || 'Unknown'
+                      const prevCompany = idx > 0 ? (sortedContacts[idx - 1].at_target_company || sortedContacts[idx - 1].company || 'Unknown') : null
+                      const showGroupHeader = groupedContacts && companyKey !== prevCompany
                       const isExpanded = expandedContact === contact.id
                       const hasPendingFU = contact.follow_ups.some(fu => fu.status === 'pending' && fu.due <= todayStr)
                       const canHelp = displayValue(contact.can_help_with)
 
-                      return (
+                      return (<>
+                        {showGroupHeader && (
+                          <div key={`header-${companyKey}`} className="col-span-1 md:col-span-2 xl:col-span-3 flex items-center gap-2 pt-3 first:pt-0">
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">{companyKey}</h3>
+                            {getRolesForContact(contact).length > 0 && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium">
+                                {getRolesForContact(contact).map(r => `${r.role} · ${r.score}`).join(', ')}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <div key={contact.id} className={`border rounded-lg transition-all ${
                           isExpanded ? 'col-span-1 md:col-span-2 xl:col-span-3 border-accent/30 shadow-md' : 'border-border hover:shadow-sm hover:border-border/80'
                         }`}>
@@ -1073,10 +1023,10 @@ export default function NetworkingPage() {
                             </div>
                           )}
                         </div>
-                      )
+                      </>)
                     })}
                   </div>
-                  )}
+                  }
                 </>
               )}
             </div>
