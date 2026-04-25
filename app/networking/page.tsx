@@ -497,11 +497,14 @@ export default function NetworkingPage() {
   }, [scoredRoles])
 
   const getRolesForContact = (c: Contact): Array<{ role: string; score: number }> => {
-    const cc = c.company.toLowerCase()
+    const cc = c.company?.toLowerCase().trim()
+    if (!cc) return []
     if (companyRolesMap.has(cc)) return companyRolesMap.get(cc)!
+    const ccFirst = cc.split(/[\s/]+/)[0]
+    if (ccFirst.length < 3) return []
     for (const [key, roles] of companyRolesMap) {
       const kw = key.split(/[\s/]+/)[0]
-      if (kw.length >= 3 && (cc.includes(kw) || kw.includes(cc.split(/[\s/]+/)[0]))) return roles
+      if (kw.length >= 3 && (cc.includes(kw) || kw.includes(ccFirst))) return roles
     }
     return []
   }
