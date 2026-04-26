@@ -1337,8 +1337,26 @@ export default function NetworkingPage() {
                               <div className="flex items-center gap-2 mt-2">
                                 {f.message && (
                                   <button onClick={() => setViewingMessage({ recipient: f.contact.name, company: f.contact.company, text: f.message!.text })}
-                                    className="text-xs text-accent hover:text-accent-hover font-medium">View Message</button>
+                                    className="text-xs text-accent hover:text-accent-hover font-medium">View Full Message</button>
                                 )}
+                                <button onClick={() => {
+                                  // Mark this follow-up as sent
+                                  setContacts(prev => prev.map(c => {
+                                    if (c.id !== f.contact.id) return c
+                                    return { ...c, follow_ups: c.follow_ups.map((fu, i) => i === allFollowUps.indexOf(f) ? { ...fu, status: 'sent' } : fu) }
+                                  }))
+                                  fetch('/api/networking/contacts', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      id: f.contact.id,
+                                      field: 'follow_ups',
+                                      value: f.contact.follow_ups.map((fu, i) =>
+                                        fu === f.followUp ? { ...fu, status: 'sent' } : fu
+                                      ),
+                                    }),
+                                  }).catch(() => {})
+                                }} className="text-xs text-success hover:text-success font-medium">Mark Sent</button>
                                 <button onClick={() => {
                                   if (f.contact.linkedin_url || f.contact.linkedin) {
                                     window.open(String(f.contact.linkedin_url || f.contact.linkedin), '_blank')
