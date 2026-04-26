@@ -1329,16 +1329,22 @@ export default function NetworkingPage() {
                                 <p className="text-xs text-accent mb-1">{f.roles.map(r => r.role).join(', ')}</p>
                               )}
                               <p className="text-xs text-text-muted">{f.followUp.type}</p>
-                              {f.message && (
-                                <div className="mt-2 pt-2 border-t border-warning/20">
-                                  <p className="text-xs text-text-muted line-clamp-2">{f.message.text.replace(/\*\*/g, '').replace(/^#.+$/gm, '').trim().slice(0, 150)}...</p>
-                                </div>
+                              {f.followUp.outreach_ref && (
+                                <p className="text-[10px] text-text-muted/60 mt-1">{f.followUp.outreach_ref.split('/').pop()}</p>
                               )}
                               <div className="flex items-center gap-2 mt-2">
-                                {f.message && (
-                                  <button onClick={() => setViewingMessage({ recipient: f.contact.name, company: f.contact.company, text: f.message!.text })}
-                                    className="text-xs text-accent hover:text-accent-hover font-medium">View Full Message</button>
-                                )}
+                                <button onClick={async () => {
+                                  // Try to load from outreach_ref file path, fall back to parsed message
+                                  let text = f.message?.text || ''
+                                  if (!text && f.followUp.outreach_ref) {
+                                    try {
+                                      const res = await fetch(`/api/vault/read-file?path=${encodeURIComponent(f.followUp.outreach_ref)}`)
+                                      if (res.ok) { const data = await res.json(); text = data.content || '' }
+                                    } catch {}
+                                  }
+                                  if (text) setViewingMessage({ recipient: f.contact.name, company: f.contact.company, text })
+                                }}
+                                  className="text-xs text-accent hover:text-accent-hover font-medium">View Full Message</button>
                                 <button onClick={() => {
                                   // Mark this follow-up as sent
                                   setContacts(prev => prev.map(c => {
@@ -1362,6 +1368,21 @@ export default function NetworkingPage() {
                                     window.open(String(f.contact.linkedin_url || f.contact.linkedin), '_blank')
                                   }
                                 }} className="text-xs text-text-muted hover:text-accent font-medium">Open LinkedIn</button>
+                                <button onClick={() => {
+                                  setContacts(prev => prev.map(c => {
+                                    if (c.id !== f.contact.id) return c
+                                    return { ...c, follow_ups: c.follow_ups.filter(fu => fu !== f.followUp) }
+                                  }))
+                                  fetch('/api/networking/contacts', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      id: f.contact.id,
+                                      field: 'follow_ups',
+                                      value: f.contact.follow_ups.filter(fu => fu !== f.followUp),
+                                    }),
+                                  }).catch(() => {})
+                                }} className="text-xs text-text-muted hover:text-danger font-medium ml-auto">Dismiss</button>
                               </div>
                             </div>
                           ))}
