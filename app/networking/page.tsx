@@ -68,7 +68,7 @@ interface ChatMessage {
   content: string
 }
 
-type TabKey = 'contacts' | 'messages' | 'linkedin'
+type TabKey = 'contacts' | 'messages' | 'linkedin' | 'follow-ups'
 type SortKey = 'name' | 'company' | 'relationship'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -611,6 +611,7 @@ export default function NetworkingPage() {
               { key: 'contacts' as TabKey, label: 'Contacts' },
               { key: 'messages' as TabKey, label: 'Messages' },
               { key: 'linkedin' as TabKey, label: 'LinkedIn' },
+              { key: 'follow-ups' as TabKey, label: `Follow-ups${(stats?.pendingFollowUps ?? 0) > 0 ? ` (${stats?.pendingFollowUps})` : ''}` },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -1082,30 +1083,6 @@ export default function NetworkingPage() {
                 </div>
               </div>
 
-              {/* Pending Follow-ups */}
-              {(() => {
-                const pendingFUs = contacts.flatMap(c =>
-                  (c.follow_ups || [])
-                    .filter(fu => fu.status === 'pending')
-                    .map(fu => ({ contact: c.name, company: c.company, type: fu.type || 'Follow up', due: fu.due || '' }))
-                )
-                return pendingFUs.length > 0 ? (
-                  <div className="mb-4">
-                    <h3 className="text-xs font-semibold text-warning uppercase tracking-wide mb-2">Pending Follow-ups ({pendingFUs.length})</h3>
-                    <div className="space-y-2">
-                      {pendingFUs.map((fu, i) => (
-                        <div key={i} className="p-3 border border-warning/30 bg-warning-tint rounded-lg flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium">{fu.contact}</p>
-                            <p className="text-xs text-text-muted">{fu.company}{fu.due ? ` · Due: ${fu.due}` : ''}{fu.type ? ` · ${fu.type}` : ''}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null
-              })()}
-
               {/* Search messages */}
               {parsedMessages.length > 0 && (
                 <div className="mb-3">
@@ -1302,6 +1279,98 @@ export default function NetworkingPage() {
               </div>
             )
           })()}
+
+          {/* ─── Follow-ups Tab ──────────────────────────────────────── */}
+          {activeTab === 'follow-ups' && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-text-muted">Pending Follow-ups</h2>
+              </div>
+
+              {(() => {
+                const allFollowUps = contacts.flatMap(c =>
+                  (c.follow_ups || []).map((fu, idx) => {
+                    // Find the outreach message this follow-up references
+                    const outreachMsg = parsedMessages.find(m => m.id === fu.outreach_ref)
+                    const roles = getRolesForContact(c)
+                    return {
+                      key: `${c.id}-${idx}`,
+                      contact: c,
+                      followUp: fu,
+                      message: outreachMsg,
+                      roles,
+                    }
+                  })
+                )
+                const pending = allFollowUps.filter(f => f.followUp.status === 'pending')
+                const completed = allFollowUps.filter(f => f.followUp.status !== 'pending')
+
+                return pending.length === 0 && completed.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-text-muted text-lg mb-2">No follow-ups yet.</p>
+                    <p className="text-text-muted text-sm">Follow-ups are created when you draft referral request sequences.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {pending.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-semibold text-warning uppercase tracking-wide mb-2">Pending ({pending.length})</h3>
+                        <div className="space-y-2">
+                          {pending.map(f => (
+                            <div key={f.key} className="p-4 border border-warning/30 bg-warning-tint rounded-lg">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-sm">{f.contact.name}</span>
+                                  <span className="text-xs text-text-muted">{f.contact.company}</span>
+                                </div>
+                                {f.followUp.due && <span className="text-xs font-medium text-warning">Due: {f.followUp.due}</span>}
+                              </div>
+                              {f.roles.length > 0 && (
+                                <p className="text-xs text-accent mb-1">{f.roles.map(r => r.role).join(', ')}</p>
+                              )}
+                              <p className="text-xs text-text-muted">{f.followUp.type}</p>
+                              {f.message && (
+                                <div className="mt-2 pt-2 border-t border-warning/20">
+                                  <p className="text-xs text-text-muted line-clamp-2">{f.message.text.replace(/\*\*/g, '').replace(/^#.+$/gm, '').trim().slice(0, 150)}...</p>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2 mt-2">
+                                {f.message && (
+                                  <button onClick={() => setViewingMessage({ recipient: f.contact.name, company: f.contact.company, text: f.message!.text })}
+                                    className="text-xs text-accent hover:text-accent-hover font-medium">View Message</button>
+                                )}
+                                <button onClick={() => {
+                                  if (f.contact.linkedin_url || f.contact.linkedin) {
+                                    window.open(String(f.contact.linkedin_url || f.contact.linkedin), '_blank')
+                                  }
+                                }} className="text-xs text-text-muted hover:text-accent font-medium">Open LinkedIn</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {completed.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Completed ({completed.length})</h3>
+                        <div className="space-y-2">
+                          {completed.map(f => (
+                            <div key={f.key} className="p-3 border border-border rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">{f.contact.name}</span>
+                                <span className="text-xs text-text-muted">{f.contact.company}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success">{f.followUp.status}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
         </div>
       </div>
 
