@@ -124,6 +124,7 @@ You can do it in phases — the coach saves as you go and picks up where you lef
 - [Node.js](https://nodejs.org/) 20+
 - [Bun](https://bun.sh/) 1.0+
 - [Claude Code](https://claude.ai/code) CLI — installed and authenticated
+- An Anthropic API key or Claude Max subscription (agents use the Claude API)
 
 ### 1. Clone and install
 
@@ -133,7 +134,24 @@ cd SearchParty
 npm install
 ```
 
-### 2. Start the system
+### 2. Configure agent permissions
+
+Agents need permission to read/write files and use the blackboard MCP server. Run this once:
+
+```bash
+# Trust the project's MCP server and file permissions
+claude project permission add "Read(search/**)"
+claude project permission add "Write(search/**)"
+claude project permission add "Edit(search/**)"
+claude project permission add "mcp__blackboard-channel__read_blackboard"
+claude project permission add "mcp__blackboard-channel__write_to_blackboard"
+```
+
+The blackboard MCP server is defined in `.mcp.json` at the project root. Claude Code picks this up automatically — no manual MCP configuration needed.
+
+> **Tip:** If agents fail with permission errors, you can also run them with `--dangerously-skip-permissions` as a workaround, but the commands above are the proper fix.
+
+### 3. Start the system
 
 ```bash
 bun cli/job-search.ts start
